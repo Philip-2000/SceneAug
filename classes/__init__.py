@@ -1,0 +1,4 @@
+OBJES=[]
+LINKS=[]
+WALLS=[]
+GRUPS=[]

@@ -5,6 +5,7 @@ from classes.Obje import *
 from classes.Link import *
 from classes.Wall import *
 from classes.Grup import *
+from classes.Spce import *
 from classes import *
 
 dir = "../novel3DFront/"
@@ -54,6 +55,9 @@ def storeScene(name, windoor=True,wl=True):
     return
 
 def storedDraw(lim=-1):
+    for i in range(len(SPCES)):
+        SPCES[i].draw()
+
     for i in range(len(OBJES)):
         corners = OBJES[i].corners2()
         plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-OBJES[i].class_index>2 else "*")
@@ -77,7 +81,9 @@ def clearScene():
     global OBJES
     global LINKS
     global GRUPS
+    global SPCES
     WALLS.clear()
     OBJES.clear()
     LINKS.clear()
     GRUPS.clear()
+    SPCES.clear()

@@ -15,6 +15,8 @@ class wall():
         self.length=(((self.p-self.q)**2).sum())**0.5
         self.w1=w1
         self.w2=w2
+        self.valid=True
+        self.spaceIn=False
 
     def lengthh(self):
         self.length=(((self.p-self.q)**2).sum())**0.5
@@ -22,10 +24,10 @@ class wall():
     def mWall(self,L): 
         oldp = np.copy(self.p)
         self.p += self.n*L
-        WALLS[self.w1].adjustWall(oldp,self.p,self.idx)
-
         oldq = np.copy(self.q)
         self.q += self.n*L
+        self.length=(((self.p-self.q)**2).sum())**0.5
+        WALLS[self.w1].adjustWall(oldp,self.p,self.idx)
         WALLS[self.w2].adjustWall(oldq,self.q,self.idx)
         
         for i in self.linkIndex:

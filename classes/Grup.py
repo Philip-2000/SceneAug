@@ -1,5 +1,8 @@
 from . import OBJES
+from . import grupC,grupA
 import numpy as np
+from matplotlib import pyplot as plt
+from copy import copy
 
 def fTheta(theta):
     while theta > np.math.pi:
@@ -13,25 +16,58 @@ def matrix(ori):
 
 #WALLS=[]
 class grup():
-    def __init__(self, objIdList):
-        self.objIdList = objIdList
+    def __init__(self, objIdList, idx=-1):
+        self.objIdList = copy(objIdList)
+        for i in objIdList:
+            OBJES[i].gid = idx
+        if len(objIdList) == 0:
+            print(idx)
         cs = np.array([OBJES[i].corners2() for i in objIdList]).reshape((-1,2))
         Xs,Zs = cs[:,0],cs[:,1]
-        self.translation = [(np.min(Xs)+np.max(Xs))/2.0,0,(np.min(Zs)+np.max(Zs))/2.0]
-        self.orientation = [1,0,0]
+        self.translation = np.array([(np.min(Xs)+np.max(Xs))/2.0,0,(np.min(Zs)+np.max(Zs))/2.0])
+        self.orientation = 0.0
+        self.size = np.array([np.max(Xs),1.0,np.max(Zs)])-self.translation
+        self.scale = np.array([1,1,1])
+        self.idx = idx
+        pass
+
+    def update(self):
+        self.objIdList = []
+        for o in OBJES:
+            if o.gid == self.idx:
+                self.objIdList.append(o.idx)
+        if len(self.objIdList) == 0:
+            return
+        cs = np.array([OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
+        Xs,Zs = cs[:,0],cs[:,1]
+        self.translation = np.array([(np.min(Xs)+np.max(Xs))/2.0,0,(np.min(Zs)+np.max(Zs))/2.0])
+        self.orientation = 0.0
+        self.size = np.array([np.max(Xs),1.0,np.max(Zs)])-self.translation
+        self.scale = np.array([1,1,1])
         pass
 
     def bbox2(self):
         cs = np.array([OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
-        return [np.min(cs,dim=0), np.max(cs,dim=1)]
+        return [np.min(cs,dim=0), np.max(cs,dim=0)]
 
-    def adjust(self, t, o):
+    def adjust(self, t, s, o):
         rTrans = {}
         for i in self.objIdList:
-            rTrans[i] = [matrix(-self.orientation)@(OBJES[i].translation-self.translation),fTheta(OBJES[i].orientation-self.orientation)]
-        self.translation, self.orientation=t,o
+            rTrans[i] = [matrix(-self.orientation)@(OBJES[i].translation-self.translation)/self.scale,fTheta(OBJES[i].orientation-self.orientation)]
+        self.translation,self.scale, self.orientation=t,s,o
         for i in self.objIdList:
-            OBJES[i].setTransformation(matrix(o)@rTrans[i][0]+t,fTheta(rTrans[i][1]+o))
+            OBJES[i].setTransformation(matrix(o)@(rTrans[i][0]*s)+t,fTheta(rTrans[i][1]+o))
+        cs = np.array([OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
+        self.size = np.array([np.max(cs[:,0]),1.0,np.max(cs[:,1])])-self.translation
+
+    def draw(self):
+        self.update()
+        scl = [1.0,0.7,0.4,0.1]
+        c,a = self.translation, matrix(self.orientation)@(self.scale*self.size),
+        for s in scl:
+            corners = np.array([[c[0]+s*a[0],c[2]+s*a[2]],[c[0]-s*a[0],c[2]+s*a[2]],[c[0]-s*a[0],c[2]-s*a[2]],[c[0]+s*a[0],c[2]-s*a[2]],[c[0]+s*a[0],c[2]+s*a[2]]])
+            plt.plot( corners[:,0], -corners[:,1], marker="x", color=grupA[self.idx])
+        
 
     def recommendedWalls(self):
         #we are going 

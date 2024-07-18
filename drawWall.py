@@ -115,10 +115,10 @@ def visualizeGraph(name, dstDir="./"):
     #visualize the OBJES, WALLS, especially the LINKS
     storedDraw()
     #singleDraw(name)
-    for li in LINKS:
-        src,dst = li.arrow()
-        plt.plot([dst[0]], [-dst[2]], marker="x")
-        plt.plot([src[0], dst[0]], [-src[2], -dst[2]], marker=".")
+    # for li in LINKS:
+    #     src,dst = li.arrow()
+    #     plt.plot([dst[0]], [-dst[2]], marker="x")
+    #     plt.plot([src[0], dst[0]], [-src[2], -dst[2]], marker=".")
 
     plt.savefig(dstDir + name + ".png")
     plt.clf()
@@ -193,13 +193,13 @@ def adjustScene(movements):
     pass
 
 def main():
-    for n in os.listdir("./"):#[:20]:
+    for n in ["0d83ef53-4122-4678-93be-69f8b6d32c77_LivingDiningRoom-974.png"]:#os.listdir("./"):#[:20]:
         if (not n.endswith(".png")) or n.endswith("after.png") or n.endswith("before.png"):
             continue
         formGraph(n[:-4])
         #visualizeGraph(n[:-4])
-        mv = createMovements()
-        adjustScene(mv)
+        #mv = createMovements()
+        #adjustScene(mv)
         visualizeGraph("after/"+n[:-4])
         clearScene()
         #print(n)

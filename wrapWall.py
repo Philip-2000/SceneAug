@@ -8,7 +8,7 @@ from classes.Obje import *
 from classes.Grup import *
 from classes.Wall import *
 from classes import *
-from util import two23,fullLoadScene,storeScene,storedDraw,clearScene
+from util import two23,fullLoadScene,storeScene,storedDraw,clearScene,draftRoomMask
 
 #dir = "C:/Users/win/Downloads/3d_front_processed/livingrooms_objfeats_32_64/"
 dir = "../novel3DFront/"
@@ -17,15 +17,6 @@ dir = "../novel3DFront/"
 # wall0                  wall1                 wall2               wall3
 # obj1-   obj4-          ...                    obj2-               obj3-
 
-common_links={
-    "Dining Chair":["Dining Table"],
-    "Chaise Longue Sofa":["Coffee Table"],
-    "Coffee Table":["Lazy Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","L-shaped Sofa"],
-    "Dressing Chair":["Dressing Table"],
-    "Pendant Lamp":["King-size Bed", "Kids Bed", "Single bed", "Coffee Table", "Dining Table"],
-    "Nightstand":["King-size Bed", "Kids Bed", "Single bed"]
-}
-
 
 D=2
 DBGPRT=False
@@ -33,91 +24,171 @@ def dis(a,b):
     global D
     return (a[0]-b[0])**2+(a[2]-b[2])**2 if D==2 else ((a-b)**2).sum()
 
+def clamp(GRP):
+    
+    pass
+
 #
+def giveUps(ONE,TWO):
+    #for i in 
+    if len(ONE) > 0:
+        oneTrMid = np.average(np.array([OBJES[i].translation for i in ONE]),axis=0)#print(oneTrMid)
+        oneTrDev = np.average(np.array([dis(OBJES[i].translation,oneTrMid) for i in ONE]))
+        sortedONE = sorted(ONE,key=lambda i:-dis(OBJES[i].translation,oneTrMid))
+        sortedDis = [dis(OBJES[j].translation,oneTrMid) for j in sortedONE]
+        i=0
+        while i+1 < len(sortedONE):
+            if (sortedDis[i]>max(3.0,2.0*sortedDis[i+1]) or sortedDis[i] > 3.0*oneTrDev) and (not OBJES[sortedONE[i]].class_name() in ["L-shaped Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","TV Stand","Dining Chair"]):
+                ONE.remove(sortedONE[i])
+                i+=1
+            else:
+                break
+        GRUPS.append(grup(ONE,len(GRUPS)))
+
+    if len(TWO) > 0:
+        twoTrMid = np.average(np.array([OBJES[i].translation for i in TWO]),axis=0)#print(twoTrMid)
+        twoTrDev = np.average(np.array([dis(OBJES[i].translation,twoTrMid) for i in TWO]))
+        sortedTWO = sorted(TWO,key=lambda i:-dis(OBJES[i].translation,twoTrMid))
+        sortedDis = [dis(OBJES[j].translation,twoTrMid) for j in sortedTWO]
+        i=0
+        while i+1 < len(sortedTWO):
+            if (sortedDis[i]>max(3.0,2.0*sortedDis[i+1]) or sortedDis[i] > 3.0*twoTrDev) and (not OBJES[sortedTWO[i]].class_name() in ["L-shaped Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","TV Stand","Dining Chair"]):
+                TWO.remove(sortedTWO[i])
+                i+=1
+            else:
+                break
+        GRUPS.append(grup(TWO,len(GRUPS)))#return [ONE,TWO]
+
+    #delete other things in ONE and TWO
+
+    pass
+
 def formGroup(name):
-    storeScene(name,True,False)
-    if name.find("living") >= 0:
-        chairs=[ o.idx for o in OBJES if o.class_name()=='dining_chair']
-        cchair=[ o.idx for o in OBJES if o.class_name()=="lounge_chair"]
-        if len(chairs)>=2 and len(cchair)>=2:
-            print("fuck")
+    storeScene(name,False,True)
+    ONE = []
+    TWO = []
+    if name.find("Living") >= 0:
+        chairs=[ o.idx for o in OBJES if o.class_name()=='Dining Chair']
+        lchair=[ o.idx for o in OBJES if o.class_name()=="Lounge Chair / Cafe Chair / Office Chair"]
+        cchair=[ o.idx for o in OBJES if o.class_name()=="Classic Chinese Chair"]
+        tables=[ o.idx for o in OBJES if o.class_name()=="Dining Table"]
+        ctable=[ o.idx for o in OBJES if o.class_name()=="Coffee Table"]
+        if (len(chairs)<2 and len(cchair)<2 and len(lchair)<2) or (len(tables) < 1 and len(ctable) < 1):
+            ONE = [i for i in range(len(OBJES))]#print("no dining")#GRUPS.append(grup([i for i in range(len(OBJES))],len(GRUPS))) #return
+            giveUps(ONE,TWO)
+            return
+
+        if len(chairs)>=2:
+            pass
+        elif len(lchair)>=2:
+            chairs=lchair #print(name + " fuck")
         elif len(cchair)>=2:
             chairs=cchair
-        elif len(chairs)<2 and len(cchair)<2:
-            #print("no dining")
-            GRUPS.append(grup([i for i in range(len(OBJES))]))#return [[i for i in range(len(OBJES))]]
-        
+
+
         #find the dinning_table/coffee_table surrouded by the chairs
         chairsTr = [OBJES[i].translation for i in chairs]
         chairsTrMid = np.average(np.array(chairsTr),axis=0)
         ONE = chairs 
 
-        tables = [ o.idx for o in OBJES if (o.class_name() in ["dining_table","coffee_table"])]
+        tables = [ o.idx for o in OBJES if (o.class_name() in ["Dining Table","Coffee Table"])]
         if len(tables)>0:
             T = tables[np.argmin(np.array([dis(OBJES[t].translation,chairsTrMid) for t in tables]))]
             LT = np.min(np.array([dis(OBJES[t].translation,chairsTrMid) for t in tables]))
             if LT < 0.6:
                 ONE.append(T)
 
-        lamps = [ o.idx for o in OBJES if (o.class_name() in ["ceiling_lamp","pendant_lamp"])]
-        if len(lamps)>0:
+        lamps = [ o.idx for o in OBJES if (o.class_name() in ["Ceiling Lamp","Pendant Lamp"])]
+        while len(lamps)>0:
             L = lamps[np.argmin(np.array([dis(OBJES[t].translation,chairsTrMid) for t in lamps]))]
             LL = np.min(np.array([dis(OBJES[t].translation,chairsTrMid) for t in lamps]))
             if LL < 0.6:
                 ONE.append(L)
+            else:
+                break
+            lamps.remove(L)
 
         TWO = [i for i in range(len(OBJES)) if not(i in ONE)]
         TWOTypes = [OBJES[i].class_name() for i in TWO]
-        if not( ("l_shaped_sofa" in TWOTypes) or ("multi_seat_sofa" in TWOTypes) or ("loveseat_sofa" in TWOTypes) ):
-            GRUPS.append(grup([i for i in range(len(OBJES))]))#return [[i for i in range(len(OBJES))]]
-            
-        twoTrMid = np.average(np.array([OBJES[i].translation for i in TWO]),axis=0)
-        oneTrMid = np.average(np.array([OBJES[i].translation for i in ONE]),axis=0)
+        if not( ("L-shaped Sofa" in TWOTypes) or ("Three-seat / Multi-seat Sofa" in TWOTypes) or ("Loveseat Sofa" in TWOTypes) or ("TV Stand" in TWOTypes) ):
+            ONE = [i for i in range(len(OBJES))]#GRUPS.append(grup([i for i in range(len(OBJES))],len(GRUPS)))#return
+            giveUps(ONE,TWO)
+            return
 
+        twoTrMid = np.average(np.array([OBJES[i].translation for i in TWO]),axis=0)#print(twoTrMid)
+        oneTrMid = np.average(np.array([OBJES[i].translation for i in ONE]),axis=0)#print(oneTrMid)
+        
         toOne=[]
         for i in TWO:
             if dis(OBJES[i].translation,oneTrMid) < dis(OBJES[i].translation,twoTrMid):
-                if (OBJES[i].translation[0]-oneTrMid[0])*(OBJES[i].translation[0]-twoTrMid[0])+(OBJES[i].translation[2]-oneTrMid[2])*(OBJES[i].translation[2]-twoTrMid[2]) > 0:
+                if not (OBJES[i].class_name() in ["L-shaped Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","TV Stand"]):#(OBJES[i].translation[0]-oneTrMid[0])*(OBJES[i].translation[0]-twoTrMid[0])+(OBJES[i].translation[2]-oneTrMid[2])*(OBJES[i].translation[2]-twoTrMid[2]) > 0:
                     toOne.append(i)
-        
         for i in toOne:
             TWO.remove(i)
             ONE.append(i)
 
-        GRUPS.append(grup([i for i in ONE]))
-        GRUPS.append(grup([i for i in TWO]))#return [ONE,TWO]
-    elif name.find("bed") >= 0:
-        pass
+        twoTrMid = np.average(np.array([OBJES[i].translation for i in TWO]),axis=0)#print(twoTrMid)
+        oneTrMid = np.average(np.array([OBJES[i].translation for i in ONE]),axis=0)#print(oneTrMid)
+        
+        toTwo=[]
+        for i in ONE:
+            if dis(OBJES[i].translation,twoTrMid) < dis(OBJES[i].translation,oneTrMid):
+                if not (OBJES[i].class_name() in ["Dining Table","Dining Chair"]):
+                    toTwo.append(i)
+        for i in toTwo:
+            ONE.remove(i)
+            TWO.append(i)
+
+    else:#if name.find("Bedroom") >= 0:
+        ONE = [i for i in range(len(OBJES))] #GRUPS.append(grup([i for i in range(len(OBJES))],len(GRUPS)))
+    #give ups
+    
+    giveUps(ONE,TWO)
+    return
+    
+def storeGroup(n):
+    if not (os.path.exists("../novel3DFront_grp/"+n)):
+        os.mkdir("../novel3DFront_grp/"+n)
+    np.savez_compressed("../novel3DFront_grp/"+n+"/group.npz", group=np.array([o.gid for o in OBJES],dtype=int))
 
 def adjustGroup():
-    for g in GRUPS:
-        g.adjust([0,0,0],[1,0,0])
-    
+    #return
+    #for g in GRUPS:
+    #    g.adjust(np.array([0,0,0]),np.array([1,1,1]),1.5714)
+    s0 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
+    o0 = (np.random.randint(4)-2)*np.math.pi/2.0
+    c = np.array([np.random.rand()*4.-2.,0.0,np.random.rand()*4.-2.])
+    if len(GRUPS) == 1:
+        GRUPS[0].adjust(c,s0,o0)
+        return
+
+    s1 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
+    o1 = (np.random.randint(4)-2)*np.math.pi/2.0
+    l = max([GRUPS[0].size[0],GRUPS[0].size[2],GRUPS[1].size[0],GRUPS[1].size[2]]) - np.random.rand()*0.5
+    #l = np.random.rand()*2.0+1.5
+    t = np.random.rand()*np.math.pi*2-np.math.pi
+    d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
+    GRUPS[0].adjust(d*l,s0,o0)
+    GRUPS[1].adjust(-d*l,s1,o1)
     pass
 
-def wrapScene():
-    #说白了就是当前这么一个GRUPS状态应该怎么包裹我们的墙壁呢？
-    
-    #啊啊啊
-    
-    #他们都在哪里呀？
-
-    #哪里需要裹一下墙，哪里最好不要裹。
-
-    pass
 
 def main():
-    for n in os.listdir("./")[:20]:
-        if (not n.endswith(".png")) or n.endswith("after.png") or n.endswith("before.png"):
+    cnt = 0
+    for n in os.listdir("../novel3DFront_img"):
+        if (not n.endswith(".png")) or n.endswith("2024.png") or n.endswith("Mask.png") or (n.find("Living") == -1):
             continue
         formGroup(n[:-4])
-        adjustGroup()
-        #mv = createMovements()
-        #adjustScene(mv)
-        wrapScene()
-        storedDraw()
+        #adjustGroup()
+        storeGroup(n[:-4])
+        storedDraw(drawWall=True,objectGroup=True)
+        plt.savefig("./segment/" + n[:-4] + ".png")
+        plt.clf()
+        #draftRoomMask(n)
+        if cnt%1000==999:
+            print(cnt)
+        cnt += 1
         clearScene()
-        #print(n)
         #break
     pass
     

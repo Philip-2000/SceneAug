@@ -1,6 +1,7 @@
 import numpy as np
 from . import WALLS
 from . import LINKS
+from . import grupC
 object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Round End Table", "Dining Table", "Sideboard / Side Cabinet / Console table", "Corner/Side Table", "Desk", "Coffee Table", "Dressing Table", \
 "Children Cabinet", "Drawer Chest / Corner cabinet", "Shelf", "Wine Cabinet", \
@@ -8,9 +9,10 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Three-seat / Multi-seat Sofa", "Loveseat Sofa", "L-shaped Sofa", "Lazy Sofa", "Chaise Longue Sofa", "Wardrobe", "TV Stand", "Nightstand", \
 "King-size Bed", "Kids Bed", "Bunk Bed", "Single bed", "Bed Frame", "window", "door"]
 
+from matplotlib import pyplot as plt
 #OBJES=[]
 class obje():
-    def __init__(self,t,s,o,c=None,i=None,idx=None):
+    def __init__(self,t,s,o,c=None,i=None,idx=None,gid=-1):
         self.translation = t
         self.size = s
         self.orientation = o
@@ -25,6 +27,7 @@ class obje():
         
         self.linkIndex=[]
         self.destIndex=[]
+        self.gid=gid
 
     def direction(self):
         return np.array([np.math.sin(self.orientation),0,np.math.cos(self.orientation)])
@@ -44,6 +47,13 @@ class obje():
         realZ = CenterZ + CornerOriginalZ*z2z + CornerOriginalX*x2z
         realX = CenterX + CornerOriginalZ*z2x + CornerOriginalX*x2x
         return np.array([[realX[i],realZ[i]] for i in range(4)])
+
+    def draw(self,g=False):
+        corners = self.corners2()
+        if g:
+            plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*", color="black" if self.gid == -1 else grupC[self.gid])
+        else:
+            plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*")
 
     def project(self,wid):
         w = WALLS[wid]

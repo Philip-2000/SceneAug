@@ -1,129 +1,6 @@
-import numpy as np
-from statistics import mean
-import json
-import os
-from matplotlib import pyplot as plt
-
-from classes.Obje import *
-from classes.Link import *
-from classes.Wall import *
-from classes import *
-from util import two23,fullLoadScene,storeScene,storedDraw,clearScene
-
-#dir = "C:/Users/win/Downloads/3d_front_processed/livingrooms_objfeats_32_64/"
-dir = "../novel3DFront/"
-#construct the scene graph based on wall,
-
-# wall0                  wall1                 wall2               wall3
-# obj1-   obj4-          ...                    obj2-               obj3-
-
-common_links={
-    "Dining Chair":["Dining Table"],
-    "Chaise Longue Sofa":["Coffee Table"],
-    "Coffee Table":["Lazy Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","L-shaped Sofa"],
-    "Dressing Chair":["Dressing Table"],
-    "Pendant Lamp":["King-size Bed", "Kids Bed", "Single bed", "Coffee Table", "Dining Table"],
-    "Nightstand":["King-size Bed", "Kids Bed", "Single bed"]
-}
-
-
-def formGraph(name):
-    storeScene(name)
-
-    #把经典关系标示出来
-    for oi in range(len(OBJES)):
-        o = OBJES[oi]
-        shortest = 3
-        RI = -1
-        for ri in range(len(OBJES)):
-            r = OBJES[ri]
-            if (oi == ri) or not(o.class_name() in common_links.keys() and r.class_name() in common_links[o.class_name()]):
-                continue #semantic check print(o.class_name()+"   "+r.class_name())
-            Tor = r.translation - o.translation
-            Tor[1] = 0
-            Lor = (Tor**2).sum()**0.5 + 0.0001
-            Ior = Tor / Lor
-            if Lor < shortest:
-                shortest = Lor
-                RI = ri
-        if RI >= 0:
-            LINKS.append(objLink(RI,oi,len(LINKS)))
-
-    #把贴墙关系都标识出来
-    for oi in range(len(OBJES)):
-        o = OBJES[oi]
-        if len(o.destIndex)>0:
-            continue
-        om = o.matrix()
-        for wi in range(len(WALLS)):
-            w = WALLS[wi]
-            #translate w.p into o's co-ordinate, scaled
-            p=(om @ (w.p-o.translation)) / o.size
-            #translate w.q into o's co-ordinate, scaled
-            q=(om @ (w.q-o.translation)) / o.size
-            #get a distance and projection
-            n=(om @ w.n)
-
-            pp=np.cross(n,p)[1]#min(np.cross(n,p),np.cross(n,q))
-            qq=np.cross(n,q)[1]#max(np.cross(n,p),np.cross(n,q))
-            
-            if(wi==4 and oi == 5) and False:
-                print(w.p)
-                print(w.q)
-                print(w.n)
-                print(o.class_name())
-                print(o.translation)
-                print(" ")
-                print(p)
-                print(q)
-                print(n)
-                print(pp)
-                print(qq)
-                
-                pass
-
-            if abs(abs(p@n)-1.0)<0.1 and min(pp,qq) < 0.9 and max(pp,qq) > -0.9:
-                LINKS.append(walLink(wi,oi,len(LINKS),o.translation))#a,b = LINKS[-1].arrow()
-            
-            elif abs((p*o.size-o.size)@n)<0.1 and min(pp,qq) < 0.0 and max(pp,qq) > -0.0:
-                LINKS.append(walLink(wi,oi,len(LINKS),o.translation))#a,b = LINKS[-1].arrow()
-
-    #物体指向它朝向的一个东西
-    for oi in range(len(OBJES)):
-        o = OBJES[oi] #print("\n"+o.class_name() + "\n")
-        if len(o.destIndex)>0:
-            continue
-        shortest = 3
-        RI = -1
-        for ri in range(len(OBJES)):
-            r = OBJES[ri] #print(r.class_name())
-            if ri == oi: #len(r.destIndex)==0:
-                continue 
-            Tor = r.translation - o.translation
-            Tor[1] = 0
-            Lor = (Tor**2).sum()**0.5 + 0.0001
-            Ior = Tor / Lor
-            #find the facing one
-            if (Ior @ o.direction()) > 0.5:# or True: #print("     ??? "+r.class_name())
-                if Lor < shortest:
-                    shortest = Lor
-                    RI = ri
-        if RI >= 0:
-            LINKS.append(objLink(RI,oi,len(LINKS)))#print("    "+OBJES[RI].class_name())
-
-def visualizeGraph(name, dstDir="./"):
-    #visualize the OBJES, WALLS, especially the LINKS
-    storedDraw()
-    #singleDraw(name)
-    # for li in LINKS:
-    #     src,dst = li.arrow()
-    #     plt.plot([dst[0]], [-dst[2]], marker="x")
-    #     plt.plot([src[0], dst[0]], [-src[2], -dst[2]], marker=".")
-
-    plt.savefig(dstDir + name + ".png")
-    plt.clf()
-    pass
-
+from classes.Scne import scne
+from util import fullLoadScene
+"""
 def recursiveRange(o,wid):
     mis,mas = o.project(wid)
     for l in o.linkIndex:
@@ -178,53 +55,13 @@ def createMovements():
 
     return [{"id":wid,"rate":rs[idx]+r}, {"id":-1,"length":-0.5}]
 
-def adjustScene(movements):
-    for move in movements:
-        if "rate" in move.keys():
-            breakWall(move["id"],move["rate"])
-        elif "length" in move.keys():
-            WALLS[move["id"]].mWall(move["length"])
-        # for w in WALLS:
-        #     print(str(w.w1) + "<-" + str(w.idx) + "->" + str(w.w2))
-        #     print(w.p)
-        #     print(w.q)
-        #     print(w.n)
-        # print("\n")
-    pass
-
-def main():
+"""
+def test():
     for n in ["0d83ef53-4122-4678-93be-69f8b6d32c77_LivingDiningRoom-974.png"]:#os.listdir("./"):#[:20]:
-        if (not n.endswith(".png")) or n.endswith("after.png") or n.endswith("before.png"):
-            continue
-        formGraph(n[:-4])
-        #visualizeGraph(n[:-4])
-        #mv = createMovements()
-        #adjustScene(mv)
-        visualizeGraph("after/"+n[:-4])
-        clearScene()
-        #print(n)
-        #break
-    
-
-#this graph can also be broken right?
-
-#select a wall, a length? ||||||||| select a part of a wall, and check a length to move it?
-
-
-#would door or window break by this movement? #would collision occurs? #would path still exist? 
-
-
-
-#this tree is pre-calculated and stored? maybe.
-
-
-#our augmentation based on trees?
-#place the groups and wrap the walls?!!!!!!!!
-#No idea anyway, fuck. 
+        A = scne(fullLoadScene(n[:-4]),grp=True)#storeScene(n[:-4])
+        A.formGraph()
+        A.adjustScene([{"id":0,"rate":0.5},{"id":0,"length":-0.5}])
+        A.draw("./" + n[:-4] + "test.png")#storedDraw()
 
 if __name__ == "__main__":
-    main()
-
-#what?
-
-#for those not 
+    test()#main()

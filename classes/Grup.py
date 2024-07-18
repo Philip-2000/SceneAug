@@ -1,4 +1,4 @@
-from . import OBJES
+# from . import OBJES
 from . import grupC,grupA
 import numpy as np
 from matplotlib import pyplot as plt
@@ -13,16 +13,17 @@ def fTheta(theta):
 
 def matrix(ori):
     return np.array([[np.math.cos(ori),0,np.math.sin(ori)],[0,1,0],[-np.math.sin(ori),0,np.math.cos(ori)]])
-
+    
 #WALLS=[]
 class grup():
-    def __init__(self, objIdList, idx=-1):
+    def __init__(self, objIdList, idx=-1, scne=None):
         self.objIdList = copy(objIdList)
+        self.scne=scne
         for i in objIdList:
-            OBJES[i].gid = idx
+            self.scne.OBJES[i].gid = idx
         if len(objIdList) == 0:
             print(idx)
-        cs = np.array([OBJES[i].corners2() for i in objIdList]).reshape((-1,2))
+        cs = np.array([self.scne.OBJES[i].corners2() for i in objIdList]).reshape((-1,2))
         Xs,Zs = cs[:,0],cs[:,1]
         self.translation = np.array([(np.min(Xs)+np.max(Xs))/2.0,0,(np.min(Zs)+np.max(Zs))/2.0])
         self.orientation = 0.0
@@ -33,12 +34,12 @@ class grup():
 
     def update(self):
         self.objIdList = []
-        for o in OBJES:
+        for o in self.scne.OBJES:
             if o.gid == self.idx:
                 self.objIdList.append(o.idx)
         if len(self.objIdList) == 0:
             return
-        cs = np.array([OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
+        cs = np.array([self.scne.OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
         Xs,Zs = cs[:,0],cs[:,1]
         self.translation = np.array([(np.min(Xs)+np.max(Xs))/2.0,0,(np.min(Zs)+np.max(Zs))/2.0])
         self.orientation = 0.0
@@ -47,17 +48,17 @@ class grup():
         pass
 
     def bbox2(self):
-        cs = np.array([OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
+        cs = np.array([self.scne.OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
         return [np.min(cs,dim=0), np.max(cs,dim=0)]
 
     def adjust(self, t, s, o):
         rTrans = {}
         for i in self.objIdList:
-            rTrans[i] = [matrix(-self.orientation)@(OBJES[i].translation-self.translation)/self.scale,fTheta(OBJES[i].orientation-self.orientation)]
+            rTrans[i] = [matrix(-self.orientation)@(self.scne.OBJES[i].translation-self.translation)/self.scale,fTheta(self.scne.OBJES[i].orientation-self.orientation)]
         self.translation,self.scale, self.orientation=t,s,o
         for i in self.objIdList:
-            OBJES[i].setTransformation(matrix(o)@(rTrans[i][0]*s)+t,fTheta(rTrans[i][1]+o))
-        cs = np.array([OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
+            self.scne.OBJES[i].setTransformation(matrix(o)@(rTrans[i][0]*s)+t,fTheta(rTrans[i][1]+o))
+        cs = np.array([self.scne.OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
         self.size = np.array([np.max(cs[:,0]),1.0,np.max(cs[:,1])])-self.translation
 
     def draw(self):

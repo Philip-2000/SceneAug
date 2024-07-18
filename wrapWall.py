@@ -1,34 +1,7 @@
-import numpy as np
-from statistics import mean
-import json
-import os
-from matplotlib import pyplot as plt
+from classes.Scne import scne
+from util import fullLoadScene
 
-from classes.Obje import *
-from classes.Grup import *
-from classes.Wall import *
-from classes import *
-from util import two23,fullLoadScene,storeScene,storedDraw,clearScene,draftRoomMask
-
-#dir = "C:/Users/win/Downloads/3d_front_processed/livingrooms_objfeats_32_64/"
-dir = "../novel3DFront/"
-#construct the scene graph based on wall,
-
-# wall0                  wall1                 wall2               wall3
-# obj1-   obj4-          ...                    obj2-               obj3-
-
-
-D=2
-DBGPRT=False
-def dis(a,b):
-    global D
-    return (a[0]-b[0])**2+(a[2]-b[2])**2 if D==2 else ((a-b)**2).sum()
-
-def clamp(GRP):
-    
-    pass
-
-#
+"""
 def giveUps(ONE,TWO):
     #for i in 
     if len(ONE) > 0:
@@ -146,34 +119,7 @@ def formGroup(name):
     giveUps(ONE,TWO)
     return
     
-def storeGroup(n):
-    if not (os.path.exists("../novel3DFront_grp/"+n)):
-        os.mkdir("../novel3DFront_grp/"+n)
-    np.savez_compressed("../novel3DFront_grp/"+n+"/group.npz", group=np.array([o.gid for o in OBJES],dtype=int))
-
-def adjustGroup():
-    #return
-    #for g in GRUPS:
-    #    g.adjust(np.array([0,0,0]),np.array([1,1,1]),1.5714)
-    s0 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
-    o0 = (np.random.randint(4)-2)*np.math.pi/2.0
-    c = np.array([np.random.rand()*4.-2.,0.0,np.random.rand()*4.-2.])
-    if len(GRUPS) == 1:
-        GRUPS[0].adjust(c,s0,o0)
-        return
-
-    s1 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
-    o1 = (np.random.randint(4)-2)*np.math.pi/2.0
-    l = max([GRUPS[0].size[0],GRUPS[0].size[2],GRUPS[1].size[0],GRUPS[1].size[2]]) - np.random.rand()*0.5
-    #l = np.random.rand()*2.0+1.5
-    t = np.random.rand()*np.math.pi*2-np.math.pi
-    d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
-    GRUPS[0].adjust(d*l,s0,o0)
-    GRUPS[1].adjust(-d*l,s1,o1)
-    pass
-
-
-def main():
+np.savez_compressed("../novel3DFront_grp/"+n+"/group.npz", group=np.array([o.gid for o in OBJES],dtype=int))
     cnt = 0
     for n in os.listdir("../novel3DFront_img"):
         if (not n.endswith(".png")) or n.endswith("2024.png") or n.endswith("Mask.png") or (n.find("Living") == -1):
@@ -191,8 +137,13 @@ def main():
         clearScene()
         #break
     pass
-    
-
+""" 
+def test():
+    for n in ["0d83ef53-4122-4678-93be-69f8b6d32c77_LivingDiningRoom-974.png"]:#os.listdir("./"):#[:20]:
+        A = scne(fullLoadScene(n[:-4]),grp=True)#storeScene(n[:-4])
+        A.adjustGroup()
+        A.draw("./" + n[:-4] + "grp.png",drawWall=False,objectGroup=True,drawUngroups=False)#storedDraw()
+        A.draftRoomMask("./" + n[:-4] + "mask.png")
 #this graph can also be broken right?
 
 #select a wall, a length? ||||||||| select a part of a wall, and check a length to move it?
@@ -210,7 +161,7 @@ def main():
 #No idea anyway, fuck. 
 
 if __name__ == "__main__":
-    main()
+    test()#main()
 
 #what?
 

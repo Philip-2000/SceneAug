@@ -1,36 +1,48 @@
-from . import OBJES
-from . import WALLS
+# from . import OBJES
+# from . import WALLS
+
+
+common_links={
+    "Dining Chair":["Dining Table"],
+    "Chaise Longue Sofa":["Coffee Table"],
+    "Coffee Table":["Lazy Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","L-shaped Sofa"],
+    "Dressing Chair":["Dressing Table"],
+    "Pendant Lamp":["King-size Bed", "Kids Bed", "Single bed", "Coffee Table", "Dining Table"],
+    "Nightstand":["King-size Bed", "Kids Bed", "Single bed"]
+}
+
 
 #LINKS=[]
 class link():
-    def __init__(self, src, dst, idx=None):
+    def __init__(self, src, dst, idx=None, scne=None):
         #type?
         self.src=src
         self.dst=dst
         self.idx=idx
+        self.scne=scne
         pass
     
 class objLink(link):
-    def __init__(self, src, dst, idx):
-        super(objLink,self).__init__(src, dst, idx)
-        OBJES[self.src].linkIndex.append(idx)
-        OBJES[self.dst].destIndex.append(idx)
+    def __init__(self, src, dst, idx, scne=None):
+        super(objLink,self).__init__(src, dst, idx, scne)
+        self.scne.OBJES[self.src].linkIndex.append(idx)
+        self.scne.OBJES[self.dst].destIndex.append(idx)
         pass
 
     def adjust(self, movement):
         #adjust the OBJES[dst] according to the OBJES[src] OR WALLS[src]'s movement
         #
-        OBJES[self.dst].adjust(movement)
+        self.scne.OBJES[self.dst].adjust(movement)
         pass
 
     def arrow(self):
-        return OBJES[self.src].translation, OBJES[self.dst].translation
+        return self.scne.OBJES[self.src].translation, self.scne.OBJES[self.dst].translation
 
 class walLink(link):
-    def __init__(self, src, dst, idx, dstTranslation):
-        super(walLink,self).__init__(src, dst, idx)
-        WALLS[self.src].linkIndex.append(idx)
-        OBJES[self.dst].destIndex.append(idx)
+    def __init__(self, src, dst, idx, dstTranslation, scne=None):
+        super(walLink,self).__init__(src, dst, idx, scne)
+        self.scne.WALLS[self.src].linkIndex.append(idx)
+        self.scne.OBJES[self.dst].destIndex.append(idx)
 
         self.rate = 0
         self.dist = 0
@@ -40,7 +52,7 @@ class walLink(link):
 
     def update(self, dstTranslation):
                 
-        w = WALLS[self.src]
+        w = self.scne.WALLS[self.src]
         a = dstTranslation-w.p
         a[1]=0
 
@@ -59,7 +71,7 @@ class walLink(link):
     def adjust(self, movement):
         #adjust the OBJES[dst] according to the OBJES[src] OR WALLS[src]'s movement
         #
-        OBJES[self.dst].adjust(movement)
+        self.scne.OBJES[self.dst].adjust(movement)
         pass
 
     def modify(self, oldp, oldq, oldn):
@@ -69,4 +81,4 @@ class walLink(link):
         pass
 
     def arrow(self):
-        return self.rate*WALLS[self.src].q + (1-self.rate)*WALLS[self.src].p, OBJES[self.dst].translation
+        return self.rate*self.scne.WALLS[self.src].q + (1-self.rate)*self.scne.WALLS[self.src].p, self.scne.OBJES[self.dst].translation

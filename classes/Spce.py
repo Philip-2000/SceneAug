@@ -1,4 +1,4 @@
-from . import SPCES,WALLS
+# from . import SPCES,WALLS
 from .Wall import wall
 import numpy as np
 from copy import deepcopy

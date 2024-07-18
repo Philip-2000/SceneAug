@@ -1,10 +1,11 @@
-from . import LINKS
-from . import WALLS
+# from . import LINKS
+# from . import WALLS
 import numpy as np
 #WALLS=[]
+
 WALLSTATUS = True
 class wall():
-    def __init__(self, p, q, n, w1, w2, idx, v=True, spaceIn=False, sig=-1):
+    def __init__(self, p, q, n, w1, w2, idx, v=True, spaceIn=False, sig=-1, scne=None):
         global WALLSTATUS
         if v and abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) > 0.01: #assert abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) < 0.01
             WALLSTATUS = False
@@ -22,6 +23,7 @@ class wall():
         self.w2=w2
         self.v=v
         self.spaceIn=spaceIn
+        self.scne=scne
         #return WALLSTATUS
         
 
@@ -37,11 +39,11 @@ class wall():
         oldq = np.copy(self.q)
         self.q += self.n*L
         self.length=(((self.p-self.q)**2).sum())**0.5
-        WALLS[self.w1].adjustWall(oldp,self.p,self.idx)
-        WALLS[self.w2].adjustWall(oldq,self.q,self.idx)
+        self.scne.WALLS[self.w1].adjustWall(oldp,self.p,self.idx)
+        self.scne.WALLS[self.w2].adjustWall(oldq,self.q,self.idx)
         
         for i in self.linkIndex:
-            LINKS[i].adjust(self.n*L)
+            self.scne.LINKS[i].adjust(self.n*L)
         
     def adjustWall(self,oldp,p,hint=-1):
         oldn = self.n
@@ -72,9 +74,9 @@ class wall():
         self.length=(((self.p-self.q)**2).sum())**0.5
 
         for i in self.linkIndex:
-            LINKS[i].modify(oldp, oldq, oldn)
+            self.scne.LINKS[i].modify(oldp, oldq, oldn)
         pass
-
+"""
 def breakWall(id,rate):
     #load all the links of 
     
@@ -156,4 +158,4 @@ def minusWall(id,lst=WALLS):
     lst = minusWall(K,lst)
     return lst
 
-    
+"""

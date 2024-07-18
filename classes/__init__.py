@@ -1,7 +1,2 @@
-OBJES=[]
-LINKS=[]
-WALLS=[]
-GRUPS=[]
-SPCES=[]
 grupC=["red","gray"]
 grupA=["lightblue","lightgreen"]

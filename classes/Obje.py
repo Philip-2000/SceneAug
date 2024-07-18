@@ -1,6 +1,6 @@
 import numpy as np
-from . import WALLS
-from . import LINKS
+#from . import WALLS
+#from . import LINKS
 from . import grupC
 object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Round End Table", "Dining Table", "Sideboard / Side Cabinet / Console table", "Corner/Side Table", "Desk", "Coffee Table", "Dressing Table", \
@@ -12,7 +12,7 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 from matplotlib import pyplot as plt
 #OBJES=[]
 class obje():
-    def __init__(self,t,s,o,c=None,i=None,idx=None,gid=-1):
+    def __init__(self,t,s,o,c=None,i=None,idx=None,gid=-1,scne=None):
         self.translation = t
         self.size = s
         self.orientation = o
@@ -28,6 +28,7 @@ class obje():
         self.linkIndex=[]
         self.destIndex=[]
         self.gid=gid
+        self.scne=scne#pointer(scne)
 
     def direction(self):
         return np.array([np.math.sin(self.orientation),0,np.math.cos(self.orientation)])
@@ -56,7 +57,7 @@ class obje():
             plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*")
 
     def project(self,wid):
-        w = WALLS[wid]
+        w = self.scne.WALLS[wid]
         corners = self.corners2()
         a=(corners-np.array([[w.p[0],w.p[2]]])) @ np.array([(w.q[0]-w.p[0])/w.length,(w.q[2]-w.p[2])/w.length])
         
@@ -68,11 +69,11 @@ class obje():
     def adjust(self,movement):
         self.translation+=movement
         for i in self.linkIndex:
-            LINKS[i].adjust(movement)
+            self.scne.LINKS[i].adjust(movement)
         
         if len(self.destIndex) > 1:
             for i in self.destIndex:
-                LINKS[i].update(self.translation)
+                self.scne.LINKS[i].update(self.translation)
 
     def setTransformation(self,t,o):
         self.translation,self.orientation = t,o

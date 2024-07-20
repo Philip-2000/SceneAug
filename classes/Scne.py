@@ -13,7 +13,7 @@ def two23(a):
 
 #WALLS=[]
 class scne():
-    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True, irt=8, imgDir="./"):
+    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True, irt=16, imgDir="./"):
         self.LINKS=[]
         self.SPCES=[]
         self.copy = copy(scene)
@@ -212,7 +212,7 @@ class scne():
     def formGroup(self): # to be continued
         pass
 
-    def adjustGroup(self,sdev=0.2,cdev=4.):
+    def adjustGroup(self,sdev=0.2,cdev=2.):
         from numpy.random import rand as R
         from numpy.random import randint as Ri 
         from math import pi as PI 
@@ -224,21 +224,19 @@ class scne():
             d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
             self.GRUPS[0].adjust( d*l,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
             self.GRUPS[1].adjust(-d*l,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
-        self.draftRoomMask()
+        if self.rmm:
+            self.draftRoomMask()
 
     def drawRoomMask(self,maskTitle=""):
         Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
 
     def draftRoomMask(self):
-        if not self.rmm:
-            return
         L = self.roomMask.shape[-1]
-        img = Image.new("L",(L,L),"#000000")  
+        img = Image.new("L",(L,L))  
         img1 = ImageDraw.Draw(img)  
         for g in self.GRUPS:
-            img1.rectangle(g.imgSpaceBbox(), fill ="#ffffff",outline="#777777",width=2)
-        Ce=(L>>1,L>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()
-        img1.line([Ce,self.GRUPS[0].imgSpaceCe()],fill ="#ffffff",width=10)
+            img1.rectangle(g.imgSpaceBbox(), fill ="white",outline="gray",width=2)
+        img1.line([((L>>1,L>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()),self.GRUPS[0].imgSpaceCe()],fill ="white",width=15)
 
         self.roomMask = np.array(img).astype(np.float32)
         

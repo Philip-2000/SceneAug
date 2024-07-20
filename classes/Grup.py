@@ -1,5 +1,4 @@
-# from . import OBJES
-from . import grupC,grupA
+grupA=["white","lightblue","lightgreen"]
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
@@ -53,7 +52,7 @@ class grup():
         return [np.min(cs,dim=0), np.max(cs,dim=0)]
 
     def adjust(self, t, s, o):
-        rTrans = {}
+        rTrans,t[1],s[1] = {}, 0.0, 1.0
         for i in self.objIdList:
             rTrans[i] = [matrix(-self.orientation)@(self.scne.OBJES[i].translation-self.translation)/self.scale,fTheta(self.scne.OBJES[i].orientation-self.orientation)]
         self.translation,self.scale, self.orientation=t,s,o

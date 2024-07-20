@@ -1,4 +1,3 @@
-#from . import OBJES
 from .Obje import *
 from .Link import *
 from .Wall import *
@@ -14,7 +13,7 @@ def two23(a):
 
 #WALLS=[]
 class scne():
-    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True):
+    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True, irt=8, imgDir="./"):
         self.LINKS=[]
         self.SPCES=[]
         self.copy = copy(scene)
@@ -24,18 +23,16 @@ class scne():
         ce = scene["floor_plan_centroid"] if cen else np.array([0,0,0])
         c_e= np.array([0,0,0]) if (not cen) or (not (wl or windoor)) else scene["floor_plan_centroid"]
         self.grp = grp
+        self.imgDir = imgDir
 
-        self.OBJES=[]
-        for i in range(len(tr)):
-            cli = np.concatenate([cl[i],[0,0]])
-            self.OBJES.append(obje(tr[i]+ce,si[i],oi[i],cli,idx=len(self.OBJES),scne=self))
-        
+        self.OBJES=[obje(tr[i]+ce,si[i],oi[i],np.concatenate([cl[i],[0,0]])if windoor else cl[i],idx=i,scne=self) for i in range(len(tr))]
+
         self.roomMask = scene["room_layout"][0]
-        self.toDraftRoomMask=True
+        self.rmm=rmm
         self.GRUPS=[]
         if grp:
             grops = np.ones(tr.shape[0]) if scene["grops"] is None else scene["grops"]
-            self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":25},j+1,scne=self) for j in range(int(max(grops)))]
+            self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":irt},j+1,scne=self) for j in range(int(max(grops)))]
         
         if windoor:
             widos = scene["widos"]
@@ -86,11 +83,11 @@ class scne():
         else:
             plt.axis('off')
         
-        plt.savefig(self.scene_uid + "_Layout.png" if imageTitle=="" else imageTitle)
+        plt.savefig(self.imgDir+self.scene_uid+"_Layout.png" if imageTitle=="" else imageTitle)
         plt.clf()
 
         if drawRoomMask:
-            self.drawRoomMask(self.scene_uid + "_Mask.png" if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
+            self.drawRoomMask(self.imgDir+self.scene_uid+"_Mask.png" if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
     def formGraph(self):
         #把经典关系标示出来
@@ -215,40 +212,32 @@ class scne():
     def formGroup(self): # to be continued
         pass
 
-    def adjustGroup(self):
-        #return
-        #for g in GRUPS:
-        #    g.adjust(np.array([0,0,0]),np.array([1,1,1]),1.5714)
-        s0 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
-        o0 = (np.random.randint(4)-2)*np.math.pi/2.0
-        c = np.array([np.random.rand()*4.-2.,0.0,np.random.rand()*4.-2.])
+    def adjustGroup(self,sdev=0.2,cdev=4.):
+        from numpy.random import rand as R
+        from numpy.random import randint as Ri 
+        from math import pi as PI 
+               
         if len(self.GRUPS) == 1:
-            self.GRUPS[0].adjust(c,s0,o0)
-            self.draftRoomMask()
-            return
-
-        s1 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
-        o1 = (np.random.randint(4)-2)*np.math.pi/2.0
-        l = max([self.GRUPS[0].size[0],self.GRUPS[0].size[2],self.GRUPS[1].size[0],self.GRUPS[1].size[2]]) - np.random.rand()*0.5
-        #l = np.random.rand()*2.0+1.5
-        t = np.random.rand()*np.math.pi*2-np.math.pi
-        d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
-        self.GRUPS[0].adjust(d*l,s0,o0)
-        self.GRUPS[1].adjust(-d*l,s1,o1)
+            self.GRUPS[0].adjust((R(3,)-0.5)*cdev,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
+        else:
+            t,l = (R()*2-1)*PI,max([self.GRUPS[0].size[0],self.GRUPS[0].size[2],self.GRUPS[1].size[0],self.GRUPS[1].size[2]]) - R()*0.1
+            d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
+            self.GRUPS[0].adjust( d*l,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
+            self.GRUPS[1].adjust(-d*l,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
         self.draftRoomMask()
 
     def drawRoomMask(self,maskTitle=""):
-        Image.fromarray(self.roomMask).save(self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
+        Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
 
     def draftRoomMask(self):
-        if not self.toDraftRoomMask:
+        if not self.rmm:
             return
-
-        img = Image.new("L",(self.roomMask[0].shape[-1],self.roomMask[0].shape[-1]), "#000000")  
+        L = self.roomMask.shape[-1]
+        img = Image.new("L",(L,L),"#000000")  
         img1 = ImageDraw.Draw(img)  
         for g in self.GRUPS:
             img1.rectangle(g.imgSpaceBbox(), fill ="#ffffff",outline="#777777",width=2)
-        Ce=(self.roomMask[0].shape[-1]>>1,self.roomMask[0].shape[-1]>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()
+        Ce=(L>>1,L>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()
         img1.line([Ce,self.GRUPS[0].imgSpaceCe()],fill ="#ffffff",width=10)
 
         self.roomMask = np.array(img).astype(np.float32)
@@ -256,9 +245,7 @@ class scne():
     def exportAsSampleParams(self):
         c = copy(self.copy)
         c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
-        #print(c["sizes"].shape)
         c["sizes"] = np.array([o.size for o in self.OBJES])
-        #print(c["sizes"].shape)
         c["angles"] = np.array([[np.cos(o.orientation),np.sin(o.orientation)] for o in self.OBJES]) if c["angles"].shape[-1] == 2 else np.array([o.orientation for o in self.OBJES])
         c["room_layout"] = self.roomMask[None,:]
         if len(self.WALLS)>0:
@@ -271,9 +258,6 @@ class scne():
                 c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
             c["walls"] = np.array(c["walls"])
         return c
-
-    def exportAsTensor():
-        pass
 
     def recommendedWalls(self):
         #we are going 

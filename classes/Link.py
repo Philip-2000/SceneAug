@@ -1,6 +1,3 @@
-# from . import OBJES
-# from . import WALLS
-
 
 common_links={
     "Dining Chair":["Dining Table"],

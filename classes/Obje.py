@@ -1,7 +1,5 @@
 import numpy as np
-#from . import WALLS
-#from . import LINKS
-from . import grupC
+grupC=["black","red","gray"]
 object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Round End Table", "Dining Table", "Sideboard / Side Cabinet / Console table", "Corner/Side Table", "Desk", "Coffee Table", "Dressing Table", \
 "Children Cabinet", "Drawer Chest / Corner cabinet", "Shelf", "Wine Cabinet", \

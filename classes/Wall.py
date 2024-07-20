@@ -1,7 +1,4 @@
-# from . import LINKS
-# from . import WALLS
 import numpy as np
-#WALLS=[]
 
 WALLSTATUS = True
 class wall():

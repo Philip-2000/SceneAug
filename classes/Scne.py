@@ -233,6 +233,7 @@ class scne():
         c = np.array([np.random.rand()*4.-2.,0.0,np.random.rand()*4.-2.])
         if len(self.GRUPS) == 1:
             self.GRUPS[0].adjust(c,s0,o0)
+            self.draftRoomMask()
             return
 
         s1 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
@@ -315,8 +316,10 @@ class scne():
     def exportAsSampleParams(self):
         c = copy(self.copy)
         c["translations"] = np.array([o.translation for o in self.OBJES])
+        #print(c["sizes"].shape)
         c["sizes"] = np.array([o.size for o in self.OBJES])
-        c["angles"] = np.array([o.orientation for o in self.OBJES])
+        #print(c["sizes"].shape)
+        c["angles"] = np.array([[np.cos(o.orientation),np.sin(o.orientation)] for o in self.OBJES]) if c["angles"].shape[-1] == 2 else np.array([o.orientation for o in self.OBJES])
         c["room_layout"] = self.roomMask
         if len(self.WALLS)>0:
             c["walls"] = []

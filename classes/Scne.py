@@ -252,6 +252,32 @@ class scne():
         img1.line([Ce,self.GRUPS[0].imgSpaceCe()],fill ="#ffffff",width=10)
 
         self.roomMask = np.array(img).astype(np.float32)
+
+    def exportAsSampleParams(self):
+        c = copy(self.copy)
+        c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
+        #print(c["sizes"].shape)
+        c["sizes"] = np.array([o.size for o in self.OBJES])
+        #print(c["sizes"].shape)
+        c["angles"] = np.array([[np.cos(o.orientation),np.sin(o.orientation)] for o in self.OBJES]) if c["angles"].shape[-1] == 2 else np.array([o.orientation for o in self.OBJES])
+        c["room_layout"] = self.roomMask[None,:]
+        if len(self.WALLS)>0:
+            c["walls"] = []
+            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
+            I = self.WALLS[J].w2
+            while I != J:
+                I = self.WALLS[I].w2
+                assert self.WALLS[I].v
+                c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
+            c["walls"] = np.array(c["walls"])
+        return c
+
+    def exportAsTensor():
+        pass
+
+    def recommendedWalls(self):
+        #we are going 
+        pass
 """
     def draftRoomMask(self):
         if not self.toDraftRoomMask:
@@ -311,28 +337,3 @@ class scne():
         #print(self.roomMask.shape)
         return M
 """        
-    def exportAsSampleParams(self):
-        c = copy(self.copy)
-        c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
-        #print(c["sizes"].shape)
-        c["sizes"] = np.array([o.size for o in self.OBJES])
-        #print(c["sizes"].shape)
-        c["angles"] = np.array([[np.cos(o.orientation),np.sin(o.orientation)] for o in self.OBJES]) if c["angles"].shape[-1] == 2 else np.array([o.orientation for o in self.OBJES])
-        c["room_layout"] = self.roomMask[None,:]
-        if len(self.WALLS)>0:
-            c["walls"] = []
-            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
-            I = self.WALLS[J].w2
-            while I != J:
-                I = self.WALLS[I].w2
-                assert self.WALLS[I].v
-                c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
-            c["walls"] = np.array(c["walls"])
-        return c
-
-    def exportAsTensor():
-        pass
-
-    def recommendedWalls(self):
-        #we are going 
-        pass

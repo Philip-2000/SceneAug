@@ -22,7 +22,7 @@ class scne():
         tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
         #firstly, store those objects and walls into the WALLS and OBJES
         ce = scene["floor_plan_centroid"] if cen else np.array([0,0,0])
-        c_e= np.array([0,0,0]) if (cen and (wl or windoor)) else scene["floor_plan_centroid"]
+        c_e= np.array([0,0,0]) if (not cen) or (not (wl or windoor)) else scene["floor_plan_centroid"]
         self.grp = grp
 
         self.OBJES=[]
@@ -35,7 +35,7 @@ class scne():
         self.GRUPS=[]
         if grp:
             grops = np.ones(tr.shape[0]) if scene["grops"] is None else scene["grops"]
-            self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":8},j+1,scne=self) for j in range(int(max(grops)))]
+            self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":25},j+1,scne=self) for j in range(int(max(grops)))]
         
         if windoor:
             widos = scene["widos"]
@@ -252,7 +252,7 @@ class scne():
         img1.line([Ce,self.GRUPS[0].imgSpaceCe()],fill ="#ffffff",width=10)
 
         self.roomMask = np.array(img).astype(np.float32)
-
+        
     def exportAsSampleParams(self):
         c = copy(self.copy)
         c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
@@ -278,62 +278,3 @@ class scne():
     def recommendedWalls(self):
         #we are going 
         pass
-"""
-    def draftRoomMask(self):
-        if not self.toDraftRoomMask:
-            return
-        sz=int(self.roomMask.shape[-1] / 2)
-        rt=8
-        
-
-        N = np.zeros((sz*2,sz*2))
-        if len(self.GRUPS)==1:
-            con = -self.GRUPS[0].translation
-            lineMin,lineMax = 0.4,0.8
-        else:
-            con = self.GRUPS[1].translation - self.GRUPS[0].translation#print(con)
-            lineMin,lineMax = 1.0,2.0
-        con_ = con/np.linalg.norm(con)#print(con_)
-        nom = np.cross(con_,np.array([0,1,0]))#print(nom)
-        cons = con_/np.linalg.norm(con)
-        areaMin,areaMax = 0.8,1.2
-        for i in range(sz*2):
-            for j in range(sz*2):
-                t = np.array([(i-sz)/rt,0.0,(j-sz)/rt])+ce
-                #check distance toward 
-                #print(t)
-                norm0t = np.clip( np.max(np.abs((t - self.GRUPS[0].translation)/self.GRUPS[0].size)),areaMin,areaMax)
-                c0 = np.math.floor(255*(areaMax-norm0t)/(areaMax-areaMin))
-                N[i,j]=c0
-                if len(self.GRUPS)>1:
-                    norm1t = np.clip( np.max(np.abs((t - self.GRUPS[1].translation)/self.GRUPS[1].size)),areaMin,areaMax)
-                    c1 = np.math.floor(255*(areaMax-norm1t)/(areaMax-areaMin))
-                    c0 = max(c0,c1)
-                    N[i,j]=c0
-                
-                
-                rat = (t-self.GRUPS[0].translation)@cons
-                dis = np.abs((t-self.GRUPS[0].translation)@nom)
-                #GRUPS[0].translation -> GRUPS[1].translation, GRUPS[0]
-                if rat < 0.0 or rat > 1.0:
-                    continue
-                clipdis = np.clip(dis,lineMin,lineMax)
-                c2 = np.math.floor(255*(lineMax-clipdis)/(lineMax-lineMin))
-                c0 = max(c0,c2)
-                N[i,j]=c0
-
-        
-        M = np.zeros_like(self.roomMask)#((1,sz*2,sz*2))
-        K = 2
-        for i in range(sz*2):
-            for j in range(sz*2):
-                v = 0
-                for k in range(max(i-K,0),min(i+K+1,sz*2)):
-                    for l in range(max(j-K,0),min(j+K+1,sz*2)):
-                        v += N[k,l]
-                M[i,j] = int(v/25)
-        #print(self.roomMask.shape)
-        self.roomMask = M
-        #print(self.roomMask.shape)
-        return M
-"""        

@@ -1,12 +1,5 @@
 import os
 import numpy as np
-
-dir = "../novel3DFront/"
-
-def fullLoadScene(name):
-    boxes = np.load(dir + name + "/boxes.npz", allow_pickle=True)
-    tr, si, oi, cl, ce = boxes["translations"],boxes["sizes"],boxes["angles"],boxes["class_labels"],boxes["floor_plan_centroid"]
-    walls = np.load(dir + name + "/contours.npz", allow_pickle=True)["contour"]
-    widos = np.load(dir + name + "/conts.npz", allow_pickle=True)["cont"]
-    grops = np.load(dir + name + "/group.npz", allow_pickle=True)["group"] if os.path.exists(dir + name + "/group.npz") else np.zeros(tr.shape[0])
-    return {"translations":tr,"sizes":si,"angles":oi,"class_labels":cl,"floor_plan_centroid":ce,"walls":walls,"widos":widos,"grops":grops}
+def fullLoadScene(name,dir="../novel3DFront/"):
+    boxes,dn = np.load(dir+name+"/boxes.npz"),dir+name
+    return {"room_layout":np.zeros((1,64,64)).astype(np.uint8),"translations":boxes["translations"],"sizes":boxes["sizes"],"angles":boxes["angles"],"class_labels":boxes["class_labels"],"floor_plan_centroid":boxes["floor_plan_centroid"],"scene_uid":boxes["scene_uid"],"walls":np.load(dn+"/contours.npz")["contour"],"widos":np.load(dn+"/conts.npz")["cont"],"grops":np.load(dn+"/group.npz")["group"] if os.path.exists(dn+"/group.npz") else None}

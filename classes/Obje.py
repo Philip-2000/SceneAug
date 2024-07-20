@@ -12,7 +12,7 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 from matplotlib import pyplot as plt
 #OBJES=[]
 class obje():
-    def __init__(self,t,s,o,c=None,i=None,idx=None,gid=-1,scne=None,v=True):
+    def __init__(self,t,s,o,c=None,i=None,idx=None,gid=0,scne=None,v=True):
         self.translation = t
         self.size = s
         self.orientation = o if o.shape == (1,) else np.math.atan2(o[1],o[0])
@@ -53,7 +53,7 @@ class obje():
     def draw(self,g=False):
         corners = self.corners2()
         if g:
-            plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*", color="black" if self.gid == -1 else grupC[self.gid])
+            plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*", color=grupC[self.gid])
         else:
             plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*")
 

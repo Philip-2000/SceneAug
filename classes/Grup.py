@@ -16,7 +16,7 @@ def matrix(ori):
     
 #WALLS=[]
 class grup():
-    def __init__(self, objIdList, idx=-1, scne=None):
+    def __init__(self, objIdList, imgMeta, idx=-1, scne=None):
         self.objIdList = copy(objIdList)
         self.scne=scne
         for i in objIdList:
@@ -30,7 +30,8 @@ class grup():
         self.size = np.array([np.max(Xs),1.0,np.max(Zs)])-self.translation
         self.scale = np.array([1,1,1])
         self.idx = idx
-        pass
+        self.isz=imgMeta["sz"]>>1
+        self.irt=imgMeta["rt"]
 
     def update(self):
         self.objIdList = []
@@ -60,15 +61,22 @@ class grup():
             self.scne.OBJES[i].setTransformation(matrix(o)@(rTrans[i][0]*s)+t,fTheta(rTrans[i][1]+o))
         cs = np.array([self.scne.OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
         self.size = np.array([np.max(cs[:,0]),1.0,np.max(cs[:,1])])-self.translation
+        self.update()
 
     def draw(self):
-        self.update()
         scl = [1.0,0.7,0.4,0.1]
         c,a = self.translation, matrix(self.orientation)@(self.scale*self.size),
         for s in scl:
             corners = np.array([[c[0]+s*a[0],c[2]+s*a[2]],[c[0]-s*a[0],c[2]+s*a[2]],[c[0]-s*a[0],c[2]-s*a[2]],[c[0]+s*a[0],c[2]-s*a[2]],[c[0]+s*a[0],c[2]+s*a[2]]])
             plt.plot( corners[:,0], -corners[:,1], marker="x", color=grupA[self.idx])
-        
+
+    #img ->real: [(i-self.imgMeta["sz"])/self.imgMeta["rt"],0.0,(j-self.imgMeta["sz"])/self.imgMeta["rt"]]
+    #real-> img: [int(i*self.imgMeta["rt"]+self.imgMeta["sz"]),int(j*self.imgMeta["rt"]+self.imgMeta["sz"])]        
+    def imgSpaceCe(self):
+        return (int(self.translation[0]*self.irt+self.isz),int(self.translation[2]*self.irt+self.isz))
+
+    def imgSpaceBbox(self):
+        return [int((self.translation[0]-self.size[0])*self.irt+self.isz),int((self.translation[2]-self.size[2])*self.irt+self.isz),int((self.translation[0]+self.size[0])*self.irt+self.isz),int((self.translation[2]+self.size[2])*self.irt+self.isz)]
 
     def recommendedWalls(self):
         #we are going 

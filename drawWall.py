@@ -1,5 +1,6 @@
 from classes.Scne import scne
 from util import fullLoadScene
+import sys
 """
 def recursiveRange(o,wid):
     mis,mas = o.project(wid)
@@ -56,12 +57,11 @@ def createMovements():
     return [{"id":wid,"rate":rs[idx]+r}, {"id":-1,"length":-0.5}]
 
 """
-def test():
-    for n in ["0d83ef53-4122-4678-93be-69f8b6d32c77_LivingDiningRoom-974.png"]:#os.listdir("./"):#[:20]:
-        A = scne(fullLoadScene(n[:-4]),grp=True,wl=True,cen=True)#storeScene(n[:-4])
-        A.formGraph()
-        A.adjustScene([{"id":0,"rate":0.5},{"id":0,"length":-0.5}])
-        A.draw("./" + n[:-4] + "test.png")#storedDraw()
+def test(n):
+    A = scne(fullLoadScene(n),grp=True,wl=True,cen=True)#storeScene(n[:-4])
+    A.formGraph()
+    A.adjustScene([{"id":0,"rate":0.5},{"id":0,"length":-0.5}])
+    A.draw()
 
 if __name__ == "__main__":
-    test()#main()
+    test(sys.argv[1])#main()

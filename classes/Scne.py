@@ -99,7 +99,6 @@ class scne():
         if drawRoomMask:
             self.drawRoomMask(imageTitle[:-4]+"Mask.png")
 
-
     def formGraph(self):
         #把经典关系标示出来
         for oi in range(len(self.OBJES)):
@@ -326,6 +325,7 @@ class scne():
                 assert self.WALLS[I].v
                 c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
             c["walls"] = np.array(c["walls"])
+        return c
 
     def exportAsTensor():
         pass

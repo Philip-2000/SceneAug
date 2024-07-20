@@ -16,6 +16,7 @@ class scne():
     def __init__(self, scene, grp=False, windoor=False, wl=False):
         self.LINKS=[]
         self.SPCES=[]
+        self.copy = copy(scene)
 
         tr,si,oi,cl,ce = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"],scene["floor_plan_centroid"]
         #firstly, store those objects and walls into the WALLS and OBJES
@@ -56,8 +57,9 @@ class scne():
                 w1 = (j-1)%len(walls)
                 w2 = (j+1)%len(walls)
                 self.WALLS.append(wall(two23(walls[j][:2]),two23(walls[w2][:2]),np.array([walls[j][3],0,walls[j][2]]),w1,w2,j,scne=self))
+        self.roomMask = None
 
-    def draw(self,imageTitle,lim=-1,drawWall=True,objectGroup=False,drawUngroups=False):
+    def draw(self,imageTitle,lim=-1,drawWall=True,objectGroup=False,drawUngroups=False,drawRoomMask=False):
         for i in range(len(self.SPCES)):
             self.SPCES[i].draw()
 
@@ -93,6 +95,10 @@ class scne():
         
         plt.savefig(imageTitle)
         plt.clf()
+
+        if drawRoomMask:
+            self.drawRoomMask(imageTitle[:-4]+"Mask.png")
+
 
     def formGraph(self):
         #把经典关系标示出来
@@ -236,10 +242,14 @@ class scne():
         d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
         self.GRUPS[0].adjust(d*l,s0,o0)
         self.GRUPS[1].adjust(-d*l,s1,o1)
-        pass
+        self.draftRoomMask()
+
+    def drawRoomMask(self,maskTitle=""):
+        from PIL import Image
+        Image.fromarray(self.roomMask).convert("L").save(maskTitle)#.save(maskTitle)
 
     #from PIL import Image
-    def draftRoomMask(self,maskTitle=""):
+    def draftRoomMask(self):
         #scale the image space to the real world
         #with a center and a scale
         #
@@ -298,16 +308,28 @@ class scne():
                     for l in range(max(j-K,0),min(j+K+1,sz*2)):
                         v += N[k,l]
                 M[i,j] = int(v/25)
-        if len(maskTitle) > 0:
-            from PIL import Image
-            img = Image.new("RGB", (sz*2,sz*2), "#000000")  
-            pixels = img.load()
-            for i in range(sz*2):
-                for j in range(sz*2):
-                    pixels[i,j] = (int(M[i,j]),int(M[i,j]),int(M[i,j]),255)
-            img.save(maskTitle)
+        self.roomMask = M
         return M
          
+    def exportAsSampleParams(self):
+        c = copy(self.copy)
+        c["translations"] = np.array([o.translation for o in self.OBJES])
+        c["sizes"] = np.array([o.size for o in self.OBJES])
+        c["angles"] = np.array([o.orientation for o in self.OBJES])
+        c["room_layout"] = self.roomMask
+        if len(self.WALLS)>0:
+            c["walls"] = []
+            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
+            I = self.WALLS[J].w2
+            while I != J:
+                I = self.WALLS[I].w2
+                assert self.WALLS[I].v
+                c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
+            c["walls"] = np.array(c["walls"])
+
+    def exportAsTensor():
+        pass
+
     def recommendedWalls(self):
         #we are going 
         pass

@@ -12,11 +12,12 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 from matplotlib import pyplot as plt
 #OBJES=[]
 class obje():
-    def __init__(self,t,s,o,c=None,i=None,idx=None,gid=-1,scne=None):
+    def __init__(self,t,s,o,c=None,i=None,idx=None,gid=-1,scne=None,v=True):
         self.translation = t
         self.size = s
         self.orientation = o if o.shape == (1,) else np.math.atan2(o[1],o[0])
         self.idx=idx
+        self.v=v
         if i is None:
             self.class_label = c #print(self.class_label,len(object_types))
             self.class_index = np.argmax(c) #print(self.class_index)

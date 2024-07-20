@@ -13,7 +13,7 @@ def two23(a):
 
 #WALLS=[]
 class scne():
-    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False):
+    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True):
         self.LINKS=[]
         self.SPCES=[]
         self.copy = copy(scene)
@@ -26,6 +26,7 @@ class scne():
             widos = scene["widos"]
         if wl:
             walls = scene["walls"]
+        self.grp = grp
         if grp:
             grops=scene["grops"]
 
@@ -56,21 +57,21 @@ class scne():
         self.WALLS=[]
         if wl:
             self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
-            # for j in range(len(walls)):
-            #     w1 = (j-1)%len(walls)
-            #     w2 = (j+1)%len(walls)
-            #     self.WALLS.append(wall(two23(walls[j][:2])-c_e,two23(walls[w2][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),w1,w2,j,scne=self))
-        self.roomMask = None
+            #for j in range(len(walls)):
+                #self.WALLS.append(wall(two23(walls[j][:2])-c_e,two23(walls[w2][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self))
+        self.roomMask = scene["room_layout"]
+        self.toDraftRoomMask=False
 
     def draw(self,imageTitle,lim=-1,drawWall=True,objectGroup=False,drawUngroups=False,drawRoomMask=False):
         for i in range(len(self.SPCES)):
             self.SPCES[i].draw()
 
-        for i in range(len(self.GRUPS)):
-            self.GRUPS[i].draw()
+        if objectGroup:
+            for i in range(len(self.GRUPS)):
+                self.GRUPS[i].draw()
 
         for i in range(len(self.OBJES)):
-            if objectGroup and (not drawUngroups) and self.OBJES[i].gid == -1:
+            if self.grp and (not drawUngroups) and self.OBJES[i].gid == -1:
                 continue
             self.OBJES[i].draw(objectGroup)#corners = OBJES[i].corners2()
             #plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-OBJES[i].class_index>2 else "*")
@@ -251,12 +252,10 @@ class scne():
         from PIL import Image
         Image.fromarray(self.roomMask).convert("L").save(maskTitle)#.save(maskTitle)
 
-    #from PIL import Image
     def draftRoomMask(self):
-        #scale the image space to the real world
-        #with a center and a scale
-        #
-        sz=64
+        if not self.toDraftRoomMask:
+            return
+        sz=int(self.roomMask.shape[-1] / 2)
         ce=np.array([0.,0.,0.])
         rt=8
         # if len(GRUPS)==1:
@@ -302,7 +301,7 @@ class scne():
                 N[i,j]=c0
 
         
-        M = np.zeros((sz*2,sz*2))
+        M = np.zeros_like(self.roomMask)#((1,sz*2,sz*2))
         K = 2
         for i in range(sz*2):
             for j in range(sz*2):
@@ -310,13 +309,15 @@ class scne():
                 for k in range(max(i-K,0),min(i+K+1,sz*2)):
                     for l in range(max(j-K,0),min(j+K+1,sz*2)):
                         v += N[k,l]
-                M[i,j] = int(v/25)
+                M[0,i,j] = int(v/25)
+        #print(self.roomMask.shape)
         self.roomMask = M
+        #print(self.roomMask.shape)
         return M
          
     def exportAsSampleParams(self):
         c = copy(self.copy)
-        c["translations"] = np.array([o.translation for o in self.OBJES])
+        c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 0 or (not self.grp))])
         #print(c["sizes"].shape)
         c["sizes"] = np.array([o.size for o in self.OBJES])
         #print(c["sizes"].shape)

@@ -95,7 +95,6 @@ class scne():
         if drawRoomMask:
             self.drawRoomMask(imageTitle[:-4]+"Mask.png")
 
-
     def formGraph(self):
         #把经典关系标示出来
         for oi in range(len(self.OBJES)):

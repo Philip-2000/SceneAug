@@ -55,10 +55,11 @@ class scne():
         #wall(p,q,n,w1,w2)
         self.WALLS=[]
         if wl:
-            for j in range(len(walls)):
-                w1 = (j-1)%len(walls)
-                w2 = (j+1)%len(walls)
-                self.WALLS.append(wall(two23(walls[j][:2])-c_e,two23(walls[w2][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),w1,w2,j,scne=self))
+            self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
+            # for j in range(len(walls)):
+            #     w1 = (j-1)%len(walls)
+            #     w2 = (j+1)%len(walls)
+            #     self.WALLS.append(wall(two23(walls[j][:2])-c_e,two23(walls[w2][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),w1,w2,j,scne=self))
         self.roomMask = None
 
     def draw(self,imageTitle,lim=-1,drawWall=True,objectGroup=False,drawUngroups=False,drawRoomMask=False):

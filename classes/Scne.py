@@ -13,13 +13,15 @@ def two23(a):
 
 #WALLS=[]
 class scne():
-    def __init__(self, scene, grp=False, windoor=False, wl=False):
+    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False):
         self.LINKS=[]
         self.SPCES=[]
         self.copy = copy(scene)
 
-        tr,si,oi,cl,ce = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"],scene["floor_plan_centroid"]
+        tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"],
         #firstly, store those objects and walls into the WALLS and OBJES
+        ce = np.array([0,0,0]) if (not cen) else scene["floor_plan_centroid"]
+        c_e= np.array([0,0,0]) if (cen and (wl or windoor)) else scene["floor_plan_centroid"]
         if windoor:
             widos = scene["widos"]
         if wl:
@@ -47,7 +49,7 @@ class scne():
                 sii = np.array([max(widos[k][3],widos[k][5]),widos[k][4],min(widos[k][3],widos[k][5])]) #?
                 tri = widos[k][:3]
                 c = len(object_types)-1 if tri[1]-sii[1] < 0.1 else len(object_types)-2
-                self.OBJES.append(obje(tri,sii,oii,i=c,idx=len(self.OBJES),scne=self))
+                self.OBJES.append(obje(tri-c_e,sii,oii,i=c,idx=len(self.OBJES),scne=self))
 
         #obje(t,s,o,c,i)
         #wall(p,q,n,w1,w2)
@@ -56,7 +58,7 @@ class scne():
             for j in range(len(walls)):
                 w1 = (j-1)%len(walls)
                 w2 = (j+1)%len(walls)
-                self.WALLS.append(wall(two23(walls[j][:2]),two23(walls[w2][:2]),np.array([walls[j][3],0,walls[j][2]]),w1,w2,j,scne=self))
+                self.WALLS.append(wall(two23(walls[j][:2])-c_e,two23(walls[w2][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),w1,w2,j,scne=self))
         self.roomMask = None
 
     def draw(self,imageTitle,lim=-1,drawWall=True,objectGroup=False,drawUngroups=False,drawRoomMask=False):

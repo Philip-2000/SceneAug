@@ -3,7 +3,7 @@ from util import fullLoadScene
 
 def test():
     for n in ["0d83ef53-4122-4678-93be-69f8b6d32c77_LivingDiningRoom-974.png"]:#os.listdir("./"):#[:20]:
-        A = scne(fullLoadScene(n[:-4]),grp=True)#storeScene(n[:-4])
+        A = scne(fullLoadScene(n[:-4]),grp=True,cen=True)#storeScene(n[:-4])
         A.adjustGroup()
         A.draw("./" + n[:-4] + "grp.png",drawWall=False,objectGroup=True,drawUngroups=False,drawRoomMask=True)#storedDraw()
         #A.drawRoomMask("./" + n[:-4] + "mask.png")

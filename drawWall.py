@@ -58,7 +58,7 @@ def createMovements():
 """
 def test():
     for n in ["0d83ef53-4122-4678-93be-69f8b6d32c77_LivingDiningRoom-974.png"]:#os.listdir("./"):#[:20]:
-        A = scne(fullLoadScene(n[:-4]),grp=True)#storeScene(n[:-4])
+        A = scne(fullLoadScene(n[:-4]),grp=True,wl=True,cen=True)#storeScene(n[:-4])
         A.formGraph()
         A.adjustScene([{"id":0,"rate":0.5},{"id":0,"length":-0.5}])
         A.draw("./" + n[:-4] + "test.png")#storedDraw()

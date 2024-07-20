@@ -13,13 +13,17 @@ def two23(a):
 
 #WALLS=[]
 class scne():
-    def __init__(self, scene, grp=False, windoor=True, wl=True):
+    def __init__(self, scene, grp=False, windoor=False, wl=False):
         self.LINKS=[]
         self.SPCES=[]
         self.copy = copy(scene)
 
-        tr,si,oi,cl,ce,walls,widos = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"],scene["floor_plan_centroid"],scene["walls"],scene["widos"]
+        tr,si,oi,cl,ce = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"],scene["floor_plan_centroid"]
         #firstly, store those objects and walls into the WALLS and OBJES
+        if windoor:
+            widos = scene["widos"]
+        if wl:
+            walls = scene["walls"]
         if grp:
             grops=scene["grops"]
 
@@ -37,21 +41,21 @@ class scne():
             if len(A[1]):
                 self.GRUPS.append(grup(A[1],1,scne=self))
         
-        for k in range(len(widos)):
-            oii = np.math.atan2(widos[k][-1],widos[k][-2])
-            sii = np.array([max(widos[k][3],widos[k][5]),widos[k][4],min(widos[k][3],widos[k][5])]) #?
-            tri = widos[k][:3]
-            c = len(object_types)-1 if tri[1]-sii[1] < 0.1 else len(object_types)-2
-            if windoor:
+        if windoor:
+            for k in range(len(widos)):
+                oii = np.math.atan2(widos[k][-1],widos[k][-2])
+                sii = np.array([max(widos[k][3],widos[k][5]),widos[k][4],min(widos[k][3],widos[k][5])]) #?
+                tri = widos[k][:3]
+                c = len(object_types)-1 if tri[1]-sii[1] < 0.1 else len(object_types)-2
                 self.OBJES.append(obje(tri,sii,oii,i=c,idx=len(self.OBJES),scne=self))
 
         #obje(t,s,o,c,i)
         #wall(p,q,n,w1,w2)
         self.WALLS=[]
-        for j in range(len(walls)):
-            w1 = (j-1)%len(walls)
-            w2 = (j+1)%len(walls)
-            if wl:
+        if wl:
+            for j in range(len(walls)):
+                w1 = (j-1)%len(walls)
+                w2 = (j+1)%len(walls)
                 self.WALLS.append(wall(two23(walls[j][:2]),two23(walls[w2][:2]),np.array([walls[j][3],0,walls[j][2]]),w1,w2,j,scne=self))
         self.roomMask = None
 
@@ -321,6 +325,7 @@ class scne():
                 assert self.WALLS[I].v
                 c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
             c["walls"] = np.array(c["walls"])
+        return c
 
     def exportAsTensor():
         pass

@@ -224,7 +224,7 @@ class scne():
         c = np.array([np.random.rand()*4.-2.,0.0,np.random.rand()*4.-2.])
         if len(self.GRUPS) == 1:
             self.GRUPS[0].adjust(c,s0,o0)
-            self.draftRoomMask1()
+            self.draftRoomMask()
             return
 
         s1 = np.array([np.random.rand()*0.2+0.9,1.0,np.random.rand()*0.2+0.9])
@@ -235,12 +235,12 @@ class scne():
         d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
         self.GRUPS[0].adjust(d*l,s0,o0)
         self.GRUPS[1].adjust(-d*l,s1,o1)
-        self.draftRoomMask1()
+        self.draftRoomMask()
 
     def drawRoomMask(self,maskTitle=""):
         Image.fromarray(self.roomMask).save(self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
 
-    def draftRoomMask1(self):
+    def draftRoomMask(self):
         if not self.toDraftRoomMask:
             return
 
@@ -251,8 +251,8 @@ class scne():
         Ce=(self.roomMask[0].shape[-1]>>1,self.roomMask[0].shape[-1]>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()
         img1.line([Ce,self.GRUPS[0].imgSpaceCe()],fill ="#ffffff",width=10)
 
-        self.roomMask = np.array(img)
-
+        self.roomMask = np.array(img).astype(np.float32)
+"""
     def draftRoomMask(self):
         if not self.toDraftRoomMask:
             return
@@ -310,7 +310,7 @@ class scne():
         self.roomMask = M
         #print(self.roomMask.shape)
         return M
-         
+"""        
     def exportAsSampleParams(self):
         c = copy(self.copy)
         c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
@@ -318,7 +318,7 @@ class scne():
         c["sizes"] = np.array([o.size for o in self.OBJES])
         #print(c["sizes"].shape)
         c["angles"] = np.array([[np.cos(o.orientation),np.sin(o.orientation)] for o in self.OBJES]) if c["angles"].shape[-1] == 2 else np.array([o.orientation for o in self.OBJES])
-        c["room_layout"] = self.roomMask
+        c["room_layout"] = self.roomMask[None,:]
         if len(self.WALLS)>0:
             c["walls"] = []
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2

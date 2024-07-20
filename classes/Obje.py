@@ -15,7 +15,7 @@ class obje():
     def __init__(self,t,s,o,c=None,i=None,idx=None,gid=-1,scne=None):
         self.translation = t
         self.size = s
-        self.orientation = o
+        self.orientation = o if o.shape == (1,) else np.math.atan2(o[1],o[0])
         self.idx=idx
         if i is None:
             self.class_label = c #print(self.class_label,len(object_types))

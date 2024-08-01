@@ -237,7 +237,6 @@ class scne():
         for g in self.GRUPS:
             img1.rectangle(g.imgSpaceBbox(), fill ="white",outline="gray",width=2)
         img1.line([((L>>1,L>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()),self.GRUPS[0].imgSpaceCe()],fill ="white",width=15)
-
         self.roomMask = np.array(img).astype(np.float32)
         
     def exportAsSampleParams(self):
@@ -257,6 +256,21 @@ class scne():
             c["walls"] = np.array(c["walls"])
         return c
 
+    def roomMaskFromWalls(self,LST=None):
+        L = self.roomMask.shape[-1]
+        img = Image.new("L",(L,L)) 
+        img1 = ImageDraw.Draw(img)  
+        img1.polygon([ (w.p[0]*25.+(L>>1), w.p[2]*25.+(L>>1)) for w in self.WALLS], fill ="white")  
+        self.roomMask = np.array(img).astype(np.float32)
+        pass
+
+    @classmethod
+    def randomLayout():
+        pass
+
     def recommendedWalls(self):
         #we are going 
         pass
+    
+    def bpt(self):
+        return np.concatenate([o.bpt() for o in self.OBJES],axis=0)

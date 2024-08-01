@@ -76,3 +76,6 @@ class obje():
 
     def setTransformation(self,t,o):
         self.translation,self.orientation = t,o
+
+    def bpt(self):
+        return np.concatenate([self.class_label,self.translation,self.size,self.orientation]).reshape((1,-1))

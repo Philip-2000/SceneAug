@@ -1,5 +1,5 @@
 # from . import SPCES,WALLS
-from .Wall import wall
+from Wall import wall
 import numpy as np
 from copy import deepcopy
 from matplotlib import pyplot as plt

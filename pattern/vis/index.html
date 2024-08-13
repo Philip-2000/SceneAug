@@ -1,0 +1,55 @@
+<div id="tree-container"></div>
+<script>
+    function createTree(container, data) {
+    // 创建树的根节点
+    var root = document.createElement('div');
+    root.className = 'tree-node';
+    root.textContent = data.name;
+    container.appendChild(root);
+ 
+    // 递归创建子节点
+    function createChildren(parent, children) {
+        children.forEach(function(child) {
+            var childNode = document.createElement('div');
+            childNode.className = 'tree-node';
+            childNode.textContent = child.name;
+            parent.appendChild(childNode);
+ 
+            if (child.children && child.children.length > 0) {
+                createChildren(childNode, child.children);
+            }
+        });
+    }
+ 
+    if (data.children && data.children.length > 0) {
+        createChildren(root, data.children);
+    }
+}
+ 
+// 样式
+var style = document.createElement('style');
+style.textContent = `
+    .tree-node {
+        margin-left: 20px;
+    }
+`;
+document.head.appendChild(style);
+ 
+// 使用示例
+var data = {
+    name: 'Root',
+    children: [
+        { name: 'Child 1', children: [] },
+        {
+            name: 'Child 2',
+            children: [
+                { name: 'Grandchild 2.1', children: [] },
+                { name: 'Grandchild 2.2', children: [] }
+            ]
+        }
+    ]
+};
+ 
+var container = document.getElementById('tree-container');
+createTree(container, data);
+</script>

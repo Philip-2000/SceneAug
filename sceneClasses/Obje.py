@@ -7,6 +7,9 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Three-seat / Multi-seat Sofa", "Loveseat Sofa", "L-shaped Sofa", "Lazy Sofa", "Chaise Longue Sofa", "Wardrobe", "TV Stand", "Nightstand", \
 "King-size Bed", "Kids Bed", "Bunk Bed", "Single bed", "Bed Frame", "window", "door"]
 
+noOriType = ["Pendant Lamp", "Ceiling Lamp", "Round End Table", "Barstool", "Footstool / Sofastool / Bed End Stool / Stool", "Nightstand"]
+        
+
 from matplotlib import pyplot as plt
 #OBJES=[]
 class obje():
@@ -27,13 +30,14 @@ class obje():
         self.linkIndex=[]
         self.destIndex=[]
         self.gid=gid
+        self.nid=-1
         self.scne=scne#pointer(scne)
 
     def direction(self):
         return np.array([np.math.sin(self.orientation),0,np.math.cos(self.orientation)])
 
-    def matrix(self):
-        return np.array([[np.math.cos(self.orientation),0,np.math.sin(self.orientation)],[0,1,0],[-np.math.sin(self.orientation),0,np.math.cos(self.orientation)]])
+    def matrix(self,u=1):
+        return np.array([[np.math.cos(self.orientation),0,np.math.sin(self.orientation*u)],[0,1,0],[-np.math.sin(self.orientation*u),0,np.math.cos(self.orientation)]])
 
     def corners2(self):
         CenterZ = np.repeat([self.translation[2]],4)#,t[2]+ce[2],t[2]+ce[2],t[2]+ce[2],t[2]+ce[2]]
@@ -76,6 +80,21 @@ class obje():
 
     def setTransformation(self,t,o):
         self.translation,self.orientation = t,o
+
+    def rela(self, oo, o='r', scl=False):
+        t = self.matrix(-1)@(oo.translation - self.translation) / (self.size if scl else np.array([1,1,1]))
+        ori = oo.orientation - self.orientation
+        while ori <-np.math.pi:
+            ori += 2*np.math.pi
+        while ori > np.math.pi:
+            ori -= 2*np.math.pi
+        s = oo.size / (self.size if scl else np.array([1,1,1]))
+        if o == 'o':
+            return obje(t,s,ori,i=oo.class_index,idx=oo.idx,scne=oo.scne)
+        return (t,s,ori)
+
+    def flat(self,inter=True):
+        return np.concatenate([self.translation,self.size,[0] if (inter and (self.class_name() in noOriType)) else self.orientation])#])#
 
     def bpt(self):
         return np.concatenate([self.class_label,self.translation,self.size,self.orientation]).reshape((1,-1))

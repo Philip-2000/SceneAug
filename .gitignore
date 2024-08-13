@@ -4,3 +4,9 @@ newRooms/
 __pycache__/
 classes/__pycache__/
 segment/
+pattern/fields/
+pattern/trees/
+dist/
+build/
+*.egg-info/
+sceneClasses/buffer.txt

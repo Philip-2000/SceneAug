@@ -1,8 +1,8 @@
-from .Obje import *
-from .Link import *
-from .Wall import *
-from .Grup import *
-from .Spce import *
+from Obje import *
+from Link import *
+from Wall import *
+from Grup import *
+from Spce import *
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
@@ -11,7 +11,6 @@ from PIL import Image, ImageDraw
 def two23(a):
     return np.array([a[0],0,a[1]])
 
-#WALLS=[]
 class scne():
     def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True, irt=16, imgDir="./"):
         self.LINKS=[]
@@ -27,7 +26,7 @@ class scne():
 
         self.OBJES=[obje(tr[i]+ce,si[i],oi[i],np.concatenate([cl[i],[0,0]])if windoor else cl[i],idx=i,scne=self) for i in range(len(tr))]
 
-        self.roomMask = scene["room_layout"][0]
+        self.roomMask = scene["room_layout"][0] if rmm else None
         self.rmm=rmm
         self.GRUPS=[]
         if grp:
@@ -49,6 +48,9 @@ class scne():
         if wl:
             walls = scene["walls"]
             self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
+
+        self.noPatternType = []#"Pendant Lamp", "Ceiling Lamp"]
+        self.plans = []
 
     def draw(self,imageTitle="",lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False):
         for i in range(len(self.SPCES)):
@@ -274,3 +276,93 @@ class scne():
     
     def bpt(self):
         return np.concatenate([o.bpt() for o in self.OBJES],axis=0)
+
+    def objectView(self,id,bd=100000,maxDis=100000):
+        newOBJES = [self.OBJES[id].rela(o,'o') for o in self.OBJES if (o.idx != id and o.nid == -1 and not(o.class_name() in self.noPatternType))]
+        return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
+        newOBJES = [self.OBJES[id].rela(o,'o') for o in self.OBJES if (o.idx != id and not(o.class_name() in self.noPatternType))]
+        newOBJES = sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
+        return [o for o in newOBJES if (o.nid == -1 and (o.translation**2).sum() < maxDis)]
+
+    def nids(self):
+        return set([o.nid for o in self.OBJES])
+
+    def traversing(self, n, o, lst):
+        
+        #搜，一个一个搜？
+        obj = self.OBJES[lst[n.line.endOrder]]
+        los = n.line.minus(o,obj)
+        
+        for ed in n.edges:
+            for ob in self.OBJES:
+                if ed.endNode.type == ob.class_name() and (not o.idx in lst):
+                    #扣分！扣什么分！扣那个，就之前的分
+                    self.traversing(ed.endNode, ob, lst+[ob.idx] )
+
+    def traversingForm(self, n, o, lst):
+        
+        #搜，一个一个搜？
+        
+        #obj = self.OBJES[lst[n.line.endOrder]]
+        #los = n.line.minus(o,obj)
+        
+        for ed in n.edges:
+            candidates = [_ for _ in self.OBJES if (not _.idx in lst and ed.endNode.type == ob.class_name())]
+            for ob in candidates:
+                self.traversing(ed.endNode, ob, lst+[ob.idx] )
+
+    def traverse(self,pm,o,plan,lev=0):
+        #到这里之后，确信是一个n对一个id，已经认定是它了对吧
+        for ed in pm.nods[o.nid].edges:
+            m = ed.startNode
+            while not(ed.endNode.idx in m.bunches):
+                m = m.source.startNode
+            a = [o for o in self.OBJES if o.nid == m.idx]
+            a = a[0]
+            #search one from what?
+            for oo in [o for o in self.OBJES if o.class_name() == ed.endNode.type]:
+                l = m.bunches[ed.endNode.idx].loss(a.rela(oo,'o'))
+                pl = {"nids":[int(_) for _ in plan["nids"]],"loss":float(plan["loss"])+l}#?????
+                pl["nids"][oo.idx]=ed.endNode.idx
+                self.traverse(pm,ed.endNode,pl,lev+1)
+                self.plans.append(deepcopy(pl))
+        pass
+
+    def tra(self,pm):
+        #懒得纠结了，
+        #就是在，所有的根中，如果有三个以上的根被找到的，就暂时返回一下，跟他们说这场景我们不接受
+        #然后如果是两个就需要两个顺序分别做一遍，取较高的那个
+        #
+        cans = [o for o in self.OBJES if (o.class_name() in pm.rootNames)]
+        if len(cans)>2:
+            print("len(cans)>2")
+            return
+        #self.traverse(pm,pm.nods[0],{"nids":[-1 for _ in self.OBJES],"loss":0})
+        plan = {"nids":[pm.rootNames.index(o.class_name()) for o in self.OBJES],"loss":0}#?????
+        for o in cans:
+            self.traverse(pm,o,plan)
+        P = sorted(self.plans,lambda x:-x["loss"])[0]
+
+        if len(cans)==2:
+            self.plans.clear()
+            self.traverse(pm,cans[1],plan)
+            self.traverse(pm,cans[0],plan)
+            Q = sorted(self.plans,lambda x:-x["loss"])[0]
+
+        pass
+
+    def patterns(self, roots):
+        pass
+
+import os
+from util import fullLoadScene
+from pattern import *
+class scneDs():
+    def __init__(self,dir="../novel3DFront/",grp=False,wl=False,cen=True,rmm=False):
+        self._dataset = [scne(fullLoadScene(n),grp=grp,wl=wl,cen=cen,rmm=rmm) for n in os.listdir(dir)]
+
+    def __len__(self):
+        return len(self._dataset)
+
+    def __getitem__(self, idx):
+        return self._dataset[idx]

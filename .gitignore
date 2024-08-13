@@ -6,6 +6,7 @@ classes/__pycache__/
 segment/
 pattern/fields/
 pattern/trees/
+pattern/imgs/
 dist/
 build/
 *.egg-info/

@@ -18,6 +18,7 @@ class node():
     def __init__(self,type,suffix,idx=-1):
         self.type = type
         self.suffix = suffix
+        self.source = None
         self.idx = idx
         self.edges = []
         self.bunches = {}
@@ -106,11 +107,13 @@ class patternManager():
             if id>0:
                 suf += "--"+dct[e]["type"]
 
-    def storeTree(self,name):
+    def storeTree(self,name,draw=True):
         if len(name) > 0:
             lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
                     "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
             open(self.treesDir+name+".json","w").write(json.dumps(lst))
+            if draw:
+                self.draw()
         
     def treeConstruction(self,load="",name=""):
         if load != "":
@@ -124,18 +127,19 @@ class patternManager():
             self.freq(n.endNode)#frequentRecursive(n.endNode,form)#
         self.storeTree(name)
 
-    def draw(self):
-        #画什么？
-        #它是什么？
-        #每个node都需要画。
-        #以根为参考系
-        #以源的期望为参照物，
+    def draw(self,all=False):
+        for n in self.nods[1:]:
+            sr = n.source.startNode
+            while not(n.idx in sr.source.startNode.bunches):
+                sr = sr.source.startNode
+            rt = sr
+            while rt.source.startNode.idx > 0:
+                rt = rt.source.startNode
+            
+            #以根为参考系
+            #以源的期望为参照物？那如果源不是根还要一阶一阶地从根期望过来。
+            #把obs里的东西全画上
 
-        #把obs里的东西全画上
-        #把线连上？哪里有线啊？怎么连呢？初始树状结构，是有的，但是就是说这个，bnch，这个关系，其实可以通过额，
-        #一方面是图片中有原始信息，另一方面是额，这个，比如说，鼠标挪上去后，源节点加粗或者凸显之类的，可以
-
-        pass
 
 ##################
 import sys

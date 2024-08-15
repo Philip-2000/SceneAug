@@ -29,8 +29,9 @@ class patternManager():
         self.sceneDir = "../novel3DFront/"
         self.workDir = "./pattern/"
         self.fieldDir = self.workDir+"fields/"
+        self.imgDir = self.workDir+"imgs/"
         self.treesDir = self.workDir+"trees/" #self.cnt = len(os.listdir(self.sceneDir))
-        self.rootNames = ["King-size Bed"]#"Coffee Table","Dining Table",
+        self.rootNames = ["King-size Bed","Coffee Table","Dining Table"]#
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
         self.sDs = scneDs(self.sceneDir)
@@ -38,6 +39,7 @@ class patternManager():
             print("scene dataset loaded")
         self.maxDepth = maxDepth
         self.objectViewBd = 5
+        self.scaled=False
     
     def createNode(self,fat,s,c=0.0,cc=0.0):
         self.nods.append(node(s,fat.suffix if len(fat.suffix)>0 else s.replace('/','.'),len(self.nods)))#nod(nn))
@@ -59,7 +61,7 @@ class patternManager():
                     cnt += 1
                     for o in scene.OBJES:
                         if o.nid in sheet: #o.nid == n.idx:
-                            res = scene.objectView(o.idx,self.objectViewBd) #assert len(res) <= self.objectViewBd
+                            res = scene.objectView(o.idx,self.objectViewBd,self.scaled) #assert len(res) <= self.objectViewBd
                             for r in res:#print(r.class_name())
                                 sheet[o.nid][r.class_name()].accept(r,1)
             [[sheet[k][s].refresh() for s in sheet[k]] for k in sheet]
@@ -98,48 +100,79 @@ class patternManager():
             self.nods += [None for _ in dct] #nod(None)
         suf = "" if id == 0 else self.nods[id].suffix+"+"
         for b in dct[id]["buncs"]:
-            self.nods[id].bunches[b] = bnch(None,np.array(dct[id]["buncs"][b][0]),np.array(dct[id]["buncs"][b][1]))
+            self.nods[id].bunches[int(b)] = bnch(None,np.array(dct[id]["buncs"][b][0]),np.array(dct[id]["buncs"][b][1]))
         for f in dct[id]["edges"]:
             e = f[0]
-            self.nods[e] = node(dct[e]["type"],suf+dct[id]["type"])
+            self.nods[e] = node(dct[e]["type"],suf+dct[id]["type"],e)
             self.nods[id].edges.append(edge(self.nods[id],self.nods[e],c=f[1],cc=f[2]))
             self.loadTre(dct,e)
             if id>0:
                 suf += "--"+dct[e]["type"]
 
-    def storeTree(self,name,draw=True):
+    def storeTree(self,name):
         if len(name) > 0:
             lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
                     "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
+            open(self.treesDir+name+".js","w").write("var dat="+json.dumps(lst)+";")
             open(self.treesDir+name+".json","w").write(json.dumps(lst))
-            if draw:
-                self.draw()
         
-    def treeConstruction(self,load="",name=""):
+    def treeConstruction(self,load="",name="",draw=True):#print(self.treesDir+load+".json")
         if load != "":
-            return self.loadTre(json.load(open(self.treesDir+load+".json")))
-        for s in self.rootNames:
-            self.createNode(self.nods[0],s)
-            for f in open(self.fieldDir+self.nods[-1].suffix+".txt").readlines():
-                for o in [_ for _ in self.sDs[int(f)].OBJES if _.class_name() == self.nods[-1].type]:#F+=1
-                    o.nid = self.nods[-1].idx
-        for n in self.nods[0].edges:
-            self.freq(n.endNode)#frequentRecursive(n.endNode,form)#
-        self.storeTree(name)
+            self.loadTre(json.load(open(self.treesDir+load+".json")))
+        else:
+            for s in self.rootNames:
+                self.createNode(self.nods[0],s)
+                for f in open(self.fieldDir+self.nods[-1].suffix+".txt").readlines():
+                    for o in [_ for _ in self.sDs[int(f)].OBJES if _.class_name() == self.nods[-1].type]:#F+=1
+                        o.nid = self.nods[-1].idx
+            for n in self.nods[0].edges:
+                self.freq(n.endNode)#frequentRecursive(n.endNode,form)#
+            self.storeTree(name)
+        if draw:
+            self.draw(load if len(load) > 0 else name)
 
-    def draw(self,all=False):
-        for n in self.nods[1:]:
-            sr = n.source.startNode
-            while not(n.idx in sr.source.startNode.bunches):
-                sr = sr.source.startNode
-            rt = sr
-            while rt.source.startNode.idx > 0:
-                rt = rt.source.startNode
+    def draw(self,name,all=False,lim=5):
+        if not os.path.exists(self.imgDir+name+"/"):
+            os.makedirs(self.imgDir+name+"/")
+        info = {i:0 for i in range(1,1+len(self.nods[0].edges))}#open(self.imgDir+name+"/info.json")
+        
+        for n in self.nods[len(self.nods[0].edges)+1:]:
             
-            #以根为参考系
-            #以源的期望为参照物？那如果源不是根还要一阶一阶地从根期望过来。
-            #把obs里的东西全画上
+            plt.axis('equal')
+            plt.xlim(-lim,lim)
+            plt.ylim(-lim,lim)
+            if n is None:
+                break
+            nn,sr,path = n,n.source.startNode,[]
+            path.append(nn)
+            while sr.idx > 0:
+                while not(nn.idx in sr.bunches.keys()) and sr.source.startNode.idx>0:    
+                    sr = sr.source.startNode
+                nn = sr
+                sr = nn.source.startNode
+                path.append(nn)
 
+
+            A = obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))
+            C = A
+            for i in range(len(path)-1,0,-1):
+                B = path[i].bunches[path[i-1].idx]
+                A,C = A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled),A
+            
+            # 
+            C.draw(d=True,color="black")
+            L = path[1].bunches[path[0].idx].obs
+            if len(L)>0 and all:
+                for a in L:
+                    C.rely(a).draw(color="red",alpha=1.0/len(L))
+            else:
+                A.draw(d=True,color="red")
+            info[path[0].idx] = path[1].idx
+            plt.savefig(self.imgDir+name+"/"+str(n.idx)+".png")
+            plt.clf()
+            #以C的期望为参照物？那如果源不是根还要一阶一阶地从根期望过来。
+            #把obs里的东西全画上
+        open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
 
 ##################
 import sys

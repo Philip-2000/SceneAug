@@ -52,12 +52,17 @@ class obje():
         realX = CenterX + CornerOriginalZ*z2x + CornerOriginalX*x2x
         return np.array([[realX[i],realZ[i]] for i in range(4)])
 
-    def draw(self,g=False):
+    def draw(self,g=False,d=False,color="",alpha=1.0):
         corners = self.corners2()
         if g:
             plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*", color=grupC[self.gid])
         else:
-            plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*")
+            if len(color):
+                plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*", color=color, alpha=alpha)
+            else:
+                plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*")
+        if d:
+            plt.plot([self.translation[0], self.translation[0]+0.5*self.direction()[0]], [-self.translation[2],-self.translation[2]-0.5*self.direction()[2]], marker="x")
 
     def project(self,wid):
         w = self.scne.WALLS[wid]
@@ -81,17 +86,25 @@ class obje():
     def setTransformation(self,t,o):
         self.translation,self.orientation = t,o
 
-    def rela(self, oo, o='r', scl=False):
-        t = self.matrix(-1)@(oo.translation - self.translation) / (self.size if scl else np.array([1,1,1]))
-        ori = oo.orientation - self.orientation
+    def rely(self, o, scl=False):
+        t = self.matrix()@(o.translation + self.translation) / (self.size if scl else np.array([1,1,1]))
+        ori = o.orientation + self.orientation
         while ori <-np.math.pi:
             ori += 2*np.math.pi
         while ori > np.math.pi:
             ori -= 2*np.math.pi
-        s = oo.size / (self.size if scl else np.array([1,1,1]))
-        if o == 'o':
-            return obje(t,s,ori,i=oo.class_index,idx=oo.idx,scne=oo.scne)
-        return (t,s,ori)
+        s = o.size * (self.size if scl else np.array([1,1,1]))
+        return obje(t,s,ori,i=o.class_index,idx=o.idx,scne=o.scne)
+
+    def rela(self, o, scl=False):
+        t = self.matrix(-1)@(o.translation - self.translation) / (self.size if scl else np.array([1,1,1]))
+        ori = o.orientation - self.orientation
+        while ori <-np.math.pi:
+            ori += 2*np.math.pi
+        while ori > np.math.pi:
+            ori -= 2*np.math.pi
+        s = o.size / (self.size if scl else np.array([1,1,1]))
+        return obje(t,s,ori,i=o.class_index,idx=o.idx,scne=o.scne)
 
     def flat(self,inter=True):
         return np.concatenate([self.translation,self.size,[0] if (inter and (self.class_name() in noOriType)) else self.orientation])#])#

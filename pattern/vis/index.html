@@ -1,58 +1,301 @@
-<div id="tree-container"></div>
+<div id="tree-container" style="width:10000px"></div>
+<script
+  src="http://code.jquery.com/jquery-1.12.4.min.js"
+  integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ="
+  crossorigin="anonymous">
+</script>
+<link rel="stylesheet" href="https://unpkg.com/splitting/dist/splitting.css" />
+<link rel="stylesheet" href="https://unpkg.com/splitting/dist/splitting-cells.css" />
+<script src="https://unpkg.com/splitting/dist/splitting.min.js"></script>
 <script>
-    function createTree(container, data) {
-    
-    //收集到图片imgs/blabla/*之后根据trees/blabla.json来连线，
+const name = "most";
 
-    // 创建树的根节点
-    var root = document.createElement('div');
-    root.className = 'tree-node';
-    root.textContent = data.name;
-    container.appendChild(root);
- 
-    // 递归创建子节点
-    function createChildren(parent, children) {
-        children.forEach(function(child) {
-            var childNode = document.createElement('div');
-            childNode.className = 'tree-node';
-            childNode.textContent = child.name;
-            parent.appendChild(childNode);
- 
-            if (child.children && child.children.length > 0) {
-                createChildren(childNode, child.children);
-            }
-        });
-    }
- 
-    if (data.children && data.children.length > 0) {
-        createChildren(root, data.children);
-    }
+const floorPlanMapping = new Map();
+
+const mappingHover = function(e){
+    e.preventDefault();
+    let meta = e.target.getAttribute("img-id");
+    let image = floorPlanMapping.get(parseInt(meta));
+    let w = image.width,h = image.height;
+    let scale = $(window).width() * 0.5 / w;
+    $(`#grids-${meta}`).css('height', `${parseInt(h*scale)}px`);
+    $(`#grids-${meta}`).css('width', `${parseInt(w*scale)}px`);
+    $(`#grids-${meta}`).css('opacity', '1');
+    $(`#grids-${meta} .cell`).css('height', `${parseInt(h*scale)}px`);
+    $(`#grids-${meta} .cell`).css('width', `${parseInt(w*scale)}px`);
+}
+
+const mappingLeave = function(e){
+    $(`#grids-${e.target.getAttribute("img-id")}`).css('opacity', '0');
+}
+
+function wrapImage(id,node){
+
+    var image = document.createElement('div');
+    image.style.backgroundImage = `url(../imgs/${name}/${id}.png)`;
+    image.style.backgroundSize = '100% 100%';
+    image.style.visibility = 'visible';
+    
+    image.setAttribute("img-id",id);
+
+    let img = new Image();
+    img.src = `../imgs/${name}/${id}.png`;
+    image.addEventListener('mouseover', mappingHover);
+    image.addEventListener('mouseout', mappingLeave);
+    image.classList.add('tiler');
+    floorPlanMapping.set(id, img);
+    
+    node.appendChild(image);
+}
+
+function wrapOwnText(text,id,node){ 
+    text = text.substring(0,20);
+    var ownText = document.createElement('p');
+    ownText.className = 'own-text';
+    ownText.textContent = text;
+    ownText.title = id;
+    
+    ownText.setAttribute("data-id",id);
+    ownText.addEventListener("mouseover",areaMouseOver);
+    ownText.addEventListener("mouseout",areaMouseOver);
+    node.appendChild(ownText);
+    return ownText;
+}
+
+const areaMouseOver = function(e){
+    e.preventDefault();
+    let n = document.getElementById("area-"+e.target.getAttribute("data-id"));
+    n.classList.toggle('tree-node-off');
+    n.classList.toggle('tree-node-on');
+}
+
+const textMouseOver = function(e){
+    e.preventDefault();
+    let n = document.getElementById(e.target.getAttribute("data-id"));
+    n.classList.toggle('node-content-off');
+    n.classList.toggle('node-content-on');
+}
+
+function wrapFatText(text,id,c,cc,node){
+    text = text.substring(0,20);
+    var fatText = document.createElement('p');
+    fatText.className = 'fat-text';
+    fatText.innerHTML = `${text}<br>${parseInt(c*10000)/10000},  ${parseInt(cc*10000)/10000}`;//text + " " + id + "<br>" + String(c) + " " + String(cc);
+    fatText.title = id;
+    fatText.setAttribute("data-id",id);
+    fatText.addEventListener("mouseover",textMouseOver);
+    fatText.addEventListener("mouseout",textMouseOver);
+    node.appendChild(fatText);
+    node.setAttribute("data-fatId",id);
+    return fatText;
+}
+
+function wrapSrcText(text,id,node){
+    text = text.substring(0,20);
+    var srcText = document.createElement('p');
+    srcText.className = 'src-text';
+    srcText.innerHTML = `${text}<br>`;// + " " + id;
+    srcText.title = id;
+    srcText.setAttribute("data-id",id);
+    srcText.addEventListener("mouseover",textMouseOver);
+    srcText.addEventListener("mouseout",textMouseOver);
+    node.appendChild(srcText);
+    node.setAttribute("data-srcId",id);
+    return srcText;
+}
+
+function createNode(edg,pid){   
+    var data = dat[edg[0]];
+    var node = document.createElement('div');
+    node.id = edg[0]
+    node.className = 'node-content';
+    
+    wrapOwnText(data.type,edg[0],node);
+
+    wrapFatText(dat[pid[0]].type,pid[0],edg[1],edg[2],node);
+
+    wrapSrcText(dat[info[String(edg[0])]].type,info[String(edg[0])],node);
+
+
+    wrapImage(edg[0],node);
+
+
+    var area = document.createElement('div');
+    area.className = 'tree-node';
+    area.id="area-"+edg[0]
+    area.appendChild(node);
+    return area
+}
+
+function createChildren(parent, children, parentId) {
+    children.forEach(function(child) {
+        var childNode = createNode(child,parentId);
+        parent.appendChild(childNode);
+        createChildren(childNode, dat[child[0]].edges, child);
+    });
 }
  
-// 样式
-var style = document.createElement('style');
-style.textContent = `
-    .tree-node {
-        margin-left: 20px;
-    }
-`;
-document.head.appendChild(style);
- 
-// 使用示例
-var data = {
-    name: 'Root',
-    children: [
-        { name: 'Child 1', children: [] },
-        {
-            name: 'Child 2',
-            children: [
-                { name: 'Grandchild 2.1', children: [] },
-                { name: 'Grandchild 2.2', children: [] }
-            ]
-        }
-    ]
-};
- 
-var container = document.getElementById('tree-container');
-createTree(container, data);
+$(document).ready(function () {
+
+    A = document.createElement("script");
+    A.src = `../trees/${name}.js`;
+    document.getElementsByTagName('HEAD').item(0).appendChild(A);
+    
+    B = document.createElement("script");
+    B.src = `../imgs/${name}/info.js`;
+    document.getElementsByTagName('HEAD').item(0).appendChild(B);
+    setTimeout(function(){
+        createChildren(document.getElementById('tree-container'), dat[0].edges, [0,0,0]);
+        Splitting({target: '.tiler',by: 'cells',rows: 1,columns: 1,image: true});
+        $('.tiler .cell-grid .cell').each(function(index){
+            $(this).parent().attr('id', `grids-${$(this).parent().parent().attr("img-id")}`);
+            $(this).attr('id', `grid-${$(this).parent().parent().attr("img-id")}`);
+        })
+    },1);
+});
+
 </script>
+<style>
+.tree-node {
+    display:inline-block;
+    vertical-align: top;
+    margin:1px;
+    border-style: solid;
+    border-radius: 3px;
+    border-color: white;
+}
+
+.tree-node-off {
+    border-color: white;
+    background-color: white;
+}
+
+.tree-node-on {
+    border-color: black;
+    background-color: gray;
+}
+
+.own-text {
+    font-size: 15px;
+    text-align: center;
+}
+.fat-text {
+    font-size: 10px;
+    display: inline-block;
+    width: 100px;
+    margin: auto;
+    vertical-align: top;
+    text-align: center;
+}
+.src-text {
+    font-size: 10px;
+    display: inline-block;
+    vertical-align: top;
+    width: 100px;
+    margin: auto;
+    text-align: center;
+    border-top-style:solid;
+    border-top-color: gray;
+}
+
+.node-content {
+    display:block;
+    width:105px;
+    border-style: solid;
+    border-radius: 5px;
+    margin: auto;
+    border-color: black;
+}
+
+.node-content-off {
+    background-color: white;
+    border-color: black;
+}
+
+.node-content-on {
+    background-color: rgb(206, 206, 206);
+    border-color: red;  
+}
+
+
+.tiler {
+    display: block;
+    cursor: pointer;
+    visibility: hidden;
+    height:80px;
+    width:auto;
+    border-radius: 2px;
+    border-style: solid;
+    border-color:rgb(53, 53, 53);
+    margin:auto;
+}
+
+.tiler img {
+    display: block;
+    margin: auto;
+    max-width: 100%;
+    visibility: visible;
+}
+
+.tiler .cell-grid {
+    background-position: center center;
+    margin: auto;
+    position: fixed;
+    /* top: 1em;
+    bottom: 1em;
+    left: 1em;
+    right: 1em; */
+    z-index: 10;
+    /* max-width: 1000px;
+    max-height: 600px; */
+    perspective: 30px;
+    visibility:hidden;
+}
+
+.mapping.catalogItem>.cell-grid {
+    visibility: visible;
+    transition: width 0.5s, height 0.5s, opacity 0.4s;
+    opacity: 0;
+    width: 0%;
+    height: 0%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+}
+
+.tiler .cell {
+    pointer-events: none;
+    opacity: 0;
+    transform: translateZ(-15px);
+    transform-style: preserve-3d;
+    transition-property: transform, opacity;
+    transition-duration: 0.5s, 0.4s;
+    transition-timing-function: cubic-bezier(0.65, 0.01, 0.15, 1.33);
+    /* The center character index */
+    --center-x: calc((var(--col-total) - 1) / 2);
+    --center-y: calc((var(--row-total) - 1) / 2);
+    /* Offset from center, positive & negative */
+    --offset-x: calc(var(--col-index) - var(--center-x));
+    --offset-y: calc(var(--row-index) - var(--center-y));
+    /* Absolute distance from center, only positive */
+    --distance-x: calc(
+        (var(--offset-x) * var(--offset-x)) / var(--center-x)
+    );
+    /* Absolute distance from center, only positive */
+    --distance-y: calc(
+        (var(--offset-y) * var(--offset-y)) / var(--center-y)
+    );
+    transition-delay: calc( 0.1s * var(--distance-y) + 0.1s * var(--distance-x) );
+}
+
+.tiler-overlay {
+    z-index: 2;
+}
+
+.tiler:hover .cell {
+    transform: scale(1);
+    opacity: 1;
+}
+
+</style>

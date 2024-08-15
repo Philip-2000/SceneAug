@@ -277,66 +277,34 @@ class scne():
     def bpt(self):
         return np.concatenate([o.bpt() for o in self.OBJES],axis=0)
 
-    def objectView(self,id,bd=100000,maxDis=100000):
-        newOBJES = [self.OBJES[id].rela(o,'o') for o in self.OBJES if (o.idx != id and o.nid == -1 and not(o.class_name() in self.noPatternType))]
+    def objectView(self,id,bd=100000,scl=False,maxDis=100000):
+        newOBJES = [self.OBJES[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1 and not(o.class_name() in self.noPatternType))]
         return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
-        newOBJES = [self.OBJES[id].rela(o,'o') for o in self.OBJES if (o.idx != id and not(o.class_name() in self.noPatternType))]
+        newOBJES = [self.OBJES[id].rela(o) for o in self.OBJES if (o.idx != id and not(o.class_name() in self.noPatternType))]
         newOBJES = sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
         return [o for o in newOBJES if (o.nid == -1 and (o.translation**2).sum() < maxDis)]
 
     def nids(self):
         return set([o.nid for o in self.OBJES])
 
-    def traversing(self, n, o, lst):
-        
-        #搜，一个一个搜？
-        obj = self.OBJES[lst[n.line.endOrder]]
-        los = n.line.minus(o,obj)
-        
-        for ed in n.edges:
-            for ob in self.OBJES:
-                if ed.endNode.type == ob.class_name() and (not o.idx in lst):
-                    #扣分！扣什么分！扣那个，就之前的分
-                    self.traversing(ed.endNode, ob, lst+[ob.idx] )
-
-    def traversingForm(self, n, o, lst):
-        
-        #搜，一个一个搜？
-        
-        #obj = self.OBJES[lst[n.line.endOrder]]
-        #los = n.line.minus(o,obj)
-        
-        for ed in n.edges:
-            candidates = [_ for _ in self.OBJES if (not _.idx in lst and ed.endNode.type == ob.class_name())]
-            for ob in candidates:
-                self.traversing(ed.endNode, ob, lst+[ob.idx] )
-
-    def traverse(self,pm,o,plan,lev=0):
-        #到这里之后，确信是一个n对一个id，已经认定是它了对吧
+    def traverse(self,pm,o,plan,lev=0): 
         for ed in pm.nods[o.nid].edges:
             m = ed.startNode
             while not(ed.endNode.idx in m.bunches):
                 m = m.source.startNode
             a = [o for o in self.OBJES if o.nid == m.idx]
-            a = a[0]
             #search one from what?
             for oo in [o for o in self.OBJES if o.class_name() == ed.endNode.type]:
-                l = m.bunches[ed.endNode.idx].loss(a.rela(oo,'o'))
-                pl = {"nids":[int(_) for _ in plan["nids"]],"loss":float(plan["loss"])+l}#?????
-                pl["nids"][oo.idx]=ed.endNode.idx
-                self.traverse(pm,ed.endNode,pl,lev+1)
+                l = m.bunches[ed.endNode.idx].loss(a[0].rela(oo))
+                pl = {"nids":[(int(_) if int(_)!=oo.idx else ed.endNode.idx) for _ in plan["nids"]],"loss":float(plan["loss"])+l}#?????
                 self.plans.append(deepcopy(pl))
-        pass
-
+                oo.nid=ed.endNode.idx
+                self.traverse(pm,oo,pl,lev+1)
+                oo.nid=-1
+                
     def tra(self,pm):
-        #懒得纠结了，
-        #就是在，所有的根中，如果有三个以上的根被找到的，就暂时返回一下，跟他们说这场景我们不接受
-        #然后如果是两个就需要两个顺序分别做一遍，取较高的那个
-        #
         cans = [o for o in self.OBJES if (o.class_name() in pm.rootNames)]
-        if len(cans)>2:
-            print("len(cans)>2")
-            return
+        assert len(cans)<=2
         #self.traverse(pm,pm.nods[0],{"nids":[-1 for _ in self.OBJES],"loss":0})
         plan = {"nids":[pm.rootNames.index(o.class_name()) for o in self.OBJES],"loss":0}#?????
         for o in cans:
@@ -347,9 +315,9 @@ class scne():
             self.plans.clear()
             self.traverse(pm,cans[1],plan)
             self.traverse(pm,cans[0],plan)
-            Q = sorted(self.plans,lambda x:-x["loss"])[0]
+            P = sorted(self.plans+[P],lambda x:-x["loss"])[0]
 
-        pass
+        return P
 
     def patterns(self, roots):
         pass

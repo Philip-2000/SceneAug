@@ -86,24 +86,20 @@ class obje():
     def setTransformation(self,t,o):
         self.translation,self.orientation = t,o
 
+    @classmethod
+    def mat(cls,ori,size):
+        return np.array([[np.math.cos(ori),0,np.math.sin(ori)],[0,1,0],[-np.math.sin(ori),0,np.math.cos(ori)]]) * size[:,None]
+
     def rely(self, o, scl=False):
-        t = self.matrix()@(o.translation + self.translation) / (self.size if scl else np.array([1,1,1]))
-        ori = o.orientation + self.orientation
-        while ori <-np.math.pi:
-            ori += 2*np.math.pi
-        while ori > np.math.pi:
-            ori -= 2*np.math.pi
-        s = o.size * (self.size if scl else np.array([1,1,1]))
+        t = self.translation + self.matrix()@(o.translation * (self.size if scl else np.array([1,1,1])) )
+        ori = (o.orientation + self.orientation) % (2*np.math.pi)#- (0.0 if (o.orientation - self.orientation) % (2*np.math.pi) < np.math.pi else 2*np.math.pi)
+        s = o.size * np.linalg.norm(obje.mat(-o.orientation,self.size), axis=1) if scl else o.size
         return obje(t,s,ori,i=o.class_index,idx=o.idx,scne=o.scne)
 
     def rela(self, o, scl=False):
-        t = self.matrix(-1)@(o.translation - self.translation) / (self.size if scl else np.array([1,1,1]))
-        ori = o.orientation - self.orientation
-        while ori <-np.math.pi:
-            ori += 2*np.math.pi
-        while ori > np.math.pi:
-            ori -= 2*np.math.pi
-        s = o.size / (self.size if scl else np.array([1,1,1]))
+        t = self.matrix(-1)@(o.translation-self.translation) / (self.size if scl else np.array([1,1,1]))
+        ori = (o.orientation - self.orientation) % (2*np.math.pi)#- (0.0 if (o.orientation - self.orientation) % (2*np.math.pi) < np.math.pi else 2*np.math.pi)
+        s = o.size / np.linalg.norm(obje.mat(ori,self.size), axis=1) if scl else o.size
         return obje(t,s,ori,i=o.class_index,idx=o.idx,scne=o.scne)
 
     def flat(self,inter=True):

@@ -21,8 +21,8 @@ class bnch():
     def loss(self,obj):
         return ((obj.flat()-self.exp)**2/self.dev).sum()
 
-    def add(self,obj):
-        if self.accept(obj):
+    def add(self,obj,f=False):
+        if self.accept(obj) or f:
             self.exp = (self.exp * len(self.obs) + obj.flat()) / (len(self.obs)+1)
             self.obs.append(obj)
             self.dev = np.average(np.array([(o.flat()-self.exp)**2 for o in self.obs]+DEN),axis=0) if MDE else self.dev

@@ -24,14 +24,14 @@ class node():
         self.bunches = {}
         
 class patternManager():
-    def __init__(self,verb=0,maxDepth=1):
+    def __init__(self,verb=0,maxDepth=1,s=False):
         self.version = ""
         self.sceneDir = "../novel3DFront/"
         self.workDir = "./pattern/"
         self.fieldDir = self.workDir+"fields/"
         self.imgDir = self.workDir+"imgs/"
         self.treesDir = self.workDir+"trees/" #self.cnt = len(os.listdir(self.sceneDir))
-        self.rootNames = ["King-size Bed","Coffee Table","Dining Table"]#
+        self.rootNames = ["King-size Bed"]#,"Coffee Table","Dining Table"
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
         self.sDs = scneDs(self.sceneDir)
@@ -39,11 +39,25 @@ class patternManager():
             print("scene dataset loaded")
         self.maxDepth = maxDepth
         self.objectViewBd = 5
-        self.scaled=False
+        self.scaled=s
     
     def createNode(self,fat,s,c=0.0,cc=0.0):
         self.nods.append(node(s,fat.suffix if len(fat.suffix)>0 else s.replace('/','.'),len(self.nods)))#nod(nn))
         fat.edges.append(edge(fat,self.nods[-1],c,cc))
+
+    def freqInit(self,n):
+        for s in self.rootNames:
+            for f in open(self.fieldDir+s+".txt").readlines():
+                for o in [_ for _ in self.sDs[int(f)].OBJES if _.class_name() == s]:#F+=1
+                    if (len(self.nods)) in n.bunches:
+                        n.bunches[len(self.nods)].add(obje(np.array([0,0,0]),o.size,np.array([0]),i=o.class_index,idx=o.idx,scne=o.scne),True)
+                    else:
+                        n.bunches[len(self.nods)] = bnch(obje(np.array([0,0,0]),o.size,np.array([0]),i=o.class_index,idx=o.idx,scne=o.scne))
+            n.bunches[len(self.nods)].enable(len(self.nods))
+            self.createNode(n,s,len(n.bunches[len(self.nods)])/len(self.sDs),len(n.bunches[len(self.nods)])/len(self.sDs))
+            
+        for nn in n.edges:
+            self.freq(nn.endNode)#frequentRecursive(n.endNode,form)#
 
     def freq(self,n,ex=True,lev=0):
         lstt = open(self.fieldDir+n.suffix+".txt").readlines()
@@ -120,13 +134,7 @@ class patternManager():
         if load != "":
             self.loadTre(json.load(open(self.treesDir+load+".json")))
         else:
-            for s in self.rootNames:
-                self.createNode(self.nods[0],s)
-                for f in open(self.fieldDir+self.nods[-1].suffix+".txt").readlines():
-                    for o in [_ for _ in self.sDs[int(f)].OBJES if _.class_name() == self.nods[-1].type]:#F+=1
-                        o.nid = self.nods[-1].idx
-            for n in self.nods[0].edges:
-                self.freq(n.endNode)#frequentRecursive(n.endNode,form)#
+            self.freqInit(self.nods[0])
             self.storeTree(name)
         if draw:
             self.draw(load if len(load) > 0 else name)
@@ -134,10 +142,23 @@ class patternManager():
     def draw(self,name,all=False,lim=5):
         if not os.path.exists(self.imgDir+name+"/"):
             os.makedirs(self.imgDir+name+"/")
-        info = {i:0 for i in range(1,1+len(self.nods[0].edges))}#open(self.imgDir+name+"/info.json")
+        info = {}#open(self.imgDir+name+"/info.json")
         
+        for n in self.nods[1:len(self.nods[0].edges)+1]:
+            plt.axis('equal')
+            plt.xlim(-lim,lim)
+            plt.ylim(-lim,lim)
+            L = self.nods[0].bunches[n.idx]
+            if len(L)>0 and all:
+                for a in L.obs:
+                    a.draw(color="black",alpha=1.0/len(L))
+            else:
+                obje(np.array([0,0,0]),L.exp[3:6],np.array([0])).draw(d=True,color="black")
+            info[n.idx] = 0
+            plt.savefig(self.imgDir+name+"/"+str(n.idx)+".png")
+            plt.clf()
+
         for n in self.nods[len(self.nods[0].edges)+1:]:
-            
             plt.axis('equal')
             plt.xlim(-lim,lim)
             plt.ylim(-lim,lim)
@@ -151,15 +172,13 @@ class patternManager():
                 nn = sr
                 sr = nn.source.startNode
                 path.append(nn)
-
-
-            A = obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))
+            B = sr.bunches[nn.idx]
+            A = obje(B.exp[:3],B.exp[3:6],B.exp[-1:])
             C = A
             for i in range(len(path)-1,0,-1):
                 B = path[i].bunches[path[i-1].idx]
-                A,C = A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled),A
+                A,C = A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled),A #A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled)
             
-            # 
             C.draw(d=True,color="black")
             L = path[1].bunches[path[0].idx].obs
             if len(L)>0 and all:
@@ -170,8 +189,7 @@ class patternManager():
             info[path[0].idx] = path[1].idx
             plt.savefig(self.imgDir+name+"/"+str(n.idx)+".png")
             plt.clf()
-            #以C的期望为参照物？那如果源不是根还要一阶一阶地从根期望过来。
-            #把obs里的东西全画上
+
         open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
 
 ##################
@@ -183,10 +201,10 @@ def parse(argv):
     parser.add_argument('-d','--maxDepth', default=2)
     parser.add_argument('-n','--name', default="")
     parser.add_argument('-l','--load', default="")
+    parser.add_argument('-s','--scaled', action="store_true")
     args = parser.parse_args(argv)
     return args
 
 if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
-    #patternManager().singleExistStorage(object_types[:-2])#frequent(["L-shaped Sofa"],store=False)
-    patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth)).treeConstruction(load=args.load,name=args.name)#
+    patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled).treeConstruction(load=args.load,name=args.name)#

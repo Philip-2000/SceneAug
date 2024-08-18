@@ -301,7 +301,7 @@ class scne():
                 oo.nid=ed.endNode.idx
                 self.traverse(pm,oo,pl,lev+1)
                 oo.nid=-1
-                
+
     def tra(self,pm):
         cans = [o for o in self.OBJES if (o.class_name() in pm.rootNames)]
         assert len(cans)<=2
@@ -318,6 +318,20 @@ class scne():
             P = sorted(self.plans+[P],lambda x:-x["loss"])[0]
 
         return P
+
+    def P2Links(self,P,pm):
+        for n in pm.nods:
+            if n is None:
+                break
+            for pid in range(len(P["nids"])):
+                p = P["nids"][pid]
+                if p == n.idx:
+                    for qid in range(len(P["nids"])):
+                        q = P["nids"][qid]
+                        if q in [_[0] for _ in n.edges]:
+                            self.LINKS.append(link(pid,qid,len(self.LINKS),self))
+                        elif q in [_ for _ in n.bunches.keys()]:
+                            self.LINKS.append(link(pid,qid,len(self.LINKS),self))
 
     def patterns(self, roots):
         pass

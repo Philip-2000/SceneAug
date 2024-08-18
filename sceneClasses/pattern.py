@@ -130,7 +130,7 @@ class patternManager():
             open(self.treesDir+name+".js","w").write("var dat="+json.dumps(lst)+";")
             open(self.treesDir+name+".json","w").write(json.dumps(lst))
         
-    def treeConstruction(self,load="",name="",draw=True):#print(self.treesDir+load+".json")
+    def treeConstruction(self,load="",name="",draw=False):#print(self.treesDir+load+".json")
         if load != "":
             self.loadTre(json.load(open(self.treesDir+load+".json")))
         else:
@@ -207,4 +207,9 @@ def parse(argv):
 
 if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
-    patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled).treeConstruction(load=args.load,name=args.name)#
+    T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled)
+    T.treeConstruction(load=args.load,name=args.name)#
+    S = scne(fullLoadScene("00c36b04-369f-4df1-9db1-b29913d2c51f_MasterBedroom-7033"),grp=False,wl=True,cen=True)
+    P = S.tra(T)
+    S.P2Links(P,T)
+    S.draw()

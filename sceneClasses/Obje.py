@@ -33,6 +33,10 @@ class obje():
         self.nid=-1
         self.scne=scne#pointer(scne)
 
+    @classmethod
+    def fromFlat(cls,v,j):
+        return cls(v[:3],v[3:6],v[-1:],i=j)
+
     def direction(self):
         return np.array([np.math.sin(self.orientation),0,np.math.cos(self.orientation)])
 

@@ -21,6 +21,9 @@ class bnch():
     def __len__(self):
         return len(self.obs)
 
+    def sample(self):
+        return np.random.randn(self.exp.shape[-1])*(self.dev**(0.5)) + self.exp
+
     def loss(self,obj):
         return ((obj.flat()-self.exp)**2/self.dev).sum()
 

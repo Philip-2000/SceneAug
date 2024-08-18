@@ -173,11 +173,11 @@ class patternManager():
                 sr = nn.source.startNode
                 path.append(nn)
             B = sr.bunches[nn.idx]
-            A = obje(B.exp[:3],B.exp[3:6],B.exp[-1:])
+            A = obje.fromFlat(B.exp,j=object_types.index(nn.type))
             C = A
             for i in range(len(path)-1,0,-1):
                 B = path[i].bunches[path[i-1].idx]
-                A,C = A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled),A #A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled)
+                A,C = A.rely(obje.fromFlat(B.exp,j=object_types.index(path[i-1].type)),self.scaled),A #A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled)
             
             C.draw(d=True,color="black")
             L = path[1].bunches[path[0].idx].obs
@@ -191,6 +191,31 @@ class patternManager():
             plt.clf()
 
         open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
+
+    def generate(self,nm="generate"):
+        scene = scne.empty(nm)
+        N = self.nods[0]
+        while len(N.edges)>0:
+            cs = 0
+            for ed in N.edges:
+                cs += ed.confidence
+                if np.random.rand() < ed.confidenceIn:
+                    N,m = ed.endNode,ed.startNode
+                    while not (N.idx in m.bunches):
+                        m = m.source.startNode
+                    r = m.bunches[N.idx].sample()
+                    a = [o for o in scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
+                    o = a[0].rely(obje.fromFlat(r,j=object_types.index(N.type)),self.scaled)
+                    scene.addObject(o)
+                    o.nid = N.idx
+                    if m.idx > 0:
+                        scene.LINKS.append(objLink(a[0].idx,o.idx,len(scene.LINKS),scene))
+                    cs = 0
+                    break
+            
+                if np.random.rand() < cs:
+                    break
+        scene.draw()
 
 ##################
 import sys
@@ -209,6 +234,7 @@ if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled)
     T.treeConstruction(load=args.load,name=args.name)#
+    T.generate()
     # S = scne(fullLoadScene("009ccdf2-5f3f-46e7-a562-10da2b2e3bb9_Bedroom-65400"),grp=False,cen=True)
     # P = S.tra(T)
     # S.P2Links(P,T)

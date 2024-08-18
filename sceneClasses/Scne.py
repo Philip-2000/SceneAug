@@ -53,6 +53,15 @@ class scne():
         self.noPatternType = []#"Pendant Lamp", "Ceiling Lamp"]
         self.plans = []
 
+    @classmethod
+    def empty(cls,nm):
+        return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":nm},rmm=False)
+
+    def addObject(self,objec):
+        objec.idx = len(self.OBJES)
+        objec.scne = self
+        self.OBJES.append(objec)
+
     def draw(self,imageTitle="",lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False):
         for i in range(len(self.SPCES)):
             self.SPCES[i].draw()

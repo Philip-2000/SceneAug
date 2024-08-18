@@ -3,6 +3,7 @@ from Link import *
 from Wall import *
 from Grup import *
 from Spce import *
+from Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
@@ -64,7 +65,7 @@ class scne():
             if (not self.grp) or drawUngroups or (self.OBJES[i].gid):
                 self.OBJES[i].draw(self.grp)#corners = OBJES[i].corners2()
     
-        if drawWall:
+        if drawWall and len(self.WALLS):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
             contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2
             while w != 0:
@@ -287,35 +288,40 @@ class scne():
     def nids(self):
         return set([o.nid for o in self.OBJES])
 
-    def traverse(self,pm,o,plan,lev=0): 
+    def traverse(self,pm,o,plan,lev=0): #print(str(lev)+" traverse: "+o.class_name() + " nid="+str(o.nid) + " idx="+str(o.idx))
+        cs=0
         for ed in pm.nods[o.nid].edges:
             m = ed.startNode
             while not(ed.endNode.idx in m.bunches):
                 m = m.source.startNode
-            a = [o for o in self.OBJES if o.nid == m.idx]
-            #search one from what?
-            for oo in [o for o in self.OBJES if o.class_name() == ed.endNode.type]:
-                l = m.bunches[ed.endNode.idx].loss(a[0].rela(oo))
-                pl = {"nids":[(int(_) if int(_)!=oo.idx else ed.endNode.idx) for _ in plan["nids"]],"loss":float(plan["loss"])+l}#?????
+            a = [o for o in self.OBJES if o.nid == m.idx]#search one from what?
+            for oo in [o for o in self.OBJES if (o.class_name() == ed.endNode.type and o.nid == -1)]: #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
+                v = singleMatch(m.bunches[ed.endNode.idx].loss(a[0].rela(oo)),ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
+                pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))],"fit":float(plan["fit"])+v}#?????
                 self.plans.append(deepcopy(pl))
                 oo.nid=ed.endNode.idx
                 self.traverse(pm,oo,pl,lev+1)
                 oo.nid=-1
+            cs += ed.confidence
 
     def tra(self,pm):
         cans = [o for o in self.OBJES if (o.class_name() in pm.rootNames)]
         assert len(cans)<=2
-        #self.traverse(pm,pm.nods[0],{"nids":[-1 for _ in self.OBJES],"loss":0})
-        plan = {"nids":[pm.rootNames.index(o.class_name()) for o in self.OBJES],"loss":0}#?????
+        #self.traverse(pm,pm.nods[0],{"nids":[-1 for _ in self.OBJES],"fit":0})
+        plan = {"nids":[pm.rootNames.index(o.class_name())+1 if (o.class_name() in pm.rootNames) else -1 for o in self.OBJES],"fit":0}
         for o in cans:
+            o.nid = plan["nids"][o.idx]
             self.traverse(pm,o,plan)
-        P = sorted(self.plans,lambda x:-x["loss"])[0]
+
+        #for p in self.plans:print(str(p["fit"])+[self.OBJES[i].class_name()+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1])
+
+        P = sorted(self.plans,key=lambda x:x["fit"])[0]
 
         if len(cans)==2:
             self.plans.clear()
             self.traverse(pm,cans[1],plan)
             self.traverse(pm,cans[0],plan)
-            P = sorted(self.plans+[P],lambda x:-x["loss"])[0]
+            P = sorted(self.plans+[P],key=lambda x:x["fit"])[0]
 
         return P
 
@@ -328,13 +334,10 @@ class scne():
                 if p == n.idx:
                     for qid in range(len(P["nids"])):
                         q = P["nids"][qid]
-                        if q in [_[0] for _ in n.edges]:
-                            self.LINKS.append(link(pid,qid,len(self.LINKS),self))
+                        if q in [_.endNode.idx for _ in n.edges]:
+                            self.LINKS.append(objLink(pid,qid,len(self.LINKS),self))
                         elif q in [_ for _ in n.bunches.keys()]:
-                            self.LINKS.append(link(pid,qid,len(self.LINKS),self))
-
-    def patterns(self, roots):
-        pass
+                            self.LINKS.append(objLink(pid,qid,len(self.LINKS),self))
 
 import os
 from util import fullLoadScene

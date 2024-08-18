@@ -9,6 +9,9 @@ MDE = True
 def giveup(B,A,C):
     return (B is None) or (len(B) < 100) #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
 
+def singleMatch(l,c,cc,od,cs):
+    return -l
+
 class bnch():
     def __init__(self,obj,exp=None,dev=None):
         self.exp = exp if obj is None else obj.flat()

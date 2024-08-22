@@ -4,7 +4,7 @@ from Scne import *
 
 DE = [0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]
 DEN = [DE]*10
-SIGMA2 = 4.0
+SIGMA2 = 2.0**2
 MDE = True
 def giveup(B,A,C):
     return (B is None) or (len(B) < 100) #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
@@ -26,6 +26,9 @@ class bnch():
 
     def loss(self,obj):
         return ((obj.flat()-self.exp)**2/self.dev).sum()
+
+    def test(self,obj):
+        return ((obj.flat()-self.exp)**2).sum()
 
     def add(self,obj,f=False):
         if self.accept(obj) or f:
@@ -73,10 +76,15 @@ class bnches():
             if not b.refresh():
                 self.bunches.remove(b)
 
-    def accept(self,obj,create=True):
-        for b in range(len(self.bunches)):
-            if self.bunches[b].add(obj):
-                return b
+    def accept(self,obj,create=True,blackList=[]):
+        # tests = []
+        # for b in range(len(self.bunches)):
+        #     if (not b in blackList):
+        #         tests.append((b,self.bunches[b].test(obj)))
+        # tests = sorted(tests, key=lambda x:x[1])
+        for t in sorted([(b,self.bunches[b].test(obj)) for b in range(len(self.bunches)) if (not b in blackList)], key=lambda x:x[1]):#tests:#
+            if self.bunches[t[0]].add(obj):
+                return t[0]
         if create:
             self.bunches.append(bnch(obj))
             return len(self.bunches)-1

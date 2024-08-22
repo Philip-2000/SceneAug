@@ -31,14 +31,14 @@ class patternManager():
         self.fieldDir = self.workDir+"fields/"
         self.imgDir = self.workDir+"imgs/"
         self.treesDir = self.workDir+"trees/" #self.cnt = len(os.listdir(self.sceneDir))
-        self.rootNames = ["King-size Bed","Coffee Table","Dining Table","Single bed"]#
+        self.rootNames = ["Dining Table","King-size Bed","Coffee Table","Single bed"]#
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
         self.sDs = scneDs(self.sceneDir)
         if verb == 0:
             print("scene dataset loaded")
         self.maxDepth = maxDepth
-        self.objectViewBd = 5
+        self.objectViewBd = 6
         self.scaled=s
     
     def createNode(self,fat,s,c=0.0,cc=0.0):
@@ -71,13 +71,15 @@ class patternManager():
             idset = set([e.endNode.idx for e in n.edges])
             cnt = 0
             for scene in field:#for f in lstt: assert n.idx in scene.nids() #scene = self.sDs[int(f)]
+                blackLists = {o:[] for o in object_types}
                 if (not ex) or len(scene.nids() & idset) == 0:
                     cnt += 1
                     for o in scene.OBJES:
                         if o.nid in sheet: #o.nid == n.idx:
                             res = scene.objectView(o.idx,self.objectViewBd,self.scaled) #assert len(res) <= self.objectViewBd
                             for r in res:#print(r.class_name())
-                                sheet[o.nid][r.class_name()].accept(r,1)
+                                b = sheet[o.nid][r.class_name()].accept(r,1,blackLists[r.class_name()])
+                                blackLists[r.class_name()].append(b)
             [[sheet[k][s].refresh() for s in sheet[k]] for k in sheet]
     
             if self.verb > 1:
@@ -234,7 +236,7 @@ if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled)
     T.treeConstruction(load=args.load,name=args.name)#
-    T.generate()
+    #T.generate()
     # S = scne(fullLoadScene("009ccdf2-5f3f-46e7-a562-10da2b2e3bb9_Bedroom-65400"),grp=False,cen=True)
     # P = S.tra(T)
     # S.P2Links(P,T)

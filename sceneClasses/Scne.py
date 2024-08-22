@@ -350,7 +350,6 @@ class scne():
 
 import os
 from util import fullLoadScene
-from pattern import *
 class scneDs():
     def __init__(self,dir="../novel3DFront/",grp=False,wl=False,cen=True,rmm=False):
         self._dataset = [scne(fullLoadScene(n),grp=grp,wl=wl,cen=cen,rmm=rmm) for n in os.listdir(dir)]

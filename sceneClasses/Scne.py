@@ -21,7 +21,7 @@ class scne():
         tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
         #firstly, store those objects and walls into the WALLS and OBJES
         ce = scene["floor_plan_centroid"] if cen else np.array([0,0,0])
-        c_e= np.array([0,0,0]) if (not cen) or (not (wl or windoor)) else scene["floor_plan_centroid"]
+        c_e= np.array([0,0,0]) if (cen) or (not (wl or windoor)) else scene["floor_plan_centroid"]
         self.grp = grp
         self.imgDir = imgDir
 
@@ -62,7 +62,7 @@ class scne():
         objec.scne = self
         self.OBJES.append(objec)
 
-    def draw(self,imageTitle="",lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False):
+    def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False):
         for i in range(len(self.SPCES)):
             self.SPCES[i].draw()
 
@@ -72,7 +72,7 @@ class scne():
 
         for i in range(len(self.OBJES)):
             if (not self.grp) or drawUngroups or (self.OBJES[i].gid):
-                self.OBJES[i].draw(self.grp)#corners = OBJES[i].corners2()
+                self.OBJES[i].draw(self.grp,d)#corners = OBJES[i].corners2()
     
         if drawWall and len(self.WALLS):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
@@ -81,7 +81,7 @@ class scne():
                 contour.append([self.WALLS[w].p[0],self.WALLS[w].p[2]])
                 w = self.WALLS[w].w2
             contour = np.array(contour)
-            plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o")
+            plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color="black")
         plt.axis('equal')
 
         for li in self.LINKS:
@@ -315,16 +315,21 @@ class scne():
                 oo.nid=-1
             cs += ed.confidence
 
-    def tra(self,pm):
+    def tra(self,pm,use=True,draw=True):
+        #print([o.class_name() for o in self.OBJES])
         plan = {"nids":[pm.rootNames.index(o.class_name())+1 if (o.class_name() in pm.rootNames) else -1 for o in self.OBJES],"fit":0}
         for o in self.OBJES:
             o.nid = plan["nids"][o.idx]
         for r in pm.rootNames:
-            for o in [o for o in self.OBJES if o.class_name() == r]:
-                print(r)
+            for o in [o for o in self.OBJES if o.class_name() == r]:#print(r)
                 self.traverse(pm,o,plan)
         #for p in self.plans:print(str(p["fit"])+[self.OBJES[i].class_name()+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1])
-        return sorted(self.plans,key=lambda x:x["fit"])[0]
+            plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
+        if use:
+            self.P2Links(plan["nids"],pm)
+            if draw:
+                self.draw()
+        return plan
 
     def P2Links(self,P,pm):
         for n in pm.nods:

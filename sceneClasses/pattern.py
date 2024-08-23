@@ -162,6 +162,7 @@ class patternManager():
 
     def generate(self,nm="generate"):
         scene = scne.empty(nm)
+        scene.imgDir = "./gens/"
         N = self.nods[0]
         while len(N.edges)>0:
             cs = 0
@@ -183,7 +184,7 @@ class patternManager():
             
                 if np.random.rand() < cs:
                     break
-        scene.draw()
+        scene.draw(d=True)
 
 ##################
 import sys
@@ -193,17 +194,19 @@ def parse(argv):
     parser.add_argument('-v','--verbose', default=0)
     parser.add_argument('-d','--maxDepth', default=2)
     parser.add_argument('-n','--name', default="")
-    parser.add_argument('-l','--load', default="")
-    parser.add_argument('-s','--scaled', action="store_true")
+    parser.add_argument('-l','--load', default="vise")
+    parser.add_argument('-s','--scaled', default=True, action="store_true")
+    parser.add_argument('-u','--uid', default="0a9f23f6-f0a6-4cbb-8db5-48be2996d10a_LivingDiningRoom-507")
+    parser.add_argument('-g','--gen', default="")
     args = parser.parse_args(argv)
     return args
 
 if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled,loadDataset=(len(args.load)==0))
-    T.treeConstruction(load=args.load,name=args.name)#
-    #T.generate()
-    # S = scne(fullLoadScene("009ccdf2-5f3f-46e7-a562-10da2b2e3bb9_Bedroom-65400"),grp=False,cen=True)
-    # P = S.tra(T)
-    # S.P2Links(P,T)
-    # S.draw()
+    T.treeConstruction(load=args.load,name=args.name,draw=len(args.name)>0 or (len(args.uid)==0 and len(args.gen)==0))#
+    if len(args.gen)>0:
+        for i in range(16):
+            T.generate(str(i))#args.gen)
+    elif len(args.uid)>0:
+        scne(fullLoadScene(args.uid),grp=False,cen=True,wl=True).tra(T)

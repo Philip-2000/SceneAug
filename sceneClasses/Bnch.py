@@ -3,10 +3,12 @@ from Obje import *
 from Scne import *
 
 DEN,SIGMA2,MDE = [0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]*5,2.0**2,True
-def giveup(B,A,C):
-    return (B is None) or (len(B) < 100) #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
+def giveup(B,A,C):#c=len(B)/A, cc=len(B)/C
+    return (B is None) or (len(B) < 50) #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
 def singleMatch(l,c,cc,od,cs):
-    return -l
+    #匹配上了，是一件好事，加分100，但是如果空间分布差异比较大，就扣掉一些分，也就是100-l；
+    #如果是在前面给出的，那么算是比较常见的，cs越小越靠前，但如果比较靠后，那么即使比较适配我们也认为你有一定问题？
+    return 100-l
 
 class bnch():
     def __init__(self,obj,exp=None,dev=None):
@@ -18,7 +20,7 @@ class bnch():
         return len(self.obs)
 
     def sample(self):
-        return np.random.randn(self.exp.shape[-1])*(self.dev**(0.5)) + self.exp
+        return self.exp + np.random.randn(self.exp.shape[-1])*(self.dev**(0.5))/5#np.array([5,1,5,5,1,5,5])
 
     def loss(self,obj):
         return ((obj.flat()-self.exp)**2/self.dev).sum()

@@ -46,22 +46,27 @@ class bnch():
         for o in self.obs:#if o.scne.OBJES[o.idx].nid != -1: print(o.scne.scene_uid+" "+str(o.idx)+" "+o.scne.OBJES[o.idx].class_name()) #assert 1 == 0
             o.scne.OBJES[o.idx].nid = nid
 
-    def draw(self,basic,dir,idx,J,scaled,all,lim,root=False,offset=[4.0,0.0]):
+    def draw(self,basic,dir,idx,J,scaled,all,lim,path,offset=[4.0,0.0]):
         plt.axis('equal')
         plt.xlim(-lim,lim)
         plt.ylim(-lim,lim)
 
-        if not root:
+        if len(path)>1:
             basic.draw(d=True,color="black",cr="blue")
         if all and len(self.obs)>0:
             for a in self.obs:
                 basic.rely(a).draw(color="red",alpha=1.0/len(self.obs))
         else:
             me = basic.rely(obje.fromFlat(self.exp,j=J),scaled)
-            if not root:
+            if len(path)>1:
                 plt.Rectangle((me.translation[0],-me.translation[2]),width=self.dev[0],height=self.dev[2],color="yellow")
                 plt.plot([me.translation[0], me.translation[0]+0.5*np.math.sin(me.orientation+self.dev[-1])], [-me.translation[2],-me.translation[2]-0.5*np.math.cos(me.orientation+self.dev[-1])], color="lime")
                 plt.plot([me.translation[0], me.translation[0]+0.5*np.math.sin(me.orientation-self.dev[-1])], [-me.translation[2],-me.translation[2]-0.5*np.math.cos(me.orientation-self.dev[-1])], color="lime")
+                fat = path[0].source.startNode
+                while fat.idx != path[1].idx:
+                    if fat.idx in path[1].bunches:
+                        basic.rely(obje.fromFlat(path[1].bunches[fat.idx].exp,j=object_types.index(fat.type)),scaled).draw(color="gray",d=True,cr="gray")
+                    fat = fat.source.startNode
 
             me.draw(d=True,color="red",cr="green")
             me.translation[0] = offset[0]

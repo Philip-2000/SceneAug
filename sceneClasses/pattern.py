@@ -155,7 +155,7 @@ class patternManager():
             for i in range(len(path)-1,0,-1):
                 A = A.rely(obje.fromFlat(B.exp,j=object_types.index(path[i-1].type)),self.scaled) #A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled)
                 B = path[i].bunches[path[i-1].idx]
-            B.draw(A,self.imgDir+name,str(n.idx),object_types.index(nn.type),self.scaled,all,lim,(len(path)==1))
+            B.draw(A,self.imgDir+name,str(n.idx),object_types.index(nn.type),self.scaled,all,lim,path)
             info[path[0].idx] = path[1].idx if len(path)>1 else 0
 
         open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")

@@ -48,13 +48,14 @@ function wrapImage(id,node){
     node.appendChild(image);
 }
 
-function wrapOwnText(text,id,node){ 
+function wrapOwnText(text,id,node,buncs){ 
     text = text.substring(0,20);
     var ownText = document.createElement('p');
     ownText.className = 'own-text';
     ownText.textContent = text;
-    ownText.title = id;
-    
+    ownText.title = id + " [";
+    for(let i in buncs){ownText.title += " " + String(i)}
+    ownText.title += "]";
     ownText.setAttribute("data-id",id);
     ownText.addEventListener("mouseover",areaMouseOver);
     ownText.addEventListener("mouseout",areaMouseOver);
@@ -112,7 +113,7 @@ function createNode(edg,pid){
     node.id = edg[0]
     node.className = 'node-content';
     
-    wrapOwnText(data.type,edg[0],node);
+    wrapOwnText(data.type,edg[0],node,data.buncs);
 
     wrapFatText(dat[pid[0]].type,pid[0],edg[1],edg[2],node);
 

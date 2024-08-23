@@ -57,30 +57,24 @@ class patternManager():
             n.bunches[len(self.nods)].enable(len(self.nods))
             self.createNode(n,s,len(n.bunches[len(self.nods)])/len(self.sDs),len(n.bunches[len(self.nods)])/len(self.sDs))
             
-        for nn in n.edges:
-            self.freq(nn.endNode)#frequentRecursive(n.endNode,form)#
+        for e in n.edges:
+            self.freq(e.endNode,[e.endNode.idx])#frequentRecursive(n.endNode,form)#
 
-    def freq(self,n,ex=True,lev=0):
-        lstt = open(self.fieldDir+n.suffix+".txt").readlines()
-        field= [self.sDs[int(f)] for f in lstt if n.idx in self.sDs[int(f)].nids()]
-        path,m = [n.idx],n
-        while m.source is None:
-            m = m.source.startNode
-            path.append(m.idx)
+    def freq(self,n,path,ex=True,lev=0):
+        field= [self.sDs[int(f)] for f in open(self.fieldDir+n.suffix+".txt").readlines() if n.idx in self.sDs[int(f)].nids()]
         while 1:
             sheet = {id:{o:bnches() for o in object_types} for id in path}
             idset = set([e.endNode.idx for e in n.edges])
             cnt = 0
             for scene in field:#for f in lstt: assert n.idx in scene.nids() #scene = self.sDs[int(f)]
-                blackLists = {o:[] for o in object_types}
+                blackLists = {id:{o:[] for o in object_types} for id in path}
                 if (not ex) or len(scene.nids() & idset) == 0:
                     cnt += 1
                     for o in scene.OBJES:
                         if o.nid in sheet: #o.nid == n.idx:
                             res = scene.objectView(o.idx,self.objectViewBd,self.scaled) #assert len(res) <= self.objectViewBd
                             for r in res:#print(r.class_name())
-                                b = sheet[o.nid][r.class_name()].accept(r,1,blackLists[r.class_name()])
-                                blackLists[r.class_name()].append(b)
+                                blackLists[o.nid][r.class_name()].append(sheet[o.nid][r.class_name()].accept(r,1,blackLists[o.nid][r.class_name()]))
             [[sheet[k][s].refresh() for s in sheet[k]] for k in sheet]
     
             if self.verb > 1:
@@ -110,7 +104,7 @@ class patternManager():
             print('\t'.join(['\t']*lev+[e.endNode.type for e in n.edges]+["fuck"]))
         if lev < self.maxDepth:
             for e in n.edges:
-                self.freq(e.endNode,ex,lev+1)
+                self.freq(e.endNode,(path if (e.endNode.type in noOriType) else path+[e.endNode.idx]),ex,lev+1)
 
     def loadTre(self,dct,id=0):
         if id == 0:

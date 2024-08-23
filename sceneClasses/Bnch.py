@@ -102,11 +102,6 @@ class bnches():
                 self.bunches.remove(b)
 
     def accept(self,obj,create=True,blackList=[]):
-        # tests = []
-        # for b in range(len(self.bunches)):
-        #     if (not b in blackList):
-        #         tests.append((b,self.bunches[b].test(obj)))
-        # tests = sorted(tests, key=lambda x:x[1])
         for t in sorted([(b,self.bunches[b].test(obj)) for b in range(len(self.bunches)) if (not b in blackList)], key=lambda x:x[1]):#tests:#
             if self.bunches[t[0]].add(obj):
                 return t[0]

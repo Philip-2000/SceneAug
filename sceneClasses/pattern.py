@@ -24,7 +24,7 @@ class node():
         self.bunches = {}
         
 class patternManager():
-    def __init__(self,verb=0,maxDepth=1,s=False):
+    def __init__(self,verb=0,maxDepth=1,s=False,loadDataset=True):
         self.version = ""
         self.sceneDir = "../novel3DFront/"
         self.workDir = "./pattern/"
@@ -34,9 +34,10 @@ class patternManager():
         self.rootNames = ["Dining Table","King-size Bed","Coffee Table","Single bed"]#
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
-        self.sDs = scneDs(self.sceneDir)
-        if verb == 0:
-            print("scene dataset loaded")
+        if loadDataset:
+            self.sDs = scneDs(self.sceneDir)
+            if verb == 0:
+                print("scene dataset loaded")
         self.maxDepth = maxDepth
         self.objectViewBd = 6
         self.scaled=s
@@ -113,7 +114,7 @@ class patternManager():
 
     def loadTre(self,dct,id=0):
         if id == 0:
-            self.nods += [None for _ in dct] #nod(None)
+            self.nods += [None for _ in dct[1:]] #nod(None)
         suf = "" if id == 0 else self.nods[id].suffix+"+"
         for b in dct[id]["buncs"]:
             self.nods[id].bunches[int(b)] = bnch(None,np.array(dct[id]["buncs"][b][0]),np.array(dct[id]["buncs"][b][1]))
@@ -145,52 +146,23 @@ class patternManager():
         if not os.path.exists(self.imgDir+name+"/"):
             os.makedirs(self.imgDir+name+"/")
         info = {}#open(self.imgDir+name+"/info.json")
-        
-        for n in self.nods[1:len(self.nods[0].edges)+1]:
-            plt.axis('equal')
-            plt.xlim(-lim,lim)
-            plt.ylim(-lim,lim)
-            L = self.nods[0].bunches[n.idx]
-            if len(L)>0 and all:
-                for a in L.obs:
-                    a.draw(color="black",alpha=1.0/len(L))
-            else:
-                obje(np.array([0,0,0]),L.exp[3:6],np.array([0])).draw(d=True,color="black")
-            info[n.idx] = 0
-            plt.savefig(self.imgDir+name+"/"+str(n.idx)+".png")
-            plt.clf()
 
-        for n in self.nods[len(self.nods[0].edges)+1:]:
-            plt.axis('equal')
-            plt.xlim(-lim,lim)
-            plt.ylim(-lim,lim)
-            if n is None:
-                break
-            nn,sr,path = n,n.source.startNode,[]
-            path.append(nn)
+        for n in self.nods[1:]:
+            nn,sr,path = n,n.source.startNode,[n]
             while sr.idx > 0:
                 while not(nn.idx in sr.bunches.keys()) and sr.source.startNode.idx>0:    
                     sr = sr.source.startNode
                 nn = sr
                 sr = nn.source.startNode
                 path.append(nn)
+
             B = sr.bunches[nn.idx]
-            A = obje.fromFlat(B.exp,j=object_types.index(nn.type))
-            C = A
+            A = obje()#obje.fromFlat(B.exp,j=object_types.index(nn.type))
             for i in range(len(path)-1,0,-1):
+                A = A.rely(obje.fromFlat(B.exp,j=object_types.index(path[i-1].type)),self.scaled) #A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled)
                 B = path[i].bunches[path[i-1].idx]
-                A,C = A.rely(obje.fromFlat(B.exp,j=object_types.index(path[i-1].type)),self.scaled),A #A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled)
-            
-            C.draw(d=True,color="black")
-            L = path[1].bunches[path[0].idx].obs
-            if len(L)>0 and all:
-                for a in L:
-                    C.rely(a).draw(color="red",alpha=1.0/len(L))
-            else:
-                A.draw(d=True,color="red")
-            info[path[0].idx] = path[1].idx
-            plt.savefig(self.imgDir+name+"/"+str(n.idx)+".png")
-            plt.clf()
+            B.draw(A,self.imgDir+name,str(n.idx),object_types.index(nn.type),self.scaled,all,lim,(len(path)==1))
+            info[path[0].idx] = path[1].idx if len(path)>1 else 0
 
         open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
 
@@ -234,7 +206,7 @@ def parse(argv):
 
 if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
-    T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled)
+    T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled,loadDataset=(len(args.load)==0))
     T.treeConstruction(load=args.load,name=args.name)#
     #T.generate()
     # S = scne(fullLoadScene("009ccdf2-5f3f-46e7-a562-10da2b2e3bb9_Bedroom-65400"),grp=False,cen=True)

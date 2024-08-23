@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="https://unpkg.com/splitting/dist/splitting-cells.css" />
 <script src="https://unpkg.com/splitting/dist/splitting.min.js"></script>
 <script>
-const name = "blst";
+const name = "visd";
 
 const floorPlanMapping = new Map();
 
@@ -90,12 +90,14 @@ function wrapFatText(text,id,c,cc,node){
     return fatText;
 }
 
-function wrapSrcText(text,id,node){
+function wrapSrcText(text,id,node,expdev){
     text = text.substring(0,20);
     var srcText = document.createElement('p');
     srcText.className = 'src-text';
     srcText.innerHTML = `${text}<br>`;// + " " + id;
-    srcText.title = id;
+    let exp=[];let dev=[];
+    for(let i=0; i<7;++i){exp.push(expdev[0][i].toFixed(2));dev.push(expdev[1][i].toFixed(3));}
+    srcText.title = `${exp[6]}±${dev[6]} (${exp[0]}±${dev[0]},${exp[1]}±${dev[1]},${exp[2]}±${dev[2]}) (${exp[3]}±${dev[3]},${exp[4]}±${dev[4]},${exp[5]}±${dev[5]}) ${id}`;
     srcText.setAttribute("data-id",id);
     srcText.addEventListener("mouseover",textMouseOver);
     srcText.addEventListener("mouseout",textMouseOver);
@@ -114,7 +116,7 @@ function createNode(edg,pid){
 
     wrapFatText(dat[pid[0]].type,pid[0],edg[1],edg[2],node);
 
-    wrapSrcText(dat[info[String(edg[0])]].type,info[String(edg[0])],node);
+    wrapSrcText(dat[info[String(edg[0])]].type,info[String(edg[0])],node,dat[info[String(edg[0])]].buncs[String(edg[0])]);
 
 
     wrapImage(edg[0],node);

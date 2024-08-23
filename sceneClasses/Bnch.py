@@ -2,20 +2,16 @@ import numpy as np
 from Obje import *
 from Scne import *
 
-DE = [0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]
-DEN = [DE]*10
-SIGMA2 = 2.0**2
-MDE = True
+DEN,SIGMA2,MDE = [0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]*5,2.0**2,True
 def giveup(B,A,C):
     return (B is None) or (len(B) < 100) #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
-
 def singleMatch(l,c,cc,od,cs):
     return -l
 
 class bnch():
     def __init__(self,obj,exp=None,dev=None):
         self.exp = exp if obj is None else obj.flat()
-        self.dev = dev if obj is None else np.array(DE)
+        self.dev = dev if obj is None else np.array(DEN[0])
         self.obs = []  if obj is None else [obj]
     
     def __len__(self):
@@ -49,6 +45,35 @@ class bnch():
     def enable(self,nid):
         for o in self.obs:#if o.scne.OBJES[o.idx].nid != -1: print(o.scne.scene_uid+" "+str(o.idx)+" "+o.scne.OBJES[o.idx].class_name()) #assert 1 == 0
             o.scne.OBJES[o.idx].nid = nid
+
+    def draw(self,basic,dir,idx,J,scaled,all,lim,root=False,offset=[4.0,0.0]):
+        plt.axis('equal')
+        plt.xlim(-lim,lim)
+        plt.ylim(-lim,lim)
+
+        if not root:
+            basic.draw(d=True,color="black",cr="blue")
+        if all and len(self.obs)>0:
+            for a in self.obs:
+                basic.rely(a).draw(color="red",alpha=1.0/len(self.obs))
+        else:
+            me = basic.rely(obje.fromFlat(self.exp,j=J),scaled)
+            if not root:
+                plt.Rectangle((me.translation[0],-me.translation[2]),width=self.dev[0],height=self.dev[2],color="yellow")
+                plt.plot([me.translation[0], me.translation[0]+0.5*np.math.sin(me.orientation+self.dev[-1])], [-me.translation[2],-me.translation[2]-0.5*np.math.cos(me.orientation+self.dev[-1])], color="lime")
+                plt.plot([me.translation[0], me.translation[0]+0.5*np.math.sin(me.orientation-self.dev[-1])], [-me.translation[2],-me.translation[2]-0.5*np.math.cos(me.orientation-self.dev[-1])], color="lime")
+
+            me.draw(d=True,color="red",cr="green")
+            me.translation[0] = offset[0]
+            me.size = me.size + self.dev[3:6]
+            me.draw(d=False,color="pink")
+            me.size = me.size - self.dev[3:6]
+            me.draw(d=False,color="red")
+            me.size = me.size - self.dev[3:6]
+            me.draw(d=False,color="pink")
+
+        plt.savefig(dir+"/"+idx+".png")
+        plt.clf()
 
 class bnches():
     def __init__(self):

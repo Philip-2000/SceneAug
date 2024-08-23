@@ -304,7 +304,9 @@ class scne():
             while not(ed.endNode.idx in m.bunches):
                 m = m.source.startNode
             a = [o for o in self.OBJES if o.nid == m.idx]#search one from what?
-            for oo in [o for o in self.OBJES if (o.class_name() == ed.endNode.type and o.nid == -1)]: #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
+            losses = [(oo,m.bunches[ed.endNode.idx].loss(a[0].rela(oo))) for oo in [o for o in self.OBJES if (o.class_name()==ed.endNode.type and o.nid==-1)]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
+            if len(losses):
+                oo = sorted(losses,key=lambda x:x[1])[0][0]
                 v = singleMatch(m.bunches[ed.endNode.idx].loss(a[0].rela(oo)),ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
                 pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))],"fit":float(plan["fit"])+v}#?????
                 self.plans.append(deepcopy(pl))
@@ -314,35 +316,25 @@ class scne():
             cs += ed.confidence
 
     def tra(self,pm):
-        cans = [o for o in self.OBJES if (o.class_name() in pm.rootNames)]
-        assert len(cans)<=2
-        #self.traverse(pm,pm.nods[0],{"nids":[-1 for _ in self.OBJES],"fit":0})
         plan = {"nids":[pm.rootNames.index(o.class_name())+1 if (o.class_name() in pm.rootNames) else -1 for o in self.OBJES],"fit":0}
-        for o in cans:
+        for o in self.OBJES:
             o.nid = plan["nids"][o.idx]
-            self.traverse(pm,o,plan)
-
+        for r in pm.rootNames:
+            for o in [o for o in self.OBJES if o.class_name() == r]:
+                print(r)
+                self.traverse(pm,o,plan)
         #for p in self.plans:print(str(p["fit"])+[self.OBJES[i].class_name()+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1])
-
-        P = sorted(self.plans,key=lambda x:x["fit"])[0]
-
-        if len(cans)==2:
-            self.plans.clear()
-            self.traverse(pm,cans[1],plan)
-            self.traverse(pm,cans[0],plan)
-            P = sorted(self.plans+[P],key=lambda x:x["fit"])[0]
-
-        return P
+        return sorted(self.plans,key=lambda x:x["fit"])[0]
 
     def P2Links(self,P,pm):
         for n in pm.nods:
             if n is None:
                 break
-            for pid in range(len(P["nids"])):
-                p = P["nids"][pid]
+            for pid in range(len(P)):
+                p = P[pid]
                 if p == n.idx:
-                    for qid in range(len(P["nids"])):
-                        q = P["nids"][qid]
+                    for qid in range(len(P)):
+                        q = P[qid]
                         if q in [_.endNode.idx for _ in n.edges]:
                             self.LINKS.append(objLink(pid,qid,len(self.LINKS),self))
                         elif q in [_ for _ in n.bunches.keys()]:

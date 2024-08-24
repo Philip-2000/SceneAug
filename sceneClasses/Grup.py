@@ -18,10 +18,9 @@ class grup():
     def __init__(self, objIdList, imgMeta, idx=-1, scne=None):
         self.objIdList = copy(objIdList)
         self.scne=scne
-        for i in objIdList:
+        for i in objIdList:#assert (self.scne.OBJES[i].gid == idx)
             self.scne.OBJES[i].gid = idx
-        if len(objIdList) == 0:
-            print(idx)
+        assert len(objIdList) > 0
         cs = np.array([self.scne.OBJES[i].corners2() for i in objIdList]).reshape((-1,2))
         Xs,Zs = cs[:,0],cs[:,1]
         self.translation = np.array([(np.min(Xs)+np.max(Xs))/2.0,0,(np.min(Zs)+np.max(Zs))/2.0])

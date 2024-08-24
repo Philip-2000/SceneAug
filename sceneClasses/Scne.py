@@ -221,10 +221,7 @@ class scne():
         self.WALLS[id].q = np.copy(cutP)
         self.WALLS[id].w2= A
 
-    def formGroup(self): # to be continued
-        pass
-
-    def adjustGroup(self,sdev=0.2,cdev=2.):
+    def adjustGroup(self,sdev=0.2,cdev=2.): #augmentation
         from numpy.random import rand as R
         from numpy.random import randint as Ri 
         from math import pi as PI 
@@ -308,30 +305,30 @@ class scne():
             if len(losses):
                 oo = sorted(losses,key=lambda x:x[1])[0][0]
                 v = singleMatch(m.bunches[ed.endNode.idx].loss(a[0].rela(oo)),ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
-                pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))],"fit":float(plan["fit"])+v}#?????
+                pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))], "fats":[(plan["fats"][i] if self.OBJES[i].idx!=oo.idx else a[0].idx) for i in range(len(plan["fats"]))], "fit":float(plan["fit"])+v}#?????
                 self.plans.append(deepcopy(pl))
                 oo.nid=ed.endNode.idx
                 self.traverse(pm,oo,pl,lev+1)
                 oo.nid=-1
             cs += ed.confidence
 
-    def tra(self,pm,use=True,draw=True):
-        #print([o.class_name() for o in self.OBJES])
-        plan = {"nids":[pm.rootNames.index(o.class_name())+1 if (o.class_name() in pm.rootNames) else -1 for o in self.OBJES],"fit":0}
+    def tra(self,pm,use=True,draw=True): #recognition
+        plan = {"nids":[pm.rootNames.index(o.class_name())+1 if (o.class_name() in pm.rootNames) else -1 for o in self.OBJES], "fats":[o.idx for o in self.OBJES], "fit":0}
         for o in self.OBJES:
             o.nid = plan["nids"][o.idx]
         for r in pm.rootNames:
             for o in [o for o in self.OBJES if o.class_name() == r]:#print(r)
                 self.traverse(pm,o,plan)
         #for p in self.plans:print(str(p["fit"])+[self.OBJES[i].class_name()+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1])
-            plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
+            if len(self.plans):
+                plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
         if use:
-            self.P2Links(plan["nids"],pm)
+            self.useP(plan["nids"],plan["fats"],pm)
             if draw:
-                self.draw()
+                self.draw(drawUngroups=True)
         return plan
 
-    def P2Links(self,P,pm):
+    def useP(self,P,fats,pm):
         for n in pm.nods:
             if n is None:
                 break
@@ -344,6 +341,15 @@ class scne():
                             self.LINKS.append(objLink(pid,qid,len(self.LINKS),self))
                         elif q in [_ for _ in n.bunches.keys()]:
                             self.LINKS.append(objLink(pid,qid,len(self.LINKS),self))
+        
+        ROOTS = [i for i in range(len(fats)) if fats[i] == i and P[i] != -1] #for i in ROOTS:assert P[i] in [e.endNode.idx for e in pm.nods[0].edges]
+        for i in range(len(fats)):
+            j = i
+            while j != fats[j]:
+                j = fats[j]
+            self.OBJES[i].gid = ROOTS.index(j)+1 if P[i] != -1 else 0
+        self.grp=True
+        self.GRUPS = [grup([o.idx for o in self.OBJES if o.gid==j],{"sz":self.roomMask.shape[-1],"rt":16},j,scne=self) for j in range(1,len(ROOTS)+1)]
 
 import os
 from util import fullLoadScene

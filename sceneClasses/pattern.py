@@ -31,7 +31,7 @@ class patternManager():
         self.fieldDir = self.workDir+"fields/"
         self.imgDir = self.workDir+"imgs/"
         self.treesDir = self.workDir+"trees/" #self.cnt = len(os.listdir(self.sceneDir))
-        self.rootNames = ["Dining Table","King-size Bed","Coffee Table","Single bed"]#
+        self.rootNames=["Dining Table","King-size Bed","Desk","Dressing Table","Coffee Table","Single bed","Kids Bed"]#
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
         if loadDataset:
@@ -161,6 +161,22 @@ class patternManager():
         open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
 
     def generate(self,nm="generate"):
+
+        #hahahaha, let's do something hahahaha
+        #firstly, the simple text condition?
+        #secondly, the room layout understanding?
+        #how to say the room layout? how to understand?
+        #the square to what, to which direction?
+        #For each point, get the what?
+        #Sample an center point which is which min(x,z)/max(x,z) is big and min(x,z) is big
+        #span an empty area from this center point, mark the doorspan
+
+        #what about annotate the absolute location of root objects according to the area
+        #put those on the center
+
+        #may be 
+
+
         scene = scne.empty(nm)
         scene.imgDir = "./pattern/gens/"
         N = self.nods[0]
@@ -187,33 +203,36 @@ class patternManager():
         scene.draw(d=True)
 
 ##################
-import sys
-import argparse
+import sys,argparse
 def parse(argv):
     parser = argparse.ArgumentParser(prog='ProgramName')
     parser.add_argument('-v','--verbose', default=0)
-    parser.add_argument('-d','--maxDepth', default=2)
+    parser.add_argument('-d','--maxDepth', default=6)
     parser.add_argument('-n','--name', default="")
-    parser.add_argument('-l','--load', default="vise")
+    parser.add_argument('-l','--load', default="")#vise
     parser.add_argument('-s','--scaled', default=True, action="store_true")
+    parser.add_argument('-o','--oid', default="")
     parser.add_argument('-u','--uid', default="")
     parser.add_argument('-g','--gen', default="")
     args = parser.parse_args(argv)
     return args
-
+UIDS = ["0a9f23f6-f0a6-4cbb-8db5-48be2996d10a_LivingDiningRoom-507",
+        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_MasterBedroom-11395",
+        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_LivingRoom-11414",
+        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_DiningRoom-12475",
+        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_Library-10414",
+        "00c36b04-369f-4df1-9db1-b29913d2c51f_SecondBedroom-5641",
+        "00c196e6-9d8b-42cb-9803-4473d6db1558_LivingDiningRoom-10084",
+        "00f24696-bbb4-42d1-9a4a-e4fc6484c3ae_KidsRoom-19754"]
+        
 if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
+    assert (len(args.name)>0 or len(args.load)>0) and (len(args.gen)>0 or len(args.uid)>0 or len(args.oid)>0)
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled,loadDataset=(len(args.load)==0))
     T.treeConstruction(load=args.load,name=args.name,draw=len(args.name)>0 or (len(args.uid)==0 and len(args.gen)==0))#
     if len(args.gen)>0:
         [T.generate(args.gen+str(i)) for i in range(16)]
     elif len(args.uid)>0:
-        UIDS = ["0a9f23f6-f0a6-4cbb-8db5-48be2996d10a_LivingDiningRoom-507",
-                "00a4ff0c-ec69-4202-9420-cc8536ffffe0_MasterBedroom-11395",
-                "00a4ff0c-ec69-4202-9420-cc8536ffffe0_LivingRoom-11414",
-                "00a4ff0c-ec69-4202-9420-cc8536ffffe0_DiningRoom-12475",
-                "00a4ff0c-ec69-4202-9420-cc8536ffffe0_Library-10414",
-                "00c36b04-369f-4df1-9db1-b29913d2c51f_SecondBedroom-5641",
-                "00c196e6-9d8b-42cb-9803-4473d6db1558_LivingDiningRoom-10084",
-                "00f24696-bbb4-42d1-9a4a-e4fc6484c3ae_KidsRoom-19754"]
         [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
+    elif len(args.oid)>0:
+        [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]

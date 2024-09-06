@@ -12,10 +12,11 @@ from PIL import Image, ImageDraw
 def two23(a):
     return np.array([a[0],0,a[1]])
 
+#noPatternType = ["Pendant Lamp", "Ceiling Lamp"]
+
 class scne():
     def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True, irt=16, imgDir="./"):
         self.LINKS=[]
-        self.SPCES=[]
         self.copy = copy(scene)
         self.scene_uid = str(scene["scene_uid"]) if "scene_uid" in scene else ""
         tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
@@ -45,12 +46,12 @@ class scne():
 
         #obje(t,s,o,c,i)
         #wall(p,q,n,w1,w2)
-        self.WALLS=[]
-        if wl:
-            walls = scene["walls"]
-            self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
+        self.WALLS = walls(scene["walls"] if wl else [], c_e, self)
+        # if wl:
+        #     walls = scene["walls"]
+        #     self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
 
-        self.noPatternType = []#"Pendant Lamp", "Ceiling Lamp"]
+        self.SPCES = spces(self)#[]
         self.plans = []
 
     @classmethod
@@ -63,8 +64,9 @@ class scne():
         self.OBJES.append(objec)
 
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False):
-        for i in range(len(self.SPCES)):
-            self.SPCES[i].draw()
+        self.SPCES.draw()
+        # for i in range(len(self.SPCES)):
+        #     self.SPCES[i].draw()
 
         if self.grp:
             for i in range(len(self.GRUPS)):
@@ -75,13 +77,14 @@ class scne():
                 self.OBJES[i].draw(self.grp,d)#corners = OBJES[i].corners2()
     
         if drawWall and len(self.WALLS):
-            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
-            contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2
-            while w != 0:
-                contour.append([self.WALLS[w].p[0],self.WALLS[w].p[2]])
-                w = self.WALLS[w].w2
-            contour = np.array(contour)
-            plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color="black")
+            self.WALLS.draw()
+            # J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
+            # contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2
+            # while w != 0:
+            #     contour.append([self.WALLS[w].p[0],self.WALLS[w].p[2]])
+            #     w = self.WALLS[w].w2
+            # contour = np.array(contour)
+            # plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color="black")
         plt.axis('equal')
 
         for li in self.LINKS:
@@ -102,6 +105,7 @@ class scne():
             self.drawRoomMask(self.imgDir+self.scene_uid+"_Mask.png" if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
     def formGraph(self):
+        raise NotImplementedError
         #把经典关系标示出来
         for oi in range(len(self.OBJES)):
             o = self.OBJES[oi]
@@ -182,14 +186,6 @@ class scne():
                         RI = ri
             if RI >= 0:
                 self.LINKS.append(objLink(RI,oi,len(self.LINKS),self))#print("    "+OBJES[RI].class_name())
-
-    def adjustScene(self,movements):
-        for move in movements:
-            #print(w) for w in self.WALLS
-            if "rate" in move.keys():
-                self.breakWall(move["id"],move["rate"])
-            elif "length" in move.keys():
-                self.WALLS[move["id"]].mWall(move["length"])
 
     def breakWall(self,id,rate):
         #load all the links of 
@@ -273,8 +269,7 @@ class scne():
         self.roomMask = np.array(img).astype(np.float32)
         pass
 
-    @classmethod
-    def randomLayout():
+    def areaField():
         pass
 
     def recommendedWalls(self):
@@ -285,14 +280,18 @@ class scne():
         return np.concatenate([o.bpt() for o in self.OBJES],axis=0)
 
     def objectView(self,id,bd=100000,scl=False,maxDis=100000):
-        newOBJES = [self.OBJES[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1 and not(o.class_name() in self.noPatternType))]
+        newOBJES = [self.OBJES[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
         return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
-        newOBJES = [self.OBJES[id].rela(o) for o in self.OBJES if (o.idx != id and not(o.class_name() in self.noPatternType))]
+        newOBJES = [self.OBJES[id].rela(o) for o in self.OBJES if (o.idx != id)] # and not(o.class_name() in noPatternType)
         newOBJES = sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
         return [o for o in newOBJES if (o.nid == -1 and (o.translation**2).sum() < maxDis)]
 
     def nids(self):
         return set([o.nid for o in self.OBJES])
+
+    def searchNid(self, nid, sig=True):
+        s = [o for o in self.OBJES if o.nid == nid]
+        return (s[0] if sig else s) if len(s)>0 else None
 
     def traverse(self,pm,o,plan,lev=0): #print(str(lev)+" traverse: "+o.class_name() + " nid="+str(o.nid) + " idx="+str(o.idx))
         cs=0
@@ -300,12 +299,12 @@ class scne():
             m = ed.startNode
             while not(ed.endNode.idx in m.bunches):
                 m = m.source.startNode
-            a = [o for o in self.OBJES if o.nid == m.idx]#search one from what?
-            losses = [(oo,m.bunches[ed.endNode.idx].loss(a[0].rela(oo))) for oo in [o for o in self.OBJES if (o.class_name()==ed.endNode.type and o.nid==-1)]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
+            a = self.searchNid(m.idx)#search one from what?
+            losses = [(oo,m.bunches[ed.endNode.idx].loss(a.rela(oo))) for oo in [o for o in self.OBJES if (o.class_name()==ed.endNode.type and o.nid==-1)]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
             if len(losses):
                 oo = sorted(losses,key=lambda x:x[1])[0][0]
-                v = singleMatch(m.bunches[ed.endNode.idx].loss(a[0].rela(oo)),ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
-                pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))], "fats":[(plan["fats"][i] if self.OBJES[i].idx!=oo.idx else a[0].idx) for i in range(len(plan["fats"]))], "fit":float(plan["fit"])+v}#?????
+                v = singleMatch(m.bunches[ed.endNode.idx].loss(a.rela(oo)),ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
+                pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))], "fats":[(plan["fats"][i] if self.OBJES[i].idx!=oo.idx else a.idx) for i in range(len(plan["fats"]))], "fit":float(plan["fit"])+v}#?????
                 self.plans.append(deepcopy(pl))
                 oo.nid=ed.endNode.idx
                 self.traverse(pm,oo,pl,lev+1)
@@ -348,8 +347,30 @@ class scne():
             while j != fats[j]:
                 j = fats[j]
             self.OBJES[i].gid = ROOTS.index(j)+1 if P[i] != -1 else 0
+            self.OBJES[i].nid = P[i]
         self.grp=True
         self.GRUPS = [grup([o.idx for o in self.OBJES if o.gid==j],{"sz":self.roomMask.shape[-1],"rt":16},j,scne=self) for j in range(1,len(ROOTS)+1)]
+
+    def optimize(self,o,pm):
+        for e in pm.nods[o.nid].edges:
+            son = self.searchNid(e.endNode.idx)
+            if son is None:
+                continue
+            m = pm.nods[o.nid]
+            while not (son.nid in m.bunches):
+                m = m.source.startNode
+            fat = self.searchNid(m.idx)
+            fat_son = fat.rela(son,pm.scaled)
+            fat_son = m.bunches[son.nid].optimize(fat_son)
+            new_son = fat.rely(fat_son,pm.scaled)
+            son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
+            self.optimize(son,pm)
+
+    def opt(self,pm): #optimize
+        self.tra(pm,draw=False)
+        for o in [_ for _ in self.OBJES if _.nid in [e.endNode.idx for e in pm.nods[0].edges] ]:
+            self.optimize(o,pm)
+        self.draw(drawUngroups=True)
 
 import os
 from util import fullLoadScene

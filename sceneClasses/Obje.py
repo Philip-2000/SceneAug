@@ -95,7 +95,7 @@ class obje():
 
     @classmethod
     def mat(cls,ori,size):
-        return np.array([[np.math.cos(ori),0,np.math.sin(ori)],[0,1,0],[-np.math.sin(ori),0,np.math.cos(ori)]]) * size[:,None]
+        return np.array([[np.math.cos(ori),0,np.math.sin(ori)],[0,1,0],[-np.math.sin(ori),0,np.math.cos(ori)]]) * size[None,:] # Sep.1st: from [:,None] to [None,:] test! test! test!
 
     def rely(self, o, scl=False):
         t = self.translation + self.matrix()@(o.translation * (self.size if scl else np.array([1,1,1])) )

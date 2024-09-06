@@ -1,6 +1,7 @@
 a/
 after/
 newRooms/
+newRoom/
 __pycache__/
 classes/__pycache__/
 segment/
@@ -9,6 +10,7 @@ pattern/trees/
 pattern/imgs/
 pattern/rcgs/
 pattern/gens/
+pattern/opts/
 dist/
 build/
 *.egg-info/

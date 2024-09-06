@@ -1,8 +1,8 @@
 import numpy as np
 from Obje import *
-from Scne import *
+#from Scne import *
 
-DEN,SIGMA2,MDE = [0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]*5,2.0**2,True
+DEN,SIGMA2,MDE,OPTRATE = [0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]*5,2.0**2,True,0.5
 def giveup(B,A,C):#c=len(B)/A, cc=len(B)/C
     return (B is None) or (len(B) < 50) #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
 def singleMatch(l,c,cc,od,cs):
@@ -27,6 +27,9 @@ class bnch():
 
     def test(self,obj):
         return ((obj.flat()-self.exp)**2).sum()
+
+    def optimize(self,obj):
+        return obje.fromFlat((obj.flat()-self.exp)*OPTRATE+self.exp,j=obj.class_index)
 
     def add(self,obj,f=False):
         if self.accept(obj) or f:

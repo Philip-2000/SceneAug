@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt 
 from Logg import *
+import traceback
 WALLSTATUS = True
 EPS = 0.001
 class wall():
@@ -11,7 +12,9 @@ class wall():
             print("not straight " + str(sig))
         if (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]
             WALLSTATUS = False
+            #print(traceback.format_stack())
             print("not right-hand " + str(sig))
+            raise NotImplementedError
         self.linkIndex=[]
         self.idx=idx
         self.p=np.copy(p)
@@ -91,7 +94,7 @@ def two23(a):
     return np.array([a[0],0,a[1]])
 
 class walls():
-    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name=""):
+    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder=""):
         if len(Walls)>0:
             self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=scne) for j in range(len(walls))]
         else:
@@ -100,6 +103,8 @@ class walls():
         self.printLog = printLog
         self.scne = scne
         self.name = name
+        self.flex = flex
+        self.drawFolder = drawFolder
 
     def __getitem__(self, idx):
         return self.WALLS[idx]
@@ -111,8 +116,8 @@ class walls():
         return '\n'.join([str(w) for w in self.WALLS])
 
     @classmethod
-    def fromLog(cls,f,name=""):
-        a = cls(name=name)
+    def fromLog(cls,f,name="",drawFolder=""):
+        a = cls(name=name,drawFolder=drawFolder)
         a.LOGS = [distribute(a,l) for l in open(f,"r").readlines()]
         a.centerize()
         [print(l) for l in a.LOGS if a.printLog]
@@ -251,7 +256,8 @@ class walls():
 
     def deleteWall(self,id,delta):
         w = self.WALLS[self.WALLS[id].w1]
-        assert self.WALLS[id].length < delta*2 or abs((w.p-self.WALLS[id].q)@self.WALLS[id].n)<EPS or abs((w.p-self.WALLS[id].q)@w.n)<EPS
+        #assert self.WALLS[id].length < delta*2 
+        assert self.WALLS[id].length < delta*2 or abs(abs(w.n@self.WALLS[id].n)-1.0)<EPS or abs((w.p-self.WALLS[id].q)@self.WALLS[id].n)<EPS or abs((w.p-self.WALLS[id].q)@w.n)<EPS
         self.WALLS[id].v = False
         w.q = np.copy(self.WALLS[id].q)
         w.lengthh()
@@ -263,46 +269,51 @@ class walls():
         if not self.WALLS[id].v:
             return
         if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n + 1.)< EPS:
-            I = id
-            J = self.WALLS[id].w2
+            I,J = id,self.WALLS[id].w2
         elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n + 1.)< EPS:
-            I = self.WALLS[id].w1
-            J = id
+            I,J = self.WALLS[id].w1,id
         else:
-            return #self.WALLS  print(I,J)
-        
+            if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n - 1.)< EPS:
+                self.deleteWall(self.WALLS[id].w2,delta)
+            elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n - 1.)< EPS:
+                self.deleteWall(id,delta)
+            return #self.WALLS
+    
+
         if self.WALLS[I].length < self.WALLS[J].length:
-            P = self.WALLS[I].p
-            K = self.WALLS[I].w1
+            P,K = self.WALLS[I].p,self.WALLS[I].w1
         else:
-            P = self.WALLS[J].q
-            K = self.WALLS[J].w2
+            P,K = self.WALLS[J].q,self.WALLS[J].w2
+        #print(self)
         self.WALLS[I].adjustWall(self.WALLS[I].q,P)
         self.WALLS[J].adjustWall(self.WALLS[J].p,P)
+
+        # print("I=%d,J=%d,K=%d"%(I,J,K))
+        # print(self)
         
-        if self.WALLS[I].length < delta*2:#*6:
+        if self.WALLS[I].length < delta*2:
             self.deleteWall(I,delta)
-        if self.WALLS[J].length < delta*2:#*6:
+        if self.WALLS[J].length < delta*2:
             self.deleteWall(J,delta)
         
         self.minusWall(K,delta)
         self.regularize(I)
         self.regularize(J)
+        self.regularize(self.WALLS[I].w1)
+        self.regularize(self.WALLS[J].w2)
 
     def regularize(self,id):
         w = self.WALLS[id]
         if not w.v:
             return
         oldp,oldq  = np.copy(w.p),np.copy(w.q)
-        if min(abs(w.n[0]),abs(w.n[2]))<EPS*30:
+        if min(abs(w.n[0]),abs(w.n[2]))<EPS*50:
             if abs(w.n[0])<abs(w.n[2]):
                 b = (w.p[2]+w.q[2])/2.0
-                w.p[2] = b
-                w.q[2] = b
+                w.p[2],w.q[2] = b,b
             else:
                 b = (w.p[0]+w.q[0])/2.0
-                w.p[0] = b
-                w.q[0] = b
+                w.p[0],w.q[0] = b,b
             w.resetN()
             self.WALLS[w.w2].adjustWall(oldq,w.q,id)
             self.WALLS[w.w1].adjustWall(oldp,w.p,id)
@@ -310,6 +321,8 @@ class walls():
             print("wall should not be regularized")
             raise NotImplementedError
 
+    def LH(self):
+        return [max([abs(w.q[0]) for w in self.WALLS if w.v]),max([abs(w.q[2]) for w in self.WALLS if w.v])]
 
     def field():
         #what about those serial version of Scene Fields?
@@ -317,7 +330,7 @@ class walls():
 
         pass
 
-    def draw(self,folder="",suffix=".png",color="black"):
+    def draw(self,end=False,suffix=".png",color="black"):
         if len([w.idx for w in self.WALLS if w.v]):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
             contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2
@@ -326,14 +339,18 @@ class walls():
                 w = self.WALLS[w].w2
             contour = np.array(contour)
             plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color=color)
-            if folder:
-                plt.savefig(folder+self.name+suffix)
+            if end and self.drawFolder:
+                plt.axis('equal')
+                L = max(self.LH())
+                plt.xlim(-self.flex*L,self.flex*L)
+                plt.ylim(-self.flex*L,self.flex*L)
+                plt.savefig(self.drawFolder+self.name+suffix)
                 plt.clf()
 
-    def writeLog(self,folder):
-        with open(folder+self.name+".txt","w") as f:
+    def writeLog(self,):
+        with open(self.drawFolder+self.name+".txt","w") as f:
             [f.write(str(l)) for l in self.LOGS]
         
-    def output(self,folder):
-        self.draw(folder)
-        self.writeLog(folder)
+    def output(self):
+        self.draw(True)
+        self.writeLog()

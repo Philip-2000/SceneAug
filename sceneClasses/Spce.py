@@ -3,6 +3,7 @@ from Wall import *
 import numpy as np
 from copy import deepcopy
 from matplotlib import pyplot as plt
+from PIL import Image,ImageOps,ImageDraw
 
 def stickWall(w,x):
     wp,wq,xp,xq = np.cross(np.abs(w.n),w.p)[1],np.cross(np.abs(w.n),w.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]
@@ -85,7 +86,7 @@ class bond():
 class prob():
     def __init__(self,p):
         self.p=np.copy(p)
-        self.res=[(1000,False),(1000,False),(1000,False),(1000,False)]
+        self.res=[(20,False),(20,False),(20,False),(20,False)]
         self.areaF = []
         self.Us=[]
         self.straight = []
@@ -137,24 +138,21 @@ class prob():
         assert not walls.crossCheck(self.toWalls(EPS/2))
         wals = self.toWalls()
         #print(wals)
-        self.areaF = [ [ (wals[0].p,1000),(wals[0].q,-1)],[(wals[1].p,1000),(wals[1].q,-1)],[(wals[2].p,1000),(wals[2].q,-1)],[(wals[3].p,1000),(wals[3].q,-1)] ]
+        self.areaF = [ [ (wals[0].p,20),(wals[0].q,-1)],[(wals[1].p,20),(wals[1].q,-1)],[(wals[2].p,20),(wals[2].q,-1)],[(wals[3].p,20),(wals[3].q,-1)] ]
         for i in range(len(walls)):
             w = walls[i]
             j = [j for j in range(4) if wals[j].n@walls[i].n > 1-EPS]
             j = j[0]
-            d = (self.areaF[j][0][0]-w.p)@w.n
-            #print(d)
+            d = (self.areaF[j][0][0]-w.p)@w.n#print(d)
             P = self.areaF[j][0][0]
-            r = wals[j].rate(P)
-            #print(r)
+            r = wals[j].rate(P)#print(r)
             k = 0
             while w.rate(P)<1:
                 k+=1
                 P = self.areaF[j][k][0]
                 r = wals[j].rate(P)
                 if r > 1+EPS:
-                    break
-                #print(r)
+                    break#print(r)
                 if self.areaF[j][k-1][1]>d:
                     if k>2 and abs(self.areaF[k-2][1]-d)<EPS:
                         del self.areaF[j][k-1]
@@ -194,9 +192,13 @@ class prob():
             a = i+1
             self.straight[s-1][2] += (a-self.straight[s-1][0])*wals[i].length
 
+        
         for s in range(len(self.straight)):
             if self.straight[s][1]<min(self.straight[s-1][1],self.straight[(s+1)%len(self.straight)][1]):
-                self.Us.append(1 - np.math.exp(-(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])/(2.0*max(self.straight[s][1],EPS))))
+                try:
+                    self.Us.append(1 - np.math.exp(-(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])/(2.0*max(self.straight[s][1],EPS))))
+                except:
+                    pass
 
         self.Us = sorted(self.Us,key=lambda x:-x)
             #go from w.p to w.q
@@ -209,31 +211,30 @@ class prob():
 
     def separation(self):
         return 0 if len(self.Us)<2 else np.sum(self.Us[1:])
-    # the jump points of area function
-    # fuck
 
     def inner(self,w):
         dis,vec = w.distance(self.p)
         if abs(vec[2])<EPS/10: 
             if vec[0]<EPS:
-                if abs(dis)-EPS < self.res[0][0] and dis > -EPS:
+                if abs(dis)-EPS*2 < self.res[0][0] and dis > -EPS: #
                     return vec,True
             if vec[0]>-EPS:
-                if abs(dis)-EPS < self.res[2][0] and dis > -EPS:
+                if abs(dis)-EPS*2 < self.res[2][0] and dis > -EPS:
                     return vec,True
         if abs(vec[0])<EPS/10:
             if vec[2]<EPS:
-                if abs(dis)-EPS < self.res[1][0] and dis > -EPS:
+                if abs(dis)-EPS*2 < self.res[1][0] and dis > -EPS:
                     return vec,True
             if vec[2]>-EPS:
-                if abs(dis)-EPS < self.res[3][0] and dis > -EPS:
+                if abs(dis)-EPS*2 < self.res[3][0] and dis > -EPS:
                     return vec,True
         if abs(vec[0])>EPS/10 and abs(vec[2])>EPS/10:
             print(str(vec)+"not vertical or horizontal wall, currently not supported by space detection or prob-update")
             raise NotImplementedError
         return [0,0],False
 
-    def toWalls(self,eps=0):
+    def toWalls(self,eps=0): #,w=None,x=None,qro=None
+        #if self.nearest()[0]< eps or self.nearest()[1]<eps:print(self,self.area(),"toWalls error",w,x,qro,"yes",sep="\n")
         return walls(c=[self.p[0],self.p[2]],a=[self.nearest()[0]-eps,self.nearest()[1]-eps])
 
 class spce():
@@ -342,25 +343,31 @@ class spce():
 
 
 class spces():
-    def __init__(self, scne=None, wals=None, name=""):
+    def __init__(self, scne=None, wals=None, name="", flex=1.2, sz=-4.0, drawFolder=""):
         self.scne = scne
         self.iWALLS= deepcopy(scne.WALLS if wals is None else wals) #a copy for visualization
         self.WALLS = deepcopy(scne.WALLS if wals is None else wals) #a local data structure for processing
         self.SPCES = []
         self.name = name
-        self.L = 5
-        self.delta = 0.02
+        self.LH = self.iWALLS.LH() if sz < 0 else [sz,sz]
+        self.flex = flex
+        self.delta = 0.04
+        self.drawFolder = drawFolder
+        if drawFolder and not os.path.exists(drawFolder):
+            os.makedirs(drawFolder)
     
     def draw(self,folder=""):
         [s.draw() for s in self.SPCES]
-        if folder:
+        if folder or self.drawFolder:#print("spces draaw", (folder if folder else self.drawFolder)+str(len(self.SPCES))+".png")
             self.iWALLS.draw(color="gray")
             self.WALLS.draw(color="black")
-            
+            f=(folder if folder else self.drawFolder)+str(len(self.SPCES))+".png"
             plt.axis('equal')
-            plt.xlim(-self.L,self.L)
-            plt.ylim(-self.L,self.L)
-            plt.savefig(folder+str(len(self.SPCES))+".png")
+            L = max(self.LH)
+            plt.xlim(-self.flex*L,self.flex*L)
+            plt.ylim(-self.flex*L,self.flex*L)
+            plt.savefig(f)
+            ImageOps.invert(Image.merge('RGB', Image.open(f).split()[:3])).save(f)
             plt.clf()
 
     def tinyAdjustProb(self,Prob):
@@ -382,29 +389,37 @@ class spces():
         for pid in range(4):
             for w in [w for w in self.WALLS if w.v]:
                 #print(w.q-Spce.corners[pid])#print(np.linalg.norm(w.q-Spce.corners[pid]))
-                if np.linalg.norm(w.q-Spce.corners[pid])<EPS*5:
+                if np.linalg.norm(w.q-Spce.corners[pid])<self.delta/2:
                     W=w
                     break
             if W:
                 PID=pid
                 break
+        if W is None:
+            print(self.WALLS,Spce,sep="\n")
+            return False
+        #else:
+            #print(W.q,Spce.corners[pid],sep="\n")
 
         X=self.WALLS[W.w2]
         a=W.idx
         for i in range(3,-1,-1):
             X.p = Spce.corners[(PID+i)%4]
             a=self.WALLS.insertWall(a)
+        #print(self.WALLS)
 
         self.WALLS.minusWall(W.idx,self.delta)
         if X.v:
-            self.WALLS.minusWall(X.w1,self.delta)#print(self.WALLS)
+            self.WALLS.minusWall(X.w1,self.delta)
+        #print(self.WALLS)
+        return True
 
     def extractingSpce(self,DIR=""):
         if len([w for w in self.WALLS if w.v])==0:
             return None
         #grid on the space
-        N = int(self.L/self.delta)
-        GRIDS = self.delta*np.array([[[i,j] for i in range(-N,N+1)] for j in range(-N,N+1)]).reshape((-1,2))
+        N,M = int(self.flex*self.LH[0]/self.delta),int(self.flex*self.LH[1]/self.delta)
+        GRIDS = self.delta*np.array([[[i,j] for i in range(-N,N+1)] for j in range(-M,M+1)]).reshape((-1,2))
         GRIDPro = []
         for loc in GRIDS:
             GRIDPro.append([])
@@ -415,99 +430,90 @@ class spces():
                     pro.update(dis,vec)
                 
             i,f = pro.status()
-            if not i or pro.area()<EPS/10:
+            if not i or min(pro.nearest())<EPS*1.5: # or pro.area()<EPS/10
                 continue
-
-            #print(pro.p)
+            if not f:
+                print(self.WALLS,pro,"inconsist in or out status",sep="\n")#,GRIDPro.index(pro))
+                assert f
 
             if not self.WALLS.crossCheck(pro.toWalls(EPS)):
                 pro = self.tinyAdjustProb(pro)
                 pro.areaFunctionDetection(self.WALLS)
                 GRIDPro[-1].append(pro)
             else:
-                for x in self.WALLS:
+                #print(pro.p,self.WALLS,sep="\n")
+                for xi in range(len(self.WALLS)):
+                    x = self.WALLS[xi]
                     if x.v and pro.inner(x)[1]:
-                        for w in self.WALLS:
-                            if w.v and (w.n@x.n)<EPS and pro.inner(w)[1]:
+                        for w in self.WALLS[xi+1:]:
+                            if w.v and abs(w.n@x.n)<EPS and pro.inner(w)[1]:
                                 qro = prob(pro.p)
                                 dis,vec=w.distance(qro.p)
                                 qro.update(dis,vec)
-                                dis,vec=w.distance(qro.p)
+                                dis,vec=x.distance(qro.p)
                                 qro.update(dis,vec)
-                                #qro = self.tinyAdjustProb(qro)
-                                #print(qro.toWalls())
-                                #print(qro.toWalls(EPS))
-                                if not self.WALLS.crossCheck(qro.toWalls(EPS)):
+                                #qro = self.tinyAdjustProb(qro)print(qro.toWalls(),qro.toWalls(EPS),sep="\n") #,w,x,pro
+                                if min(qro.nearest())>EPS*2 and not self.WALLS.crossCheck(qro.toWalls(EPS)):#qro.area()>EPS/10 and 
+                                    # print(w,x,qro,"yes",sep="\n")
                                     qro.areaFunctionDetection(self.WALLS)
                                     GRIDPro[-1].append(qro)
-
-            if not f:
-                print(self.WALLS)
-                print(pro)#,GRIDPro.index(pro))
-            assert f
+                assert len(GRIDPro[-1])
             
-        if DIR:
-            self.drawProb(GRIDPro,DIR)
+        if DIR or self.drawFolder:
+            self.drawProb(GRIDPro,(DIR if DIR else self.drawFolder))
 
         #Find a pro in pros
         PRO = sorted([sorted(gg,key=lambda x:-x.key())[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key())[0]
         
-        
-        # print(PRO.toWalls())
-        # print(PRO.toWalls(EPS))
-        #raise NotImplementedError
+        # print(PRO.toWalls(),PRO.toWalls(EPS),sep="\n") #raise NotImplementedError
         PRO = self.tinyAdjustProb(PRO)
-        # print(PRO.toWalls())
-        # print(PRO.toWalls(EPS))
+        # print(PRO.toWalls(),PRO.toWalls(EPS),sep="\n")
         return spce.fromProb(PRO.p,two23(PRO.nearest()))
 
-    def extractingSpces(self,DIR="",bound=1):
-        self.SPCES,sp = [],self.extractingSpce(DIR)
+    def extractingSpces(self,bound=1,DIR=""):
+        self.SPCES,sp,b = [],self.extractingSpce(DIR),self.draw((DIR if DIR else self.drawFolder)) if DIR or self.drawFolder else None
         while sp and len(self.SPCES)<bound:
             self.SPCES.append(sp)
-            self.eliminatingSpace(sp)
-            if DIR:
-                self.draw(DIR+self.name+"/")
-            sp = self.extractingSpce(DIR)
+            a = self.eliminatingSpace(sp)
+            b = self.draw((DIR if DIR else self.drawFolder)) if DIR or self.drawFolder else None
+            if not a:
+                break
+            sp = self.extractingSpce((DIR if DIR else self.drawFolder))
 
-    def drawProb(self, probArray, DIR, order=0, aFlag=False):
-        from PIL import Image, ImageDraw
-        global L
-        global delta
-
-        H = int(len(probArray)**0.5) #i*delta-L
-        assert H*H == len(probArray)
-        img = Image.new("RGB",(H,H))  
+    def drawProb(self, probArray, DIR="", order=0, aFlag=True):
+        N,M = 1+2*int(self.flex*self.LH[0]/self.delta),1+2*int(self.flex*self.LH[1]/self.delta)
+        #H = int(len(probArray)**0.5) #i*delta-L
+        assert N*M == len(probArray)
+        img = Image.new("RGB",(N,M))  
         img1 = ImageDraw.Draw(img)  
         for i in range(len(self.WALLS)):
             w = self.WALLS[i]
             if w.v: 
-                img1.line([(int((w.p[0]+self.L)/self.delta),int((w.p[2]+self.L)/self.delta)),(int((w.q[0]+self.L)/self.delta),int((w.q[2]+self.L)/self.delta))],fill="white",width=4)
+                img1.line([(int((w.p[0]+self.flex*self.LH[0])/self.delta),int((w.p[2]+self.flex*self.LH[1])/self.delta)),(int((w.q[0]+self.flex*self.LH[0])/self.delta),int((w.q[2]+self.flex*self.LH[1])/self.delta))],fill="white",width=4)
         
         pixels = img.load()
     
-        for y in range(H):
-            for x in range(H):
-                pa = probArray[y*H+x]
+        for y in range(M):
+            for x in range(N):
+                pa = probArray[y*N+x]
                 if len(pa):
                     p = pa[min(len(pa)-1,order)] if not aFlag else sorted(pa,key=lambda x:-x.area())[0]
-                    if p.status()[0]:
-                        near = p.nearest()
-                        nearx = near[0]
-                        nearz = near[1]
-                        nearavg = (nearx+nearz)/2.0
-                        nearMax = max(nearx,nearz)
-                        nearMin = min(nearx,nearz)
-                        ratio = p.ratio()
-                        
-                        pixels[x, y] = (int(nearx*50), int(ratio*50+nearavg*50), int(nearz*50))
-    
-        img.save(DIR+self.name+"/"+str(len(self.SPCES))+' heat.png')
+                    near = p.nearest()
+                    nearx = near[0]
+                    nearz = near[1]
+                    nearavg = (nearx+nearz)/2.0
+                    nearMax = max(nearx,nearz)
+                    nearMin = min(nearx,nearz)
+                    ratio = p.ratio()
+                    
+                    pixels[x, y] = (int(nearx*50), int(ratio*50+nearavg*50), int(nearz*50))
+
+        img.save((DIR if DIR else self.drawFolder)+str(len(self.SPCES))+' heat.png')
 
 import sys,argparse,os
 def parse(argv):
     parser = argparse.ArgumentParser(prog='ProgramName')
-    parser.add_argument('-i','--identity', default="-1")
+    parser.add_argument('-i','--identity', default="72")
     parser.add_argument('-n','--new', default=False, action="store_true")
     parser.add_argument('-b','--bound', default=3)
     args = parser.parse_args(argv)
@@ -515,24 +521,15 @@ def parse(argv):
 
 if __name__ == "__main__":
     DIR,args = "./newRoom/",parse(sys.argv[1:])
-    if int(args.identity) == -1:
-        for i in range(args.bound):#print(i)
-            if args.new:
-                wls = walls(name="rand"+str(i))#print(wls.LOGS)
-                wls.randomWalls()
-                wls.output(DIR)#print("ok")
-            wlz = walls.fromLog(f=DIR+"rand"+str(i)+".txt",name="rand"+str(i)+"_") #wlz.draw(DIR)
-            if not os.path.exists(DIR+wlz.name):
-                os.makedirs(DIR+wlz.name)
-            sm = spces(wals=wlz,name=wlz.name)
-            sm.extractingSpces(DIR,2)#sm.draw(DIR)
-    else:
-        wlz = walls.fromLog(f=DIR+"rand"+args.identity+".txt",name="rand"+args.identity+"_") #wlz.draw(DIR)
-        if not os.path.exists(DIR+wlz.name):
-            os.makedirs(DIR+wlz.name)
-        sm = spces(wals=wlz,name=wlz.name)
-        sm.extractingSpces(DIR,2)#sm.extractingSpce()
-    
+    for i in (range(args.bound) if int(args.identity) == -1 else range(int(args.identity),int(args.identity)+1)):
+        if args.new:
+            wls = walls(name="rand"+str(i))#print(wls.LOGS)
+            wls.randomWalls()
+            wls.output()
+        wlz = walls.fromLog(f=DIR+"rand"+str(i)+".txt",name="rand"+str(i)+"_",drawFolder=DIR) #wlz.draw(DIR)
+        wlz.draw(True)
+        sm = spces(wals=wlz,name=wlz.name,drawFolder=DIR+wlz.name+"/")
+        sm.extractingSpces(2)
 
 """
 总结一下怎恶魔做。

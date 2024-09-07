@@ -81,15 +81,21 @@ class wall():
     def resetN(self):
         self.n = np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/np.linalg.norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
 
+    def rate(self,p,checkOn=False):
+        r = ((p-self.p)@(self.q-self.p)) / ((self.q-self.p)@(self.q-self.p))
+        assert (not checkOn) or (abs((p-self.p)@self.n)<EPS and 0<=r and r<=1)
+        return r
+
+
 def two23(a):
     return np.array([a[0],0,a[1]])
 
 class walls():
-    def __init__(self, Walls=[], c_e=0, scne=None, l=2.0, printLog=False, name=""):
+    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name=""):
         if len(Walls)>0:
             self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=scne) for j in range(len(walls))]
         else:
-            self.WALLS = [wall(two23([l-2*l*int((i+1)%4>1),l-2*l*int(i%4>1)]),two23([l-2*l*int(i%4<2),l-2*l*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)]
+            self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)]
         self.LOGS = []
         self.printLog = printLog
         self.scne = scne
@@ -120,10 +126,11 @@ class walls():
         wxp,wxq,xwp,xwq,wwp,xxp = w.n@x.p, w.n@x.q, x.n@w.p, x.n@w.q, w.n@w.p, x.n@x.q
         return w.v and x.v and (min(wxp,wxq)<wwp and wwp<max(wxp,wxq) and min(xwp,xwq)<xxp and xxp<max(xwp,xwq))
 
-    def crossCheck(self):
+    def crossCheck(self,other=None):
+        otherWALLS = self.WALLS if other is None else other.WALLS
         for i in range(len(self.WALLS)):
-            for j in range(i):
-                if self.crossWall(self.WALLS[i], self.WALLS[j]):
+            for j in range(i if other is None else len(otherWALLS)):
+                if self.crossWall(self.WALLS[i], otherWALLS[j]):
                     return True
         return False
 
@@ -159,8 +166,8 @@ class walls():
         L2 = self.WALLS[I].length/2.0 if (self.WALLS[I].p-self.WALLS[I].q) @ self.WALLS[self.WALLS[I].w2].n > 0 else -self.WALLS[I].length/2.0
         self.WALLS[self.WALLS[I].w1].mWall(L1)
         self.WALLS[self.WALLS[I].w2].mWall(L2)
-        self.deleteWall(self.WALLS[I].w2)
-        self.deleteWall(I)
+        self.deleteWall(self.WALLS[I].w2,EPS)
+        self.deleteWall(I,EPS)
 
     def squeezeWalls(self):
         i=0
@@ -242,9 +249,9 @@ class walls():
         self.WALLS.append(wall(p,q,n,w1,w2,ID,scne=self.scne,array=self))
         return ID
 
-    def deleteWall(self,id):
+    def deleteWall(self,id,delta):
         w = self.WALLS[self.WALLS[id].w1]
-        assert self.WALLS[id].length < 6*EPS or abs((w.p-self.WALLS[id].q)@self.WALLS[id].n)<0.001 or abs((w.p-self.WALLS[id].q)@w.n)<0.001
+        assert self.WALLS[id].length < delta*2 or abs((w.p-self.WALLS[id].q)@self.WALLS[id].n)<EPS or abs((w.p-self.WALLS[id].q)@w.n)<EPS
         self.WALLS[id].v = False
         w.q = np.copy(self.WALLS[id].q)
         w.lengthh()
@@ -252,13 +259,13 @@ class walls():
         w.w2 = self.WALLS[id].w2
         self.WALLS[self.WALLS[id].w2].w1 = w.idx
 
-    def minusWall(self,id):
+    def minusWall(self,id,delta):
         if not self.WALLS[id].v:
             return
-        if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n + 1.)< EPS*6:
+        if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n + 1.)< EPS:
             I = id
             J = self.WALLS[id].w2
-        elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n + 1.)< EPS*6:
+        elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n + 1.)< EPS:
             I = self.WALLS[id].w1
             J = id
         else:
@@ -273,12 +280,36 @@ class walls():
         self.WALLS[I].adjustWall(self.WALLS[I].q,P)
         self.WALLS[J].adjustWall(self.WALLS[J].p,P)
         
-        if self.WALLS[I].length < EPS*6:
-            self.deleteWall(I)
-        if self.WALLS[J].length < EPS*6:
-            self.deleteWall(J)
+        if self.WALLS[I].length < delta*2:#*6:
+            self.deleteWall(I,delta)
+        if self.WALLS[J].length < delta*2:#*6:
+            self.deleteWall(J,delta)
         
-        self.minusWall(K)
+        self.minusWall(K,delta)
+        self.regularize(I)
+        self.regularize(J)
+
+    def regularize(self,id):
+        w = self.WALLS[id]
+        if not w.v:
+            return
+        oldp,oldq  = np.copy(w.p),np.copy(w.q)
+        if min(abs(w.n[0]),abs(w.n[2]))<EPS*30:
+            if abs(w.n[0])<abs(w.n[2]):
+                b = (w.p[2]+w.q[2])/2.0
+                w.p[2] = b
+                w.q[2] = b
+            else:
+                b = (w.p[0]+w.q[0])/2.0
+                w.p[0] = b
+                w.q[0] = b
+            w.resetN()
+            self.WALLS[w.w2].adjustWall(oldq,w.q,id)
+            self.WALLS[w.w1].adjustWall(oldp,w.p,id)
+        else:
+            print("wall should not be regularized")
+            raise NotImplementedError
+
 
     def field():
         #what about those serial version of Scene Fields?

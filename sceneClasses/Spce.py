@@ -84,8 +84,11 @@ class bond():
 #WALLS=[]
 class prob():
     def __init__(self,p):
-        self.p=p
+        self.p=np.copy(p)
         self.res=[(1000,False),(1000,False),(1000,False),(1000,False)]
+        self.areaF = []
+        self.Us=[]
+        self.straight = []
     
     def __str__(self):
         return "[%.2f,%.2f]: xmin: %.2f %s , zmin: %.2f %s , xmax: %.2f %s , zmax: %.2f %s"%(self.p[0],self.p[2],self.res[0][0],("in" if self.res[0][1] else "out"),self.res[1][0],("in" if self.res[1][1] else "out"),self.res[2][0],("in" if self.res[2][1] else "out"),self.res[3][0],("in" if self.res[3][1] else "out"))
@@ -99,7 +102,6 @@ class prob():
                 if abs(dis)-EPS < self.res[2][0]:
                     self.res[2] = (abs(dis)-EPS,(dis>-EPS))
         if abs(vec[0])<EPS/10:
-            
             if vec[2]<EPS:
                 if abs(dis)-EPS < self.res[1][0]:
                     self.res[1] = (abs(dis)-EPS,(dis>-EPS))
@@ -107,7 +109,7 @@ class prob():
                 if abs(dis)-EPS < self.res[3][0]:
                     self.res[3] = (abs(dis)-EPS,(dis>-EPS))
         if abs(vec[0])>EPS/10 and abs(vec[2])>EPS/10:
-            print("not vertical or horizontal wall, currently not supported by space detection or prob-update")
+            print(str(vec)+"not vertical or horizontal wall, currently not supported by space detection or prob-update")
             raise NotImplementedError
         
     def status(self):
@@ -120,8 +122,119 @@ class prob():
         a = self.nearest()
         return a[0]/max(a[1],EPS/10) if a[0]<a[1] else a[1]/max(a[0],EPS/10)
 
-    def key(self):
+    def area(self):
+        return self.nearest()[0]*self.nearest()[1]
+        
+    def key(self,hint=None):
         return self.ratio()+np.average(self.nearest())*0.4 
+
+    #moreAttributes
+    #stick on wall length,
+    #stick on wall number
+    #area function
+    #
+    def areaFunctionDetection(self, walls):
+        assert not walls.crossCheck(self.toWalls(EPS/2))
+        wals = self.toWalls()
+        #print(wals)
+        self.areaF = [ [ (wals[0].p,1000),(wals[0].q,-1)],[(wals[1].p,1000),(wals[1].q,-1)],[(wals[2].p,1000),(wals[2].q,-1)],[(wals[3].p,1000),(wals[3].q,-1)] ]
+        for i in range(len(walls)):
+            w = walls[i]
+            j = [j for j in range(4) if wals[j].n@walls[i].n > 1-EPS]
+            j = j[0]
+            d = (self.areaF[j][0][0]-w.p)@w.n
+            #print(d)
+            P = self.areaF[j][0][0]
+            r = wals[j].rate(P)
+            #print(r)
+            k = 0
+            while w.rate(P)<1:
+                k+=1
+                P = self.areaF[j][k][0]
+                r = wals[j].rate(P)
+                if r > 1+EPS:
+                    break
+                #print(r)
+                if self.areaF[j][k-1][1]>d:
+                    if k>2 and abs(self.areaF[k-2][1]-d)<EPS:
+                        del self.areaF[j][k-1]
+                        k-=1
+                    else:
+                        self.areaF[j][k-1]=(self.areaF[j][k-1][0],d)
+                if k == len(self.areaF[j])-1:
+                    break
+            if k+1 < len(self.areaF[j])-1:
+                r = wals[j].rate(w.q)
+                self.areaF[j].insert(k+1,(wals[j].p*r+wals[j].q*(1-r),d))
+
+        self.Us=[]
+        self.straight = []
+        for i in range(4):
+            # print(self.areaF[i][0][0])
+            # print(self.areaF[i][0][1])
+            # print(self.areaF[i][1][0])
+            # print(self.areaF[i][1][1])
+            for j in self.areaF[i][:-1]:#print(wals[i].rate(j[0]))
+                if (wals[i].rate(j[0])<EPS and i == 0) or not(wals[i].rate(j[0])<EPS and j[1]==self.straight[-1][1]):
+                    self.straight.append([wals[i].rate(j[0])+i,j[1],0])
+        if self.straight[-1][1]==self.straight[0][1]:
+            if len(self.straight)==1:
+                self.straight[0][2]=wals[0].length+wals[1].length+wals[2].length+wals[3].length
+                return
+            del self.straight[0]
+            
+        s = 0
+        a = 0
+        #print(self.straight)#raise NotImplementedError
+        for i in range(4):
+            while s<len(self.straight) and self.straight[s][0] < i+1:
+                self.straight[s-1][2] += (self.straight[s][0]-a)*wals[i].length
+                a = self.straight[s][0]
+                s += 1
+            a = i+1
+            self.straight[s-1][2] += (a-self.straight[s-1][0])*wals[i].length
+
+        for s in range(len(self.straight)):
+            if self.straight[s][1]<min(self.straight[s-1][1],self.straight[(s+1)%len(self.straight)][1]):
+                self.Us.append(1 - np.math.exp(-(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])/(2.0*max(self.straight[s][1],EPS))))
+
+        self.Us = sorted(self.Us,key=lambda x:-x)
+            #go from w.p to w.q
+
+    def onWallLength(self):
+        return np.sum([s[2]*int(s[1]<EPS/10) for s in self.straight])
+
+    def onWallSegment(self):
+        return np.sum([int(s[1]<EPS/10) for s in self.straight])
+
+    def separation(self):
+        return 0 if len(self.Us)<2 else np.sum(self.Us[1:])
+    # the jump points of area function
+    # fuck
+
+    def inner(self,w):
+        dis,vec = w.distance(self.p)
+        if abs(vec[2])<EPS/10: 
+            if vec[0]<EPS:
+                if abs(dis)-EPS < self.res[0][0] and dis > -EPS:
+                    return vec,True
+            if vec[0]>-EPS:
+                if abs(dis)-EPS < self.res[2][0] and dis > -EPS:
+                    return vec,True
+        if abs(vec[0])<EPS/10:
+            if vec[2]<EPS:
+                if abs(dis)-EPS < self.res[1][0] and dis > -EPS:
+                    return vec,True
+            if vec[2]>-EPS:
+                if abs(dis)-EPS < self.res[3][0] and dis > -EPS:
+                    return vec,True
+        if abs(vec[0])>EPS/10 and abs(vec[2])>EPS/10:
+            print(str(vec)+"not vertical or horizontal wall, currently not supported by space detection or prob-update")
+            raise NotImplementedError
+        return [0,0],False
+
+    def toWalls(self,eps=0):
+        return walls(c=[self.p[0],self.p[2]],a=[self.nearest()[0]-eps,self.nearest()[1]-eps])
 
 class spce():
     def __init__(self,c0,c1,idx=-1):
@@ -236,7 +349,7 @@ class spces():
         self.SPCES = []
         self.name = name
         self.L = 5
-        self.delta = 0.04
+        self.delta = 0.02
     
     def draw(self,folder=""):
         [s.draw() for s in self.SPCES]
@@ -249,6 +362,19 @@ class spces():
             plt.ylim(-self.L,self.L)
             plt.savefig(folder+str(len(self.SPCES))+".png")
             plt.clf()
+
+    def tinyAdjustProb(self,Prob):
+        if abs(Prob.res[0][0]-Prob.res[2][0])<self.delta*2:
+            a = (Prob.res[0][0]+Prob.res[2][0])/2.0
+            b = (Prob.res[0][0]-Prob.res[2][0])/2.0
+            Prob.res[0],Prob.res[2] = (a,True),(a,True)
+            Prob.p[0] += b
+        if abs(Prob.res[1][0]-Prob.res[3][0])<self.delta*2:
+            a = (Prob.res[1][0]+Prob.res[3][0])/2.0
+            b = (Prob.res[1][0]-Prob.res[3][0])/2.0
+            Prob.res[1],Prob.res[3] = (a,True),(a,True)
+            Prob.p[2] += b
+        return Prob
 
     def eliminatingSpace(self, Spce):
         #addSpace's walls#print(Spce)#print(self.WALLS)
@@ -269,10 +395,9 @@ class spces():
             X.p = Spce.corners[(PID+i)%4]
             a=self.WALLS.insertWall(a)
 
-        self.WALLS.minusWall(W.idx)
+        self.WALLS.minusWall(W.idx,self.delta)
         if X.v:
-            self.WALLS.minusWall(X.w1)
-        #print(self.WALLS)
+            self.WALLS.minusWall(X.w1,self.delta)#print(self.WALLS)
 
     def extractingSpce(self,DIR=""):
         if len([w for w in self.WALLS if w.v])==0:
@@ -282,6 +407,7 @@ class spces():
         GRIDS = self.delta*np.array([[[i,j] for i in range(-N,N+1)] for j in range(-N,N+1)]).reshape((-1,2))
         GRIDPro = []
         for loc in GRIDS:
+            GRIDPro.append([])
             pro = prob(two23(loc))
             for w in self.WALLS:
                 if w.v and w.over(pro.p):#print("not over")
@@ -289,27 +415,50 @@ class spces():
                     pro.update(dis,vec)
                 
             i,f = pro.status()
-            GRIDPro.append(pro)
+            if not i or pro.area()<EPS/10:
+                continue
+
+            #print(pro.p)
+
+            if not self.WALLS.crossCheck(pro.toWalls(EPS)):
+                pro = self.tinyAdjustProb(pro)
+                pro.areaFunctionDetection(self.WALLS)
+                GRIDPro[-1].append(pro)
+            else:
+                for x in self.WALLS:
+                    if x.v and pro.inner(x)[1]:
+                        for w in self.WALLS:
+                            if w.v and (w.n@x.n)<EPS and pro.inner(w)[1]:
+                                qro = prob(pro.p)
+                                dis,vec=w.distance(qro.p)
+                                qro.update(dis,vec)
+                                dis,vec=w.distance(qro.p)
+                                qro.update(dis,vec)
+                                #qro = self.tinyAdjustProb(qro)
+                                #print(qro.toWalls())
+                                #print(qro.toWalls(EPS))
+                                if not self.WALLS.crossCheck(qro.toWalls(EPS)):
+                                    qro.areaFunctionDetection(self.WALLS)
+                                    GRIDPro[-1].append(qro)
+
             if not f:
-                print(pro)
-                print(GRIDPro.index(pro))
-                assert f
-            #break
+                print(self.WALLS)
+                print(pro)#,GRIDPro.index(pro))
+            assert f
+            
         if DIR:
             self.drawProb(GRIDPro,DIR)
 
         #Find a pro in pros
-        PRO = sorted([g for g in GRIDPro if g.status()[0]],key=lambda x:-x.key())[0]
-        if abs(PRO.res[0][0]-PRO.res[2][0])<0.05:
-            a = (PRO.res[0][0]+PRO.res[2][0])/2.0
-            b = (PRO.res[0][0]-PRO.res[2][0])/2.0
-            PRO.res[0],PRO.res[2] = (a,True),(a,True)
-            PRO.p[0] += b
-        if abs(PRO.res[1][0]-PRO.res[3][0])<0.05:
-            a = (PRO.res[1][0]+PRO.res[3][0])/2.0
-            b = (PRO.res[1][0]-PRO.res[3][0])/2.0
-            PRO.res[1],PRO.res[3] = (a,True),(a,True)
-            PRO.p[2] += b
+        PRO = sorted([sorted(gg,key=lambda x:-x.key())[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key())[0]
+        
+        
+        # print(PRO.toWalls())
+        # print(PRO.toWalls(EPS))
+        #raise NotImplementedError
+        PRO = self.tinyAdjustProb(PRO)
+        # print(PRO.toWalls())
+        # print(PRO.toWalls(EPS))
         return spce.fromProb(PRO.p,two23(PRO.nearest()))
 
     def extractingSpces(self,DIR="",bound=1):
@@ -321,7 +470,7 @@ class spces():
                 self.draw(DIR+self.name+"/")
             sp = self.extractingSpce(DIR)
 
-    def drawProb(self, probArray, DIR):
+    def drawProb(self, probArray, DIR, order=0, aFlag=False):
         from PIL import Image, ImageDraw
         global L
         global delta
@@ -339,17 +488,19 @@ class spces():
     
         for y in range(H):
             for x in range(H):
-                p = probArray[y*H+x]
-                if p.status()[0]:
-                    near = p.nearest()
-                    nearx = near[0]
-                    nearz = near[1]
-                    nearavg = (nearx+nearz)/2.0
-                    nearMax = max(nearx,nearz)
-                    nearMin = min(nearx,nearz)
-                    ratio = p.ratio()
-                    
-                    pixels[x, y] = (int(nearx*50), int(ratio*50+nearavg*50), int(nearz*50))
+                pa = probArray[y*H+x]
+                if len(pa):
+                    p = pa[min(len(pa)-1,order)] if not aFlag else sorted(pa,key=lambda x:-x.area())[0]
+                    if p.status()[0]:
+                        near = p.nearest()
+                        nearx = near[0]
+                        nearz = near[1]
+                        nearavg = (nearx+nearz)/2.0
+                        nearMax = max(nearx,nearz)
+                        nearMin = min(nearx,nearz)
+                        ratio = p.ratio()
+                        
+                        pixels[x, y] = (int(nearx*50), int(ratio*50+nearavg*50), int(nearz*50))
     
         img.save(DIR+self.name+"/"+str(len(self.SPCES))+' heat.png')
 
@@ -383,36 +534,23 @@ if __name__ == "__main__":
         sm.extractingSpces(DIR,2)#sm.extractingSpce()
     
 
+"""
+总结一下怎恶魔做。
+每个点，多种方案。对。每个方案都记，肯定是都记录下来的
+每个方案在生成的时候，其实还需要把更复杂的信息探测到。比如贴边总长度，贴边联通数。
+可是还容易出现一个问题，那就是空间切碎的问题。这个事情该怎么讨论呢？
+就是说有在
 
 
-# def adjacent(s,Qbox):
-#     #还有一些问题就是如果t的展开是可量化的。那能不能直接以s为限制去给出t的量化指标。
-#     #比如说，t的一个端点是固定的，另一个端点还未限定，那么由s给出t的另一个端点的范围指标。
-#     #
-#     Actions = {}
-#     if (Qbox["signX"] > 0 and s.minX() > Qbox["fixedX"] and Qbox["maxX"] > s.minX()):
-#         Actions["maxX"] = s.minX()
+然后去挑一个方案？
 
-#     if (Qbox["signX"] < 0 and s.maxX() < Qbox["fixedX"] and Qbox["minX"] < s.maxX()):
-#         Actions["minX"] = s.maxX()
 
-#     if (Qbox["signZ"] > 0 and s.minZ() > Qbox["fixedZ"] and Qbox["maxZ"] > s.minZ()):
-#         Actions["maxZ"] = s.minZ()
+The problem is to visualize all these things first? Temporarily
+But how? i DONT KNOW
 
-#     if (Qbox["signZ"] < 0 and s.maxZ() < Qbox["fixedZ"] and Qbox["minZ"] > s.maxZ()):
-#         Actions["minZ"] = s.maxZ()
 
-#     if len(Actions.keys())>0:
-#         K = Actions.keys()[0]
-#         Square = -1
-#         for k in Actions.keys():
-#             Pbox = deepcopy(Qbox)
-#             Pbox[k] = Actions[k]
-#             square = (Pbox["maxX"]-Pbox["minX"])*(Pbox["maxX"]-Pbox["minX"])
-#             if square > Square:
-#                 Square = square
-#                 K = k
-#         Qbox[K] = Actions[K]
 
-#     #{"maxX":???,"minX":???,"maxZ":???, "minZ":???}
-#     return Qbox
+以后：挑的时候其实也可以给一个这个hint，说我需要的是一个多大的一个空间？
+
+New problems cames out. Always.
+"""

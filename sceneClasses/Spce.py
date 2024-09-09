@@ -126,55 +126,82 @@ class prob():
     def area(self):
         return self.nearest()[0]*self.nearest()[1]
         
-    def key(self,hint=None):
-        return self.ratio()+np.average(self.nearest())*0.4 
+    def key(self,delta,hint=None):
+        return -1.0/self.ratio()+np.average(self.nearest())*0.4 - self.separation()*5 + self.avgOnWallLength(delta)
 
-    #moreAttributes
-    #stick on wall length,
-    #stick on wall number
-    #area function
-    #
-    def areaFunctionDetection(self, walls):
+    def areaFunctionDetection(self, walls, delta, f=False):
         assert not walls.crossCheck(self.toWalls(EPS/2))
         wals = self.toWalls()
         #print(wals)
-        self.areaF = [ [ (wals[0].p,20),(wals[0].q,-1)],[(wals[1].p,20),(wals[1].q,-1)],[(wals[2].p,20),(wals[2].q,-1)],[(wals[3].p,20),(wals[3].q,-1)] ]
+        self.areaF = [ [ [wals[0].p,200],[wals[0].q,-1]],[[wals[1].p,200],[wals[1].q,-1]],[[wals[2].p,200],[wals[2].q,-1]],[[wals[3].p,200],[wals[3].q,-1]] ]
         for i in range(len(walls)):
             w = walls[i]
-            j = [j for j in range(4) if wals[j].n@walls[i].n > 1-EPS]
+            j = [j for j in range(4) if wals[j].n@w.n > 1-EPS]
             j = j[0]
             d = (self.areaF[j][0][0]-w.p)@w.n#print(d)
-            P = self.areaF[j][0][0]
-            r = wals[j].rate(P)#print(r)
+            if d < -EPS:
+                continue
+            else:
+                d = max(d,0)
+            if f and j == 1:
+                print(i,w,j,wals[j],"matched",sep="\t")
+            
             k = 0
-            while w.rate(P)<1:
-                k+=1
+            P = self.areaF[j][k][0]
+            r = wals[j].rate(P)
+            while r<wals[j].rate(w.p)+EPS and k < len(self.areaF[j])-1:
+                k+= 1
                 P = self.areaF[j][k][0]
                 r = wals[j].rate(P)
-                if r > 1+EPS:
-                    break#print(r)
-                if self.areaF[j][k-1][1]>d:
-                    if k>2 and abs(self.areaF[k-2][1]-d)<EPS:
+            
+            if f and j == 1:
+                print(k)
+                print(P)
+                print(self.areaF[j][k][0])
+                print(wals[j].rate(P))
+                print(r)
+                print(wals[j].rate(self.areaF[j][k-1][0]))
+                print(wals[j].rate(w.p))
+            
+            if k>0 and abs(wals[j].rate(self.areaF[j][k-1][0])-wals[j].rate(w.p))> EPS: #P is behind w.q, #stop here
+                R = wals[j].rate(w.p)
+                di = self.areaF[j][k-1][1]
+                self.areaF[j].insert(k,[wals[j].p*(1-R)+wals[j].q*R,di])
+                if f and j == 1:
+                    print("p self.areaF["+str(j)+"]" +"→".join(["(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in self.areaF[j][:-1]])+"(%.2f,%.2f)"%(self.areaF[j][-1][0][0],self.areaF[j][-1][0][2]))
+            
+            while r<1.0+EPS:
+                if f and j == 1:
+                    print(P,r,"r = wals[j].rate(P)",sep="\t")
+
+                if wals[j].rate(w.q)<r and k>0: #P is behind w.q, #stop here
+                    r = wals[j].rate(w.q)
+                    di = self.areaF[j][k-1][1]
+                    self.areaF[j][k-1][1]=d
+                    self.areaF[j].insert(k,[wals[j].p*(1-r)+wals[j].q*r,di])
+                    if f and j == 1:
+                        print("q self.areaF["+str(j)+"]" +"→".join(["(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in self.areaF[j][:-1]])+"(%.2f,%.2f)"%(self.areaF[j][-1][0][0],self.areaF[j][-1][0][2]))
+                    break
+                else:  #w can cover this area
+                    if k>2 and abs(self.areaF[j][k-2][1]-d)<EPS: #merge it with the area before me
                         del self.areaF[j][k-1]
                         k-=1
-                    else:
-                        self.areaF[j][k-1]=(self.areaF[j][k-1][0],d)
+                    else: #cover this area
+                        self.areaF[j][k-1][1]=d
                 if k == len(self.areaF[j])-1:
                     break
-            if k+1 < len(self.areaF[j])-1:
-                r = wals[j].rate(w.q)
-                self.areaF[j].insert(k+1,(wals[j].p*r+wals[j].q*(1-r),d))
+                k += 1
+                P = self.areaF[j][k][0]
+                r = wals[j].rate(P)
+                di = self.areaF[j][k][1]
+        
 
         self.Us=[]
         self.straight = []
         for i in range(4):
-            # print(self.areaF[i][0][0])
-            # print(self.areaF[i][0][1])
-            # print(self.areaF[i][1][0])
-            # print(self.areaF[i][1][1])
             for j in self.areaF[i][:-1]:#print(wals[i].rate(j[0]))
-                if (wals[i].rate(j[0])<EPS and i == 0) or not(wals[i].rate(j[0])<EPS and j[1]==self.straight[-1][1]):
-                    self.straight.append([wals[i].rate(j[0])+i,j[1],0])
+                if (wals[i].rate(j[0])<EPS and i == 0) or not(wals[i].rate(j[0])<EPS and max(j[1],delta)==self.straight[-1][1]):
+                    self.straight.append([wals[i].rate(j[0])+i,max(j[1],delta),0])
         if self.straight[-1][1]==self.straight[0][1]:
             if len(self.straight)==1:
                 self.straight[0][2]=wals[0].length+wals[1].length+wals[2].length+wals[3].length
@@ -184,33 +211,53 @@ class prob():
         s = 0
         a = 0
         #print(self.straight)#raise NotImplementedError
-        for i in range(4):
+        self.straight.append([self.straight[0][0]+4,self.straight[0][1],0])
+        if f:
+            print("straight: "+", ".join([ "(%.2f,%.2f,%.2f)"%(a[0],a[1],a[2]) for a in self.straight]))
+        
+        for i in range(8):
             while s<len(self.straight) and self.straight[s][0] < i+1:
-                self.straight[s-1][2] += (self.straight[s][0]-a)*wals[i].length
+                self.straight[s-1][2] += (self.straight[s][0]-a)*wals[i%4].length
                 a = self.straight[s][0]
                 s += 1
             a = i+1
-            self.straight[s-1][2] += (a-self.straight[s-1][0])*wals[i].length
-
+            self.straight[s-1][2] += (a-max(self.straight[s-1][0],i))*wals[i%4].length
+        if f:
+            print("straight: "+", ".join([ "(%.2f,%.2f,%.2f)"%(a[0],a[1],a[2]) for a in self.straight]))
+        
+        self.straight = self.straight[:-1]
+        
         
         for s in range(len(self.straight)):
             if self.straight[s][1]<min(self.straight[s-1][1],self.straight[(s+1)%len(self.straight)][1]):
                 try:
-                    self.Us.append(1 - np.math.exp(-(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])/(2.0*max(self.straight[s][1],EPS))))
+                    self.Us.append(1 - np.math.exp(-0.05*(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])/(2.0*self.straight[s][1])))
                 except:
                     pass
 
         self.Us = sorted(self.Us,key=lambda x:-x)
             #go from w.p to w.q
 
-    def onWallLength(self):
-        return np.sum([s[2]*int(s[1]<EPS/10) for s in self.straight])
+    def onWallLength(self, delta):
+        return np.sum([s[2]*int(s[1]<delta+EPS) for s in self.straight])
 
-    def onWallSegment(self):
-        return np.sum([int(s[1]<EPS/10) for s in self.straight])
+    def onWallSegment(self, delta):
+        return np.sum([int(s[1]<delta+EPS) for s in self.straight])
+
+    def avgOnWallLength(self,delta):
+        return self.onWallLength(delta)/max(1,self.onWallSegment(delta))
 
     def separation(self):
         return 0 if len(self.Us)<2 else np.sum(self.Us[1:])
+
+    def printConnectivityInfo(self,delta):
+        #self.areaF = [ [ (wals[0].p,20),(wals[0].q,-1)],[(wals[1].p,20),(wals[1].q,-1)],[(wals[2].p,20),(wals[2].q,-1)],[(wals[3].p,20),(wals[3].q,-1)] ]
+        #self.straight = [relLength,dis,absLength]
+        print("areaF:    "+'\t\t'.join([ "→".join([ "(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in ar[:-1]])+"(%.2f,%.2f)"%(ar[-1][0][0],ar[-1][0][2])  for ar in self.areaF ]))
+        print("straight: "+", ".join([ "(%.2f,%.2f,%.2f)"%(a[0],a[1],a[2]) for a in self.straight]))
+        print("Us:       "+str(self.Us))
+        print("onWallLength: "+str(self.onWallLength(delta))+"\tonWallSegment:"+str(self.onWallSegment(delta))+"\tseparation:   "+str(self.separation()))
+        return
 
     def inner(self,w):
         dis,vec = w.distance(self.p)
@@ -430,15 +477,15 @@ class spces():
                     pro.update(dis,vec)
                 
             i,f = pro.status()
-            if not i or min(pro.nearest())<EPS*1.5: # or pro.area()<EPS/10
+            if not i or min(pro.nearest())<EPS*10: # or pro.area()<EPS/10
                 continue
             if not f:
-                print(self.WALLS,pro,"inconsist in or out status",sep="\n")#,GRIDPro.index(pro))
-                assert f
+                print("warning :inconsist in or out status",pro,sep="\n")#,GRIDPro.index(pro))
+                #assert f
 
             if not self.WALLS.crossCheck(pro.toWalls(EPS)):
-                pro = self.tinyAdjustProb(pro)
-                pro.areaFunctionDetection(self.WALLS)
+                #pro = self.tinyAdjustProb(pro)
+                pro.areaFunctionDetection(self.WALLS,self.delta)
                 GRIDPro[-1].append(pro)
             else:
                 #print(pro.p,self.WALLS,sep="\n")
@@ -453,9 +500,9 @@ class spces():
                                 dis,vec=x.distance(qro.p)
                                 qro.update(dis,vec)
                                 #qro = self.tinyAdjustProb(qro)print(qro.toWalls(),qro.toWalls(EPS),sep="\n") #,w,x,pro
-                                if min(qro.nearest())>EPS*2 and not self.WALLS.crossCheck(qro.toWalls(EPS)):#qro.area()>EPS/10 and 
+                                if min(qro.nearest())>EPS*2 and not self.WALLS.crossCheck(qro.toWalls(EPS/2)):#qro.area()>EPS/10 and 
                                     # print(w,x,qro,"yes",sep="\n")
-                                    qro.areaFunctionDetection(self.WALLS)
+                                    qro.areaFunctionDetection(self.WALLS,self.delta)
                                     GRIDPro[-1].append(qro)
                 assert len(GRIDPro[-1])
             
@@ -463,11 +510,17 @@ class spces():
             self.drawProb(GRIDPro,(DIR if DIR else self.drawFolder))
 
         #Find a pro in pros
-        PRO = sorted([sorted(gg,key=lambda x:-x.key())[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key())[0]
+        PRO = sorted([sorted(gg,key=lambda x:-x.key(self.delta))[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key(self.delta))[0]
         
+        #print(self.WALLS,PRO,PRO.toWalls(),sep="\n")
+        #PRO.printConnectivityInfo()
+        #PRO.areaFunctionDetection(self.WALLS,self.delta,True)
+        #PRO.printConnectivityInfo(self.delta)
         # print(PRO.toWalls(),PRO.toWalls(EPS),sep="\n") #raise NotImplementedError
-        PRO = self.tinyAdjustProb(PRO)
+        #PRO = self.tinyAdjustProb(PRO)
         # print(PRO.toWalls(),PRO.toWalls(EPS),sep="\n")
+        #raise NotImplementedError
+
         return spce.fromProb(PRO.p,two23(PRO.nearest()))
 
     def extractingSpces(self,bound=1,DIR=""):
@@ -513,21 +566,22 @@ class spces():
 import sys,argparse,os
 def parse(argv):
     parser = argparse.ArgumentParser(prog='ProgramName')
-    parser.add_argument('-i','--identity', default="72")
+    parser.add_argument('-i','--identity', default="-1")
     parser.add_argument('-n','--new', default=False, action="store_true")
-    parser.add_argument('-b','--bound', default=3)
+    parser.add_argument('-b','--bound', default=19)
     args = parser.parse_args(argv)
     return args
 
 if __name__ == "__main__":
     DIR,args = "./newRoom/",parse(sys.argv[1:])
-    for i in (range(args.bound) if int(args.identity) == -1 else range(int(args.identity),int(args.identity)+1)):
+    for i in (range(9,args.bound) if int(args.identity) == -1 else range(int(args.identity),int(args.identity)+1)):
         if args.new:
             wls = walls(name="rand"+str(i))#print(wls.LOGS)
             wls.randomWalls()
             wls.output()
+        
+        print(i)
         wlz = walls.fromLog(f=DIR+"rand"+str(i)+".txt",name="rand"+str(i)+"_",drawFolder=DIR) #wlz.draw(DIR)
-        wlz.draw(True)
         sm = spces(wals=wlz,name=wlz.name,drawFolder=DIR+wlz.name+"/")
         sm.extractingSpces(2)
 

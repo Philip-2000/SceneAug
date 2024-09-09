@@ -307,20 +307,20 @@ class walls():
         if not w.v:
             return
         oldp,oldq  = np.copy(w.p),np.copy(w.q)
-        if min(abs(w.n[0]),abs(w.n[2]))<EPS*50:
-            if abs(w.n[0])<abs(w.n[2]):
-                b = (w.p[2]+w.q[2])/2.0
-                w.p[2],w.q[2] = b,b
-            else:
-                b = (w.p[0]+w.q[0])/2.0
-                w.p[0],w.q[0] = b,b
-            w.resetN()
-            self.WALLS[w.w2].adjustWall(oldq,w.q,id)
-            self.WALLS[w.w1].adjustWall(oldp,w.p,id)
-        else:
-            print("wall should not be regularized")
-            raise NotImplementedError
+        if min(abs(w.n[0]),abs(w.n[2]))>=EPS*50:
+            print("warning: %.3f >= %.3f * %.1f, wall should not be regularized"%(min(abs(w.n[0]),abs(w.n[2])),EPS,50))
+            #raise NotImplementedError
 
+        if abs(w.n[0])<abs(w.n[2]):
+            b = (w.p[2]+w.q[2])/2.0
+            w.p[2],w.q[2] = b,b
+        else:
+            b = (w.p[0]+w.q[0])/2.0
+            w.p[0],w.q[0] = b,b
+        w.resetN()
+        self.WALLS[w.w2].adjustWall(oldq,w.q,id)
+        self.WALLS[w.w1].adjustWall(oldp,w.p,id)
+            
     def LH(self):
         return [max([abs(w.q[0]) for w in self.WALLS if w.v]),max([abs(w.q[2]) for w in self.WALLS if w.v])]
 

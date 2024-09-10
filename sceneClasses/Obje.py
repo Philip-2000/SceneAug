@@ -40,7 +40,7 @@ class obje():
     def direction(self):
         return np.array([np.math.sin(self.orientation),0,np.math.cos(self.orientation)])
 
-    def matrix(self,u=1):
+    def matrix(self,u=1): #u=-1: transform others into my co-ordinates; u=1 or unset:transform mine into the world's co-ordinate
         return np.array([[np.math.cos(self.orientation),0,np.math.sin(self.orientation*u)],[0,1,0],[-np.math.sin(self.orientation*u),0,np.math.cos(self.orientation)]])
 
     def corners2(self):
@@ -96,6 +96,21 @@ class obje():
     @classmethod
     def mat(cls,ori,size):
         return np.array([[np.math.cos(ori),0,np.math.sin(ori)],[0,1,0],[-np.math.sin(ori),0,np.math.cos(ori)]]) * size[None,:] # Sep.1st: from [:,None] to [None,:] test! test! test!
+
+    def samples(self):#.reshape((1,3))
+        s = np.array([[1,0,0],[1,0,1],[0,0,1],[-1,0,1],[-1,0,0],[-1,0,-1],[0,0,-1],[1,0,-1]]).reshape((-1,1,3))
+        return self.translation+(self.matrix().reshape((1,3,3))*s*self.size.reshape((1,1,3))).sum(axis=-1)
+
+    def samplesBound(self):
+        sam = self.samples()
+        #print(sam)
+        return [sam.min(axis=0), sam.max(axis=0)]
+
+    def distance(self, o):#.reshape((1,3))
+        vs = (o.samples()-self.translation).reshape((-1,1,3))
+        ds = (self.matrix(-1).reshape((1,3,3))*vs).sum(axis=-1)
+        ns = ds / self.size.reshape((1,3))
+        return (ds**2).sum(-1)**0.5, np.abs(ns).min() < 1
 
     def rely(self, o, scl=False):
         t = self.translation + self.matrix()@(o.translation * (self.size if scl else np.array([1,1,1])) )

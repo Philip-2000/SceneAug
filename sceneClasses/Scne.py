@@ -55,7 +55,7 @@ class scne():
         self.plans = []
 
     @classmethod
-    def empty(cls,nm):
+    def empty(cls,nm=""):
         return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":nm},rmm=False)
 
     def addObject(self,objec):
@@ -63,8 +63,20 @@ class scne():
         objec.scne = self
         self.OBJES.append(objec)
 
+    def registerWalls(self,wls):
+        for w in wls.WALLS:
+            w.scne=self
+        wls.scne=self
+        self.WALLS = wls
+
+    def registerSpces(self,sps):
+        for s in sps.SPCES:
+            s.scne=self
+        sps.scne=self
+        self.SPCES = sps
+
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False):
-        self.SPCES.draw()
+        self.SPCES.draw(dr=False)
         # for i in range(len(self.SPCES)):
         #     self.SPCES[i].draw()
 

@@ -160,24 +160,155 @@ class patternManager():
 
         open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
 
-    def generate(self,nm="generate"):
+    def tempDebugger(self,theScene,cObjectList,o,spc,imgName):
+        tmpScene = scne.empty()
+        wa = copy(theScene.WALLS)
+        cObjectLis = copy(cObjectList)
+        sp = copy(theScene.SPCES)
+        sp.SPCES.append(spc)
+        tmpScene.registerWalls(wa)
+        tmpScene.registerSpces(sp)
+        for oo in cObjectLis:
+            pp = spc.transformOutward([oo])
+            tmpScene.addObject(pp[0])
+        if o is not None:
+            p = spc.transformOutward([o])
+            tmpScene.addObject(copy(p[0]))
+        #tmpScene.imgDir="./spce_generate/"
+        tmpScene.draw(imageTitle="./spce_generate/"+imgName,d=True,lim=5)
+        
 
-        #hahahaha, let's do something hahahaha
-        #firstly, the simple text condition?
-        #secondly, the room layout understanding?
-        #how to say the room layout? how to understand?
-        #the square to what, to which direction?
-        #For each point, get the what?
-        #Sample an center point which is which min(x,z)/max(x,z) is big and min(x,z) is big
-        #span an empty area from this center point, mark the doorspan
+    def generate(self,nm="generate",theScene=None,useWalls=False,rots=[],useText=False,debug=False):
+        #assert (useWalls or useText)
+        if useWalls:
+            assert theScene.WALLS is not None
+            #f = open("./spce_generate/log.txt",'w')#sys.stdout#
+            if len(rots)==0:
+                rots = ["King-size Bed","Dressing Table"] if np.random.rand()<-0.5 else ["Coffee Table","Dining Table"]
 
-        #what about annotate the absolute location of root objects according to the area
-        #put those on the center
+            Sps = spces(wals=theScene.WALLS,drawFolder="./spce_generate/"+theScene.WALLS.name+"/")
+            theScene.registerSpces(Sps)
+            for r in rots:
+                if rots.index(r)>-1:
+                    spc = Sps.extractingSpce(hint=[5,5])
+                else:
+                    spc = spce(np.array([-1.8595,0.,-1.332]),np.array([3.3795,0.,1.252]),scne=theScene)
 
-        #may be 
+                cObjectList = []
+                rf = self.nods[0].bunches[self.rootNames.index(r)+1].exp
+                N = self.nods[self.rootNames.index(r)+1]
+                ro= obje.fromFlat(rf,j=object_types.index(N.type))
+                ro.translation = np.copy(ro.size)
+                ro.samplesBound()
+                ro.nid = N.idx
+                cObjectList.append(ro)
 
+                self.tempDebugger(theScene,cObjectList,None,spc,"%d os=%d"%(rots.index(r),len(cObjectList)))
 
-        scene = scne.empty(nm)
+                adding=True
+                while adding:
+                    cs,m = 0,None
+                    if len(N.edges)==0:
+                        break
+                    for ed in N.edges:
+                        cs += ed.confidence
+                        if ed in N.edges and N.edges.index(ed)==0:#np.random.rand() < ed.confidenceIn:
+                            N,m = ed.endNode,ed.startNode
+                            BD = np.array([o.samplesBound()[1] for o in cObjectList]).max(axis=0)
+                            area = 2*spc.relA-BD #np.array([BD[1]-2*spc.a,[0,0,0]]).max(axis=0)
+                            # print("---------------------start------------------"+str(len(cObjectList)))
+                            # print("spc.relA",spc.relA,"BD",BD,"area",area)
+                            Ntype = N.type if N.type.find('/') == -1 else N.type[:N.type.find('/')]
+
+                            while not (N.idx in m.bunches):
+                                m = m.source.startNode
+                            ro = m.bunches[N.idx].exp
+                            a = [o for o in cObjectList if o.nid == m.idx]
+                            o = a[0].rely(obje.fromFlat(ro,j=object_types.index(N.type)),self.scaled)
+                            o.nid = N.idx
+
+                            self.tempDebugger(theScene,cObjectList,o,spc,"%d os=%d %d's child = %s before viola"%(rots.index(r),len(cObjectList),ed.startNode.edges.index(ed),Ntype))
+
+                            delta = 0.04
+                            bd = o.samplesBound()
+                            viola = [np.array([bd[0],[0,0,0]]).min(axis=0),np.array([bd[1]-2*spc.relA,[0,0,0]]).max(axis=0)]
+                            # print(viola) viola[0] is zero or negative, viola[1] is zero or positive
+                            if min(viola[0][0],viola[0][2]) < -delta*2 and max(viola[1][0],viola[1][2]) > delta*2:
+                                # print("viola[0].min() < -delta*5 and viola[1].max() > delta*5 no space")
+                                adding=False
+                                break
+                            if min(viola[0][0],viola[0][2]) > -delta*2 and max(viola[1][0],viola[1][2]) < delta*2:
+                                # print("no viola")
+                                self.tempDebugger(theScene,cObjectList,o,spc,"%d os=%d %d's child = %s with no voila"%(rots.index(r),len(cObjectList),ed.startNode.edges.index(ed),Ntype))
+                                cObjectList.append(o)
+                                
+                                continue
+
+                            moving = (min(viola[0][0],viola[0][2]) < -delta*2)
+                            #vio = viola[0] if min(viola[0][0],viola[0][2]) < -delta*2 else viola[1]
+                            if moving:
+                                # print("moving "+str(len(cObjectList)))
+                                if min(area[0]+viola[0][0],area[2]+viola[0][2]) <-delta*5:
+                                    # print("too large viola, please find another node")
+                                    continue
+                                else:
+                                    vio0 = [viola[0][0],viola[0][1],viola[0][2]]
+                                    viola[0] = [max(viola[0][0],-area[0]),viola[0][1],max(viola[0][2],-area[2])]
+                                    vio = [(viola[0][0]+vio0[0])/2.0,viola[0][1],(viola[0][2]+vio0[2])/2.0]
+                            else:
+                                if max(viola[1][0],viola[1][2]) > delta*5:
+                                    # print("too large viola, please find another node")
+                                    continue
+                                else:
+                                    vio = viola[1]
+                            
+                            o.translation -= vio
+
+                            self.tempDebugger(theScene,cObjectList,o,spc,"%d os=%d %d's child = %s after fixing vio"%(rots.index(r),len(cObjectList),ed.startNode.edges.index(ed),Ntype))
+                            if not moving:
+                                collide = False
+                                for oo in cObjectList:
+                                    if oo.class_name().find("Lamp")==-1:
+                                        a,b=oo.distance(o)
+                                        collide = b
+                                        if collide:
+                                            break
+                                if collide:
+                                    # print("collision occurs while fixing viola")
+                                    continue
+
+                            if moving:
+                                for oo in cObjectList:
+                                    oo.translation -= vio
+                            
+                            self.tempDebugger(theScene,cObjectList,o,spc,"%d os=%d %d's child = %s after moving everything"%(rots.index(r),len(cObjectList),ed.startNode.edges.index(ed),Ntype))
+
+                            spc.towardWall(o)                            
+                            cObjectList.append(o)
+                        else:
+                            break
+
+                for oo in cObjectList:
+                    theScene.addObject(oo)
+                
+                BD = np.array([o.samplesBound()[1] for o in cObjectList]).max(axis=0)
+                spc.recycle(BD)
+                Sps.SPCES.append(spc)
+                spc.scne=theScene
+
+                self.tempDebugger(theScene,cObjectList,None,spc,"%d os=%d after recycling"%(rots.index(r),len(cObjectList)))
+                            
+                a = Sps.eliminatingSpace(spc)
+                if not a:
+                    break
+    
+            return
+
+        if useText is not None:
+            pass
+
+        
+        scene = scne.empty(nm) if theScene is None else theScene
         scene.imgDir = "./pattern/gens/"
         N = self.nods[0]
         while len(N.edges)>0:
@@ -202,6 +333,17 @@ class patternManager():
                     break
         scene.draw(d=True)
 
+    def completion(self,scne):
+        #we will not extract space in the room walls then,
+        #It's so weird, while the nodes are scattering in the tree
+        pass
+
+    def rearrangment(self,scne):
+        #search in the tree.
+        #assign nodes for these objects.
+
+        pass
+
 ##################
 import sys,argparse
 def parse(argv):
@@ -209,8 +351,9 @@ def parse(argv):
     parser.add_argument('-v','--verbose', default=0)
     parser.add_argument('-d','--maxDepth', default=6)
     parser.add_argument('-n','--name', default="")
-    parser.add_argument('-l','--load', default="")#vise
+    parser.add_argument('-l','--load', default="fixd")#vise
     parser.add_argument('-s','--scaled', default=True, action="store_true")
+    parser.add_argument('-w','--wid', default="rand3")
     parser.add_argument('-o','--oid', default="")
     parser.add_argument('-u','--uid', default="")
     parser.add_argument('-g','--gen', default="")
@@ -227,12 +370,21 @@ UIDS = ["0a9f23f6-f0a6-4cbb-8db5-48be2996d10a_LivingDiningRoom-507",
         
 if __name__ == "__main__": #load="testings",
     args=parse(sys.argv[1:])
-    assert (len(args.name)>0 or len(args.load)>0) and (len(args.gen)>0 or len(args.uid)>0 or len(args.oid)>0)
+    #assert (len(args.name)>0 or len(args.load)>0) and (len(args.gen)>0 or len(args.uid)>0 or len(args.oid)>0)
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled,loadDataset=(len(args.load)==0))
     T.treeConstruction(load=args.load,name=args.name,draw=len(args.name)>0 or (len(args.uid)==0 and len(args.gen)==0))#
-    if len(args.gen)>0:
-        [T.generate(args.gen+str(i)) for i in range(16)]
-    elif len(args.uid)>0:
-        [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
-    elif len(args.oid)>0:
-        [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]
+    
+    DIR = "./newRoom/"
+    W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #wlz.draw(DIR)
+    print(W)
+    raise NotImplementedError
+    S = scne.empty(args.wid+"_")
+    S.registerWalls(W)
+    T.generate(nm="testing",theScene=S,useWalls=True,debug=True)
+
+    # if len(args.gen)>0:
+    #     [T.generate(args.gen+str(i)) for i in range(16)]
+    # elif len(args.uid)>0:
+    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
+    # elif len(args.oid)>0:
+    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]

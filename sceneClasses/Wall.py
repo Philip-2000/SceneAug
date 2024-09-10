@@ -1,7 +1,8 @@
 import numpy as np
 from matplotlib import pyplot as plt 
 from Logg import *
-import traceback
+from Obje import *
+import json
 WALLSTATUS = True
 EPS = 0.001
 class wall():
@@ -106,6 +107,10 @@ class walls():
         self.flex = flex
         self.drawFolder = drawFolder
 
+        self.windoors = {}
+        
+
+
     def __getitem__(self, idx):
         return self.WALLS[idx]
 
@@ -121,7 +126,73 @@ class walls():
         a.LOGS = [distribute(a,l) for l in open(f,"r").readlines()]
         a.centerize()
         [print(l) for l in a.LOGS if a.printLog]
+        
+        wf = f.replace(".txt",".json")
+        try:
+            #assert False
+            dd = json.load(open(wf,"r"))
+            for i in dd:
+                d = dd[i]
+                windoor = obje.fromFlat(np.array(d),j=len(object_types)-1 if d[1]-d[4]<0.01 else len(object_types)-2)
+                a.windoors[i] = windoor
+        except:
+            #assert False
+            ws = []
+            while (np.random.rand()<0.7 and len(ws)<3) or len(ws)<2:
+                vws = [w for w in a.WALLS if w.v and (w.idx not in ws) and w.length>1.5]
+                w=vws[np.random.randint(len(vws))]
+                
+                thick2 = 0.12
+                rt = np.random.rand()*(0.5)+0.25
+                mins = min(rt*w.length, (1-rt)*w.length)
+                if mins<0.8:
+                    continue
+                
+                doc = w.p*(1-rt)+w.q*rt - (thick2)*w.n
+                width2 = np.random.rand()*(mins-0.8)+0.4
+                
+                if np.random.rand()<0.8:
+                    windoor = obje(doc+np.array([0,1.0,0]),np.array([width2,1.0,thick2]),np.array([np.math.atan2(w.n[0],w.n[2])]),i=len(object_types)-1)
+                else:
+                    windoor = obje(doc+np.array([0,1.2,0]),np.array([width2,0.5,thick2]),np.array([np.math.atan2(w.n[0],w.n[2])]),i=len(object_types)-2)
+                a.windoors[str(w.idx)] = windoor
+                ws.append(w.idx)
+
+            wfr= open(wf,"w")
+            wfr.write(json.dumps({i:a.windoors[i].flat(False).tolist() for i in a.windoors}))
+        a.processWithWindoor()
         return a
+
+    def processWithWindoor(self):
+        for a in self.windoors:
+            o = self.windoors[a]
+            if o.class_name() == "door":
+                a = int(a)
+
+                W=self.WALLS[a]
+
+                W.q = o.translation+(o.matrix()*np.array([[ o.size[0]+0.05,0,o.size[2]]])).sum(axis=-1)
+                W.q[1] = 0
+                self.insertWall(a)
+                W.q = o.translation+(o.matrix()*np.array([[ o.size[0]+0.05,0,o.size[2]+0.4]])).sum(axis=-1)
+                W.q[1] = 0
+                self.insertWall(a)
+                W.q = o.translation+(o.matrix()*np.array([[-o.size[0]-0.05,0,o.size[2]+0.4]])).sum(axis=-1)
+                W.q[1] = 0
+                self.insertWall(a)
+                W.q = o.translation+(o.matrix()*np.array([[-o.size[0]-0.05,0,o.size[2]]])).sum(axis=-1)
+                W.q[1] = 0
+                self.insertWall(a)
+            
+
+
+        # X=self.WALLS[W.w2]
+        # a=W.idx
+        # for i in range(3,-1,-1):
+        #     X.p = Spce.corners[(PID+i)%4]
+        #     a=self.WALLS.insertWall(a)
+
+        pass
 
     def stickWall(self,w,x):
         wp,wq,xp,xq = np.cross(np.abs(w.n),w.p)[1],np.cross(np.abs(w.n),w.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]
@@ -339,6 +410,7 @@ class walls():
                 w = self.WALLS[w].w2
             contour = np.array(contour)
             plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color=color)
+            [self.windoors[o].draw() for o in self.windoors]
             if end and self.drawFolder:
                 plt.axis('equal')
                 L = max(self.LH())
@@ -354,3 +426,12 @@ class walls():
     def output(self):
         self.draw(True)
         self.writeLog()
+
+
+
+if __name__ == "__main__": #load="testings",
+    
+    DIR = "./newRoom/"
+    W = walls.fromLog(f=DIR+"rand3.txt",name="",drawFolder=DIR) #wlz.draw(DIR)
+    print(W)
+    W.draw(True)

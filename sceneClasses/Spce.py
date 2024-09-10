@@ -1,86 +1,87 @@
 # from . import SPCES,WALLS
 from Wall import *
+from Obje import *
 import numpy as np
 from copy import deepcopy
 from matplotlib import pyplot as plt
 from PIL import Image,ImageOps,ImageDraw
 
-def stickWall(w,x):
-    wp,wq,xp,xq = np.cross(np.abs(w.n),w.p)[1],np.cross(np.abs(w.n),w.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]
-    return w.v and abs(w.n@x.n)>0.9 and abs(np.abs(w.n)@w.p-np.abs(x.n)@x.p)<0.01 and min(wp,wq)<max(xp,xq) and min(xp,xq)<max(wp,wq)
+# def stickWall(w,x):
+#     wp,wq,xp,xq = np.cross(np.abs(w.n),w.p)[1],np.cross(np.abs(w.n),w.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]
+#     return w.v and abs(w.n@x.n)>0.9 and abs(np.abs(w.n)@w.p-np.abs(x.n)@x.p)<0.01 and min(wp,wq)<max(xp,xq) and min(xp,xq)<max(wp,wq)
 
-class bond():
-    def __init__(self,p,q,idx,spceIdx):
-        self.p=p
-        self.q=q
-        self.n = np.cross(np.array([0,1,0]),p-q)/np.linalg.norm(np.cross(np.array([0,1,0]),p-q))
-        #print(self.n) #assert (p[0]-q[0])*self.n[2]<=(p[2]-q[2])*self.n[0]
-        self.length=(((self.p-self.q)**2).sum())**0.5
-        self.idx=idx
-        self.spceIdx=spceIdx
-        self.relatedWalls = []
-        self.full = False
-        #self.checkWalls()
+# class bond():
+#     def __init__(self,p,q,idx,spceIdx):
+#         self.p=p
+#         self.q=q
+#         self.n = np.cross(np.array([0,1,0]),p-q)/np.linalg.norm(np.cross(np.array([0,1,0]),p-q))
+#         #print(self.n) #assert (p[0]-q[0])*self.n[2]<=(p[2]-q[2])*self.n[0]
+#         self.length=(((self.p-self.q)**2).sum())**0.5
+#         self.idx=idx
+#         self.spceIdx=spceIdx
+#         self.relatedWalls = []
+#         self.full = False
+#         #self.checkWalls()
 
-    def addWall(self,w):
-        #(self.p-w.p)@(w.q-w.p)/w.length  
-        # print("addWall "+str(self.idx)+" "+str(w.idx))
-        # print(self.p)
-        # print(self.q)
-        # print(self.n)
-        # print(w.p)
-        # print(w.q)
-        # print(w.n)
-        # print("low")
-        # print((self.p-w.p)@(w.q-w.p)/(w.length)**2)
+#     def addWall(self,w):
+#         #(self.p-w.p)@(w.q-w.p)/w.length  
+#         # print("addWall "+str(self.idx)+" "+str(w.idx))
+#         # print(self.p)
+#         # print(self.q)
+#         # print(self.n)
+#         # print(w.p)
+#         # print(w.q)
+#         # print(w.n)
+#         # print("low")
+#         # print((self.p-w.p)@(w.q-w.p)/(w.length)**2)
 
                 
 
-        low = max((self.p-w.p)@(w.q-w.p)/(w.length)**2,0.01)
-        # print(low)
-        # print("upp")
-        # print((self.q-w.p)@(w.q-w.p)/(w.length)**2)
-        upp = min((self.q-w.p)@(w.q-w.p)/(w.length)**2,0.99)
-        # print(upp)
-        # print("lower")
-        # print((w.p-self.p)@(self.q-self.p)/(self.length)**2)
-        lower = max((w.p-self.p)@(self.q-self.p)/(self.length)**2,0.01)
-        # print(lower)
-        # print("upper")
-        # print((w.q-self.p)@(self.q-self.p)/(self.length)**2)
-        upper = min((w.q-self.p)@(self.q-self.p)/(self.length)**2,0.99)
-        # print(upper)
-        self.relatedWalls.append({"idx":w.idx,"low":low,"upp":upp,"lower":lower,"upper":upper})
-        if low==0.01 and upp==0.99 and lower==0.01 and upper==0.99 :
-            self.full=True
+#         low = max((self.p-w.p)@(w.q-w.p)/(w.length)**2,0.01)
+#         # print(low)
+#         # print("upp")
+#         # print((self.q-w.p)@(w.q-w.p)/(w.length)**2)
+#         upp = min((self.q-w.p)@(w.q-w.p)/(w.length)**2,0.99)
+#         # print(upp)
+#         # print("lower")
+#         # print((w.p-self.p)@(self.q-self.p)/(self.length)**2)
+#         lower = max((w.p-self.p)@(self.q-self.p)/(self.length)**2,0.01)
+#         # print(lower)
+#         # print("upper")
+#         # print((w.q-self.p)@(self.q-self.p)/(self.length)**2)
+#         upper = min((w.q-self.p)@(self.q-self.p)/(self.length)**2,0.99)
+#         # print(upper)
+#         self.relatedWalls.append({"idx":w.idx,"low":low,"upp":upp,"lower":lower,"upper":upper})
+#         if low==0.01 and upp==0.99 and lower==0.01 and upper==0.99 :
+#             self.full=True
 
-    def checkWalls(self):
-        for w in WALLS:
-            if stickWall(w,self):
-                self.addWall(w)
-        pass
+#     def checkWalls(self):
+#         for w in WALLS:
+#             if stickWall(w,self):
+#                 self.addWall(w)
+#         pass
 
-    def mWall(self, L, moveFull=True):
-        oldp = np.copy(self.p)
-        self.p += self.n*L
-        oldq = np.copy(self.q)
-        self.q += self.n*L
-        self.length=(((self.p-self.q)**2).sum())**0.5
-        SPCES[self.spceIdx].bounds[(self.idx-1)%4].adjustWall(oldp,self.p,self.idx)
-        SPCES[self.spceIdx].bounds[(self.idx+1)%4].adjustWall(oldq,self.q,self.idx)
-        if moveFull and self.full:
-            WALLS[self.relatedWalls[0]["idx"]].mWall(L)
+#     def mWall(self, L, moveFull=True):
+#         oldp = np.copy(self.p)
+#         self.p += self.n*L
+#         oldq = np.copy(self.q)
+#         self.q += self.n*L
+#         self.length=(((self.p-self.q)**2).sum())**0.5
+#         SPCES[self.spceIdx].bounds[(self.idx-1)%4].adjustWall(oldp,self.p,self.idx)
+#         SPCES[self.spceIdx].bounds[(self.idx+1)%4].adjustWall(oldq,self.q,self.idx)
+#         if moveFull and self.full:
+#             WALLS[self.relatedWalls[0]["idx"]].mWall(L)
 
-    def adjustWall(self,oldp,p,hint):
-        if hint == (self.idx-1)%4:
-            self.p=p
-        elif hint == (self.idx+1)%4:
-            self.q=p
-        else:
-            print("false hint")
-        if (self.p-self.q)[0]*self.n[2] > (self.p-self.q)[2]*self.n[0]:
-            self.n = -self.n
-        self.length=(((self.p-self.q)**2).sum())**0.5
+#     def adjustWall(self,oldp,p,hint):
+#         if hint == (self.idx-1)%4:
+#             self.p=p
+#         elif hint == (self.idx+1)%4:
+#             self.q=p
+#         else:
+#             print("false hint")
+#         if (self.p-self.q)[0]*self.n[2] > (self.p-self.q)[2]*self.n[0]:
+#             self.n = -self.n
+#         self.length=(((self.p-self.q)**2).sum())**0.5
 
 #WALLS=[]
 class prob():
@@ -127,12 +128,15 @@ class prob():
         return self.nearest()[0]*self.nearest()[1]
         
     def key(self,delta,hint=None):
-        return -1.0/self.ratio()+np.average(self.nearest())*0.4 - self.separation()*5 + self.avgOnWallLength(delta)
-
+        if hint is None:
+            return -1.0/self.ratio()+np.average(self.nearest())*2 - self.separation()*0.5 + self.onWallLength(delta)
+        else:
+            return -1.0/self.ratio()+np.average(self.nearest())*2 - self.separation()*0.5 + self.onWallLength(delta)
+        
     def areaFunctionDetection(self, walls, delta, f=False):
         assert not walls.crossCheck(self.toWalls(EPS/2))
         wals = self.toWalls()
-        #print(wals)
+        #print(wals)    
         self.areaF = [ [ [wals[0].p,200],[wals[0].q,-1]],[[wals[1].p,200],[wals[1].q,-1]],[[wals[2].p,200],[wals[2].q,-1]],[[wals[3].p,200],[wals[3].q,-1]] ]
         for i in range(len(walls)):
             w = walls[i]
@@ -229,9 +233,10 @@ class prob():
         
         
         for s in range(len(self.straight)):
-            if self.straight[s][1]<min(self.straight[s-1][1],self.straight[(s+1)%len(self.straight)][1]):
+            if self.straight[s][1]>max(self.straight[s-1][1],self.straight[(s+1)%len(self.straight)][1]):
+                l = self.straight[s][2]
                 try:
-                    self.Us.append(1 - np.math.exp(-0.05*(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])/(2.0*self.straight[s][1])))
+                    self.Us.append(l - l*np.math.exp(-0.05*(2.0*self.straight[s][1])/(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])))
                 except:
                     pass
 
@@ -285,101 +290,92 @@ class prob():
         return walls(c=[self.p[0],self.p[2]],a=[self.nearest()[0]-eps,self.nearest()[1]-eps])
 
 class spce():
-    def __init__(self,c0,c1,idx=-1):
+    def __init__(self,c0,c1,pro=None,scne=None,delta=None,idx=-1):
         self.c0 = np.min(np.array([c0,c1]),axis=0)
         self.c1 = np.max(np.array([c0,c1]),axis=0)
         self.c = (c0+c1)/2.0
         self.a = self.c1 - self.c
-        self.corners = [self.c0,np.array([self.c1[0],self.c1[1],self.c0[2]]),self.c1,np.array([self.c0[0],self.c0[1],self.c1[2]])]
+        self.corners = [np.array(self.c1),np.array([self.c0[0],self.c0[1],self.c1[2]]),np.array(self.c0),np.array([self.c1[0],self.c1[1],self.c0[2]])]
         
-        self.bounds = []
-        self.bounds.append(bond(self.c0,np.array([self.c1[0],self.c1[1],self.c0[2]]),0,idx))
-        self.bounds.append(bond(np.array([self.c1[0],self.c1[1],self.c0[2]]),self.c1,1,idx))
-        self.bounds.append(bond(self.c1,np.array([self.c0[0],self.c0[1],self.c1[2]]),2,idx))
-        self.bounds.append(bond(np.array([self.c0[0],self.c0[1],self.c1[2]]),self.c0,3,idx))
-        pass
+        # self.bounds = [bond(self.c0,np.array([self.c1[0],self.c1[1],self.c0[2]]),0,idx),
+        #                bond(np.array([self.c1[0],self.c1[1],self.c0[2]]),self.c1,1,idx)),
+        #                bond(self.c1,np.array([self.c0[0],self.c0[1],self.c1[2]]),2,idx)),
+        #                bond(np.array([self.c0[0],self.c0[1],self.c1[2]]),self.c0,3,idx))]
+
+        self.wallsSign = [[],[],[],[]]
+        
+        onBds = []
+        #pro.printConnectivityInfo(delta)
+        w = pro.toWalls()
+        for i in range(4):
+            f = True
+            for j in pro.areaF[i]:
+                self.wallsSign[i].append([j[0],j[1],(j[1]<delta),w[i].rate(j[0])])
+                f = f and (j[1]<delta)
+            if f:
+                onBds.append(i)
+        #print(self.wallsSign)
+        #print(onBds)
+        #raise NotImplementedError
+
+            
+        I,J = 0,1#-1,-1
+        # if pro is not None:
+        #     I,J = 1,2
+        if len(onBds)==1:
+            J = onBds[0]
+            I = (J-1)%4
+        elif len(onBds)==2:
+            assert abs(onBds[0] - onBds[1])==1
+            I = 3 if onBds[0] == 0 and onBds[1] == 3 else onBds[0]
+            J = 0 if onBds[0] == 0 and onBds[1] == 3 else onBds[1]
+        elif len(onBds)==3:
+            j = [__ for __ in onBds if __ not in [_ for _ in range(4)]]
+            J = (j[0]+2)%4
+            I = (J-1)%4
+        self.I,self.J = I,J
+        #print(self.I)
+        #print(self.J)
+        #raise NotImplementedError
+        self.refObj = obje(self.corners[self.J],np.array([1,1,1]),np.array([(2-self.J)*np.math.pi/2])) #if self.J != -1 else  obje((self.corners[self.I]+self.corners[(self.I-1)%4])/2.0,np.array([1,1,1]),self.I*np.math.pi)
+        self.relA = np.array([self.a[0],self.a[1],self.a[2]]) if self.J%2==0 else np.array([self.a[2],self.a[1],self.a[0]])
+
+        #annotate doors
+        # for o in [_ for _ in scne.OBJES if _.class_name() == "door"]:
+        #     #for i in range(4):
+        #     p = o.translation + o.matrix(-1)@o.direction()
+        #     if p[0]-self.c[0]/self.a[0] == 1 or p[2]-self.c[1]/self.a[1] == 1:
+        #         pass
+        #     s = o.size()[2] 
+
+    def transformInward(self, objes):
+        return [self.refObj.rela(o) for o in objes]
+
+    def transformOutward(self, objes):
+        return [self.refObj.rely(o) for o in objes]
+        
+    def recycle(self,BD):
+        self.corners[(self.J+1)%4] = self.corners[self.J] + self.refObj.matrix(1)@np.array([BD[0],0,0])#(self.refObj.matrix(1)*np.array([[BD[0],0,0]])).sum(axis=-1)
+        self.corners[(self.J+2)%4] = self.corners[self.J] + self.refObj.matrix(1)@np.array([BD[0],0,BD[2]])#(self.refObj.matrix(1)*np.array([[BD[0],0,BD[2]]])).sum(axis=-1)
+        self.corners[(self.J+3)%4] = self.corners[self.J] + self.refObj.matrix(1)@np.array([0,0,BD[2]])#(self.refObj.matrix(1)*np.array([[0,0,BD[2]]])).sum(axis=-1)
+
+        self.c0 = np.array(self.corners).min(axis=0)
+        self.c1 = np.array(self.corners).max(axis=0)
+        self.c = (self.c0+self.c1)/2.0
+        self.a = self.c1 - self.c
 
     @classmethod
     def fromProb(cls,c,a):
         return cls(c-a,c+a)
+    
+    @classmethod
+    def fromPro(cls,pro,scne,delta):
+        c = pro.p
+        a = two23(pro.nearest())
+        return cls(c-a,c+a,pro,scne,delta)
 
     def __str__(self):
         return "[[%.2f,%.2f],[%.2f,%.2f],[%.2f,%.2f],[%.2f,%.2f]] at [%.2f,%.2f] with [%.2f,%.2f]"%(self.corners[0][0],self.corners[0][2],self.corners[1][0],self.corners[1][2],self.corners[2][0],self.corners[2][2],self.corners[3][0],self.corners[3][2],self.c[0],self.c[2],self.a[0],self.a[2])
-
-    def maxZ(self):
-        return max(self.corner0[2],self.corner1[2])
-
-    def minZ(self):
-        return min(self.corner0[0],self.corner1[0])
-    
-    def maxX(self):
-        return max(self.corner0[2],self.corner1[2])
-    
-    def minX(self):
-        return min(self.corner0[0],self.corner1[0])
-
-    def absoluteBbox(self):
-        pass
-
-    def recommendedWalls(self):
-        #we are going 
-        pass
-
-    def adjustSingle(self,id):
-        if id > 3 or (not self.bounds[id].full):
-            print("error:noFullBound?")
-            return 
-        L = 0
-        if self.bounds[0].length/self.bounds[1].length < 0.6:
-            if id%2 == 0:
-                L = self.bounds[1].length - self.bounds[0].length/0.6 #positive
-                #reduce myself to reduce self.bounds[1].length
-                pass
-            else:
-                L = self.bounds[0].length - self.bounds[1].length*0.6 #negative
-                #add myself to add self.bounds[0].length
-                pass
-        else:#self.bounds[0].length/self.bounds[1].length > 1.6
-            if id%2 == 0:
-                L = self.bounds[1].length - self.bounds[0].length/1.6 #negative
-                #add myself to add self.bounds[1].length
-                pass
-            else:
-                L = self.bounds[0].length - self.bounds[1].length*1.6 #positive
-                #reduce myself to reduce self.bounds[0].length
-                pass
-            pass 
-        self.bounds[id].mWall(L)
-
-    def adjustSize(self):
-        raise NotImplementedError
-        if abs(self.bounds[0].length/self.bounds[1].length-1.0)<0.4:
-            return
-        if (self.bounds[0].full or self.bounds[2].full) and (self.bounds[1].full or self.bounds[3].full):
-            if(self.bounds[0].length>self.bounds[1].length):
-                if self.bounds[0].full:
-                    self.adjustSingle(0)
-                elif self.bounds[2].full:
-                    self.adjustSingle(2)
-            else:
-                if self.bounds[1].full:
-                    self.adjustSingle(1)
-                elif self.bounds[3].full:
-                    self.adjustSingle(3)
-        else:
-            id=0
-            while id < 4 and (not self.bounds[id].full):
-                id += 1
-            self.adjustSingle(id)
-
-        #check my own size,
-        #find an full-covered wall
-        #drag that wall to a propriate place
-        # self.c0 = self.bounds[0].p
-        # self.c1 = self.bounds[1].q
-        # self.c = (self.c0+self.c1)/2.0
-        # self.a = self.c0 - self.c
-        pass
 
     def draw(self):
         scl = [1.0,0.8,0.6,0.4]
@@ -387,6 +383,25 @@ class spce():
         for s in scl:
             corners = np.array([[c[0]+s*a[0],c[2]+s*a[2]],[c[0]-s*a[0],c[2]+s*a[2]],[c[0]-s*a[0],c[2]-s*a[2]],[c[0]+s*a[0],c[2]-s*a[2]],[c[0]+s*a[0],c[2]+s*a[2]]])
             plt.plot( corners[:,0], -corners[:,1], marker="x", color="pink")
+
+    def backToWall(self, o):
+        #lots of problems here.
+        #Isolating each object may cause global problems
+        #What if the door occurs in the self.J wall?
+        #so is that means, when we are selecting the self.J's wall, the door should be considered already
+        #how should we organize such data structure. fuck. It's the problem
+        
+        #another idea is that if we can imitate the main "againsting wall behaviour" through the sampling process: generate(useWalls=True)
+        #what if the "preserving area in front of the door"
+        #if we do not let the back on the wall operation,
+        #then "preserving area in the front of the door" should be implemented through extractingSpce()?
+        #what if squeeze the area in front
+        #but the problem turns out to be, we should allow some sort of alone areas.
+        #the eliminating() is more complex then
+
+        #we should also allow some sort of alone while selecting?
+        #we should also talk about the length of high areas when talking about the Us
+        pass
 
 
 class spces():
@@ -403,9 +418,11 @@ class spces():
         if drawFolder and not os.path.exists(drawFolder):
             os.makedirs(drawFolder)
     
-    def draw(self,folder=""):
+    def draw(self,folder="",dr=True):
+        #print("here "+folder)
+        #print(self.SPCES[0])
         [s.draw() for s in self.SPCES]
-        if folder or self.drawFolder:#print("spces draaw", (folder if folder else self.drawFolder)+str(len(self.SPCES))+".png")
+        if (folder or self.drawFolder) and dr:#print("spces draaw", (folder if folder else self.drawFolder)+str(len(self.SPCES))+".png")
             self.iWALLS.draw(color="gray")
             self.WALLS.draw(color="black")
             f=(folder if folder else self.drawFolder)+str(len(self.SPCES))+".png"
@@ -461,7 +478,7 @@ class spces():
         #print(self.WALLS)
         return True
 
-    def extractingSpce(self,DIR=""):
+    def extractingSpce(self,DIR="",hint=None):
         if len([w for w in self.WALLS if w.v])==0:
             return None
         #grid on the space
@@ -510,7 +527,9 @@ class spces():
             self.drawProb(GRIDPro,(DIR if DIR else self.drawFolder))
 
         #Find a pro in pros
-        PRO = sorted([sorted(gg,key=lambda x:-x.key(self.delta))[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key(self.delta))[0]
+
+        return sorted([sorted(gg,key=lambda x:-x.key(self.delta,hint))[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key(self.delta,hint))
+        PRO = sorted([sorted(gg,key=lambda x:-x.key(self.delta,hint))[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key(self.delta,hint))[0]
         
         #print(self.WALLS,PRO,PRO.toWalls(),sep="\n")
         #PRO.printConnectivityInfo()
@@ -521,12 +540,25 @@ class spces():
         # print(PRO.toWalls(),PRO.toWalls(EPS),sep="\n")
         #raise NotImplementedError
 
-        return spce.fromProb(PRO.p,two23(PRO.nearest()))
+        return spce.fromPro(PRO,self.scne,self.delta)#spce.fromProb(PRO.p,two23(PRO.nearest()))
+
+    def extractingMoreSpces(self,DIR="",hint=None):
+        spss = self.extractingSpce()
+        for p in spss[:10]:
+            sp = spce.fromPro(p,self.scne,self.delta)
+            print(spss.index(p))
+            p.printConnectivityInfo(self.delta)
+            print("[p.key() = %.3f ]= [(-1.0 / ratio) = %.3f] + [np.average(self.nearest())*2 = %.3f] + [self.separation()*0.5 = %.3f] + [self.onWallLength(delta) = %.3f]"%(p.key(self.delta,hint), -1.0/p.ratio(),np.average(p.nearest())*2,p.separation()*0.5,p.onWallLength(self.delta)))
+            self.SPCES.append(sp)
+            sp.scne = self.scne
+            self.draw(self.drawFolder+str(spss.index(p))+" ")
+            self.SPCES = []
 
     def extractingSpces(self,bound=1,DIR=""):
         self.SPCES,sp,b = [],self.extractingSpce(DIR),self.draw((DIR if DIR else self.drawFolder)) if DIR or self.drawFolder else None
         while sp and len(self.SPCES)<bound:
             self.SPCES.append(sp)
+            sp.scne = self.scne
             a = self.eliminatingSpace(sp)
             b = self.draw((DIR if DIR else self.drawFolder)) if DIR or self.drawFolder else None
             if not a:
@@ -566,7 +598,7 @@ class spces():
 import sys,argparse,os
 def parse(argv):
     parser = argparse.ArgumentParser(prog='ProgramName')
-    parser.add_argument('-i','--identity', default="-1")
+    parser.add_argument('-i','--identity', default="3")
     parser.add_argument('-n','--new', default=False, action="store_true")
     parser.add_argument('-b','--bound', default=19)
     args = parser.parse_args(argv)
@@ -580,28 +612,9 @@ if __name__ == "__main__":
             wls.randomWalls()
             wls.output()
         
-        print(i)
+        #print(i)
         wlz = walls.fromLog(f=DIR+"rand"+str(i)+".txt",name="rand"+str(i)+"_",drawFolder=DIR) #wlz.draw(DIR)
+        #print(wlz)
         sm = spces(wals=wlz,name=wlz.name,drawFolder=DIR+wlz.name+"/")
-        sm.extractingSpces(2)
-
-"""
-总结一下怎恶魔做。
-每个点，多种方案。对。每个方案都记，肯定是都记录下来的
-每个方案在生成的时候，其实还需要把更复杂的信息探测到。比如贴边总长度，贴边联通数。
-可是还容易出现一个问题，那就是空间切碎的问题。这个事情该怎么讨论呢？
-就是说有在
-
-
-然后去挑一个方案？
-
-
-The problem is to visualize all these things first? Temporarily
-But how? i DONT KNOW
-
-
-
-以后：挑的时候其实也可以给一个这个hint，说我需要的是一个多大的一个空间？
-
-New problems cames out. Always.
-"""
+        #sm.extractingSpces(2)
+        sm.extractingMoreSpces()

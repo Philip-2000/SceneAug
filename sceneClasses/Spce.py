@@ -93,7 +93,7 @@ class prob():
         self.straight = []
     
     def __str__(self):
-        return "[%.2f,%.2f]: xmin: %.2f %s , zmin: %.2f %s , xmax: %.2f %s , zmax: %.2f %s"%(self.p[0],self.p[2],self.res[0][0],("in" if self.res[0][1] else "out"),self.res[1][0],("in" if self.res[1][1] else "out"),self.res[2][0],("in" if self.res[2][1] else "out"),self.res[3][0],("in" if self.res[3][1] else "out"))
+        return "[%.4f,%.4f]: xmin: %.4f %s , zmin: %.4f %s , xmax: %.4f %s , zmax: %.4f %s"%(self.p[0],self.p[2],self.res[0][0],("in" if self.res[0][1] else "out"),self.res[1][0],("in" if self.res[1][1] else "out"),self.res[2][0],("in" if self.res[2][1] else "out"),self.res[3][0],("in" if self.res[3][1] else "out"))
     
     def update(self,dis,vec):
         if abs(vec[2])<EPS/10: 
@@ -129,76 +129,162 @@ class prob():
         
     def key(self,delta,hint=None):
         if hint is None:
-            return -1.0/self.ratio()+np.average(self.nearest())*2 - self.separation()*0.5 + self.onWallLength(delta)
+            return -1.0/self.ratio()+np.average(self.nearest())*2 - self.separation()*5 + self.onWallLength(delta)
         else:
-            return -1.0/self.ratio()+np.average(self.nearest())*2 - self.separation()*0.5 + self.onWallLength(delta)
+            return -1.0/self.ratio()+np.average(self.nearest())*2 - self.separation()*5 + self.onWallLength(delta)
         
-    def areaFunctionDetection(self, walls, delta, f=False):
-        assert not walls.crossCheck(self.toWalls(EPS/2))
+    def areaFunctionDetection(self, walls, delta, f=False, j0=2):
+        assert not walls.crossCheck(self.toWalls(EPS/2))#delta))#
         wals = self.toWalls()
-        #print(wals)    
+        if f:
+            print(self.p[0]+self.nearest()[0])
+            print(self.p[0]-self.nearest()[0])
+            print(wals)    
         self.areaF = [ [ [wals[0].p,200],[wals[0].q,-1]],[[wals[1].p,200],[wals[1].q,-1]],[[wals[2].p,200],[wals[2].q,-1]],[[wals[3].p,200],[wals[3].q,-1]] ]
         for i in range(len(walls)):
             w = walls[i]
-            j = [j for j in range(4) if wals[j].n@w.n > 1-EPS]
+            if not w.v:
+                continue
+            j = [j for j in range(4) if (wals[j].n@w.n > 1-EPS)]
             j = j[0]
             d = (self.areaF[j][0][0]-w.p)@w.n#print(d)
             if d < -EPS:
                 continue
             else:
                 d = max(d,0)
-            if f and j == 1:
+            if f and j == j0:
                 print(i,w,j,wals[j],"matched",sep="\t")
             
+            #find the area for w.p and test if we need to set a breakpoint on w.p
             k = 0
             P = self.areaF[j][k][0]
             r = wals[j].rate(P)
-            while r<wals[j].rate(w.p)+EPS and k < len(self.areaF[j])-1:
+            while r<wals[j].rate(w.p)-EPS and k < len(self.areaF[j]):
                 k+= 1
-                P = self.areaF[j][k][0]
-                r = wals[j].rate(P)
-            
-            if f and j == 1:
+                P = None if k==len(self.areaF[j]) else self.areaF[j][k][0] 
+                r = 1000 if k==len(self.areaF[j]) else wals[j].rate(P)
+            #w.p is in the area between self.areaF[j][k-1][0]=P + epsilon and self.areaF[j][k][0] + epsilon  self.areaF[j][k-1][0]< w.p <=self.areaF[j][k][0] ::: k+1 always exist, which means k<len()-1
+            #k = 0: means  w.p <=self.areaF[j][0][0] = 0
+            #it means w.p starts at somewhere before wals[j].p or at wals[j].p
+            #k = k: means self.areaF[j][k-1][0]< w.p <=self.areaF[j][k][0]
+            #it means w.p starts at somewhere in this area, maybe at the back of this area
+            #k =len: self.areaF[j][-1][0] < w.p
+            if k!= 0 and k != len(self.areaF[j]): #w surely starts in the area of wals[j] means: wals[j].q <     w.p
+                if wals[j].rate(w.p) < r-EPS: #w.p is not the same as self.areaF[j][k][0], it's surely in the area; so we should set a breakpoint for it
+                    R = wals[j].rate(w.p)
+                    di = self.areaF[j][k-1][1]
+                    self.areaF[j].insert(k,[wals[j].p*(1-R)+wals[j].q*R,di])
+            kP = k
+            if f and j == j0:
+                print("wall %d start from [%.3f, %.3f], it start in k=%d"%(w.idx,w.p[0],w.p[2],kP))
                 print(k)
                 print(P)
-                print(self.areaF[j][k][0])
-                print(wals[j].rate(P))
+                #print(self.areaF[j][k][0])
+                #print(wals[j].rate(P))
                 print(r)
                 print(wals[j].rate(self.areaF[j][k-1][0]))
                 print(wals[j].rate(w.p))
-            
-            if k>0 and abs(wals[j].rate(self.areaF[j][k-1][0])-wals[j].rate(w.p))> EPS: #P is behind w.q, #stop here
-                R = wals[j].rate(w.p)
-                di = self.areaF[j][k-1][1]
-                self.areaF[j].insert(k,[wals[j].p*(1-R)+wals[j].q*R,di])
-                if f and j == 1:
-                    print("p self.areaF["+str(j)+"]" +"→".join(["(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in self.areaF[j][:-1]])+"(%.2f,%.2f)"%(self.areaF[j][-1][0][0],self.areaF[j][-1][0][2]))
-            
-            while r<1.0+EPS:
-                if f and j == 1:
-                    print(P,r,"r = wals[j].rate(P)",sep="\t")
 
-                if wals[j].rate(w.q)<r and k>0: #P is behind w.q, #stop here
-                    r = wals[j].rate(w.q)
+            #find the area for w.q and test if we need to set a breakpoint on w.q
+            k = max(k-1,0)
+            P = self.areaF[j][k][0]
+            r = wals[j].rate(P)
+            while r<wals[j].rate(w.q)-EPS and k < len(self.areaF[j]):
+                k+= 1
+                P = None if k==len(self.areaF[j]) else self.areaF[j][k][0]
+                r = 1000 if k==len(self.areaF[j]) else wals[j].rate(P)
+            #w.q is in the area between self.areaF[j][k-1][0] + epsilon and self.areaF[j][k][0]=P + epsilon  self.areaF[j][k-1][0]< w.q <= self.areaF[j][k][0]
+            #k = 0: means  w.q <= self.areaF[j][0][0] = 0
+            #it means w.p starts at somewhere before wals[j].p or at wals[j].p
+            #k = k: means self.areaF[j][k-1][0]< w.q <=self.areaF[j][k][0]
+            #it means w.p starts at somewhere in this area, maybe at the back of this area
+            #k =len: self.areaF[j][-1][0] < w.q
+            if k != 0 and k != len(self.areaF[j]): #w surely ends in the area of wals[j] means: self.areaF[j][k-1][0]< w.q <=self.areaF[j][k][0]
+                if wals[j].rate(w.q) < r-EPS: #w.q is not the same as self.areaF[j][k][0], it's surely in the area; so we should set a breakpoint for it
+                    R = wals[j].rate(w.q)
                     di = self.areaF[j][k-1][1]
-                    self.areaF[j][k-1][1]=d
-                    self.areaF[j].insert(k,[wals[j].p*(1-r)+wals[j].q*r,di])
-                    if f and j == 1:
-                        print("q self.areaF["+str(j)+"]" +"→".join(["(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in self.areaF[j][:-1]])+"(%.2f,%.2f)"%(self.areaF[j][-1][0][0],self.areaF[j][-1][0][2]))
-                    break
-                else:  #w can cover this area
-                    if k>2 and abs(self.areaF[j][k-2][1]-d)<EPS: #merge it with the area before me
-                        del self.areaF[j][k-1]
-                        k-=1
+                    self.areaF[j].insert(k,[wals[j].p*(1-R)+wals[j].q*R,di])
+            kQ = k
+            if f and j == j0:
+                print("wall %d ends at [%.3f, %.3f], it ends at k=%d"%(w.idx,w.q[0],w.q[2],kQ))
+                print(k)
+                print(P)
+                #print(self.areaF[j][k][0])
+                #print(wals[j].rate(P))
+                print(r)
+                print(wals[j].rate(self.areaF[j][k-1][0]))
+                print(wals[j].rate(w.q))
+                if kP<kQ:
+                    print("d is %.3f"%(d))
+                
+            #traverse from w.p's area to w.q's area
+            kk = kP
+            for t in range(kP,kQ):
+                if self.areaF[j][kk][1] > d:
+                    if kk>1 and abs(self.areaF[j][kk-1][1]-d)<EPS: #merge it with the area before me
+                        del self.areaF[j][kk]
                     else: #cover this area
-                        self.areaF[j][k-1][1]=d
-                if k == len(self.areaF[j])-1:
-                    break
-                k += 1
+                        self.areaF[j][kk][1]=d
+                        kk+=1
+
+            if f and j == j0:
+                print("→".join([ "(%.3f,%.3f)←↑%.3f"%(a[0][0],a[0][2],a[1]) for a in self.areaF[j][:-1]])+"(%.3f,%.3f)"%(self.areaF[j][-1][0][0],self.areaF[j][-1][0][2]))
+            
+            if False:
+
+                k = 0
                 P = self.areaF[j][k][0]
                 r = wals[j].rate(P)
-                di = self.areaF[j][k][1]
-        
+                while r<wals[j].rate(w.p)+EPS and k < len(self.areaF[j])-1:
+                    k+= 1
+                    P = self.areaF[j][k][0]
+                    r = wals[j].rate(P)
+                
+                if f and j == j0:
+                    print(k)
+                    print(P)
+                    print(self.areaF[j][k][0])
+                    print(wals[j].rate(P))
+                    print(r)
+                    print(wals[j].rate(self.areaF[j][k-1][0]))
+                    print(wals[j].rate(w.p))
+                if k == len(self.areaF[j])-1:
+                    if f and j == j0:
+                        print("w.p is behind wals[j].q, make no effect to me")
+                    continue
+                
+                if k>0 and abs(wals[j].rate(self.areaF[j][k-1][0])-wals[j].rate(w.p))> EPS: #P is behind w.q, #stop here
+                    R = wals[j].rate(w.p)
+                    di = self.areaF[j][k-1][1]
+                    self.areaF[j].insert(k,[wals[j].p*(1-R)+wals[j].q*R,di])
+                    if f and j == j0:
+                        print("p self.areaF["+str(j)+"]" +"→".join(["(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in self.areaF[j][:-1]])+"(%.2f,%.2f)"%(self.areaF[j][-1][0][0],self.areaF[j][-1][0][2]))
+                
+                while r<1.0+EPS:
+                    if f and j == j0:
+                        print(P,r,"r = wals[j].rate(P)",sep="\t")
+                    
+                    if wals[j].rate(w.q)<r and k>0: #P is behind w.q, #stop here
+                        r = wals[j].rate(w.q)
+                        di = self.areaF[j][k-1][1]
+                        self.areaF[j][k-1][1]=d
+                        self.areaF[j].insert(k,[wals[j].p*(1-r)+wals[j].q*r,di])
+                        if f and j == j0:
+                            print("q self.areaF["+str(j)+"]" +"→".join(["(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in self.areaF[j][:-1]])+"(%.2f,%.2f)"%(self.areaF[j][-1][0][0],self.areaF[j][-1][0][2]))
+                        break
+                    else:  #w can cover this area
+                        if k>2 and abs(self.areaF[j][k-2][1]-d)<EPS: #merge it with the area before me
+                            del self.areaF[j][k-1]
+                            k-=1
+                        else: #cover this area
+                            self.areaF[j][k-1][1]=d
+                    if k == len(self.areaF[j])-1:
+                        break
+                    k += 1
+                    P = self.areaF[j][k][0]
+                    r = wals[j].rate(P)
+                    di = self.areaF[j][k][1]
+            
 
         self.Us=[]
         self.straight = []
@@ -235,10 +321,10 @@ class prob():
         for s in range(len(self.straight)):
             if self.straight[s][1]>max(self.straight[s-1][1],self.straight[(s+1)%len(self.straight)][1]):
                 l = self.straight[s][2]
-                try:
-                    self.Us.append(l - l*np.math.exp(-0.05*(2.0*self.straight[s][1])/(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])))
-                except:
-                    pass
+                #try:
+                self.Us.append(l - l*np.math.exp(-0.05*(2.0*self.straight[s][1])/(self.straight[s-1][1]+self.straight[(s+1)%len(self.straight)][1])))
+                #except:
+                #    pass
 
         self.Us = sorted(self.Us,key=lambda x:-x)
             #go from w.p to w.q
@@ -258,8 +344,9 @@ class prob():
     def printConnectivityInfo(self,delta):
         #self.areaF = [ [ (wals[0].p,20),(wals[0].q,-1)],[(wals[1].p,20),(wals[1].q,-1)],[(wals[2].p,20),(wals[2].q,-1)],[(wals[3].p,20),(wals[3].q,-1)] ]
         #self.straight = [relLength,dis,absLength]
-        print("areaF:    "+'\t\t'.join([ "→".join([ "(%.2f,%.2f)←↑%.2f"%(a[0][0],a[0][2],a[1]) for a in ar[:-1]])+"(%.2f,%.2f)"%(ar[-1][0][0],ar[-1][0][2])  for ar in self.areaF ]))
-        print("straight: "+", ".join([ "(%.2f,%.2f,%.2f)"%(a[0],a[1],a[2]) for a in self.straight]))
+        print(self)
+        print("areaF:\n"+'\n'.join([ "→".join([ "(%.3f,%.3f)←↑%.3f"%(a[0][0],a[0][2],a[1]) for a in ar[:-1]])+"(%.3f,%.3f)"%(ar[-1][0][0],ar[-1][0][2])  for ar in self.areaF ]))
+        print("\nstraight: "+", ".join([ "(%.3f,%.3f,%.3f)"%(a[0],a[1],a[2]) for a in self.straight]))
         print("Us:       "+str(self.Us))
         print("onWallLength: "+str(self.onWallLength(delta))+"\tonWallSegment:"+str(self.onWallSegment(delta))+"\tseparation:   "+str(self.separation()))
         return
@@ -295,6 +382,7 @@ class spce():
         self.c1 = np.max(np.array([c0,c1]),axis=0)
         self.c = (c0+c1)/2.0
         self.a = self.c1 - self.c
+        self.delta=delta
         self.corners = [np.array(self.c1),np.array([self.c0[0],self.c0[1],self.c1[2]]),np.array(self.c0),np.array([self.c1[0],self.c1[1],self.c0[2]])]
         
         # self.bounds = [bond(self.c0,np.array([self.c1[0],self.c1[1],self.c0[2]]),0,idx),
@@ -304,49 +392,63 @@ class spce():
 
         self.wallsSign = [[],[],[],[]]
         
-        onBds = []
+        #onBds = []
         #pro.printConnectivityInfo(delta)
         w = pro.toWalls()
         for i in range(4):
-            f = True
+            #f = True
             for j in pro.areaF[i]:
-                self.wallsSign[i].append([j[0],j[1],(j[1]<delta),w[i].rate(j[0])])
-                f = f and (j[1]<delta)
-            if f:
-                onBds.append(i)
+                self.wallsSign[i].append([j[0],j[1],(j[1]<delta),w[i].rate(j[0]),w[i].rate(j[0])*w[i].length])
+                #f = f and (j[1]<delta)
+            #if f:
+            #    onBds.append(i)
         #print(self.wallsSign)
         #print(onBds)
         #raise NotImplementedError
 
             
-        I,J = 0,1#-1,-1
-        # if pro is not None:
-        #     I,J = 1,2
-        if len(onBds)==1:
-            J = onBds[0]
-            I = (J-1)%4
-        elif len(onBds)==2:
-            assert abs(onBds[0] - onBds[1])==1
-            I = 3 if onBds[0] == 0 and onBds[1] == 3 else onBds[0]
-            J = 0 if onBds[0] == 0 and onBds[1] == 3 else onBds[1]
-        elif len(onBds)==3:
-            j = [__ for __ in onBds if __ not in [_ for _ in range(4)]]
-            J = (j[0]+2)%4
-            I = (J-1)%4
-        self.I,self.J = I,J
+        #I,J = 0,1#-1,-1
+        # # if pro is not None:
+        # #     I,J = 1,2
+        # if len(onBds)==1:
+        #     J = onBds[0]
+        #     I = (J-1)%4
+        # elif len(onBds)==2:
+        #     #assert abs(onBds[0] - onBds[1])==1
+        #     I = 3 if onBds[0] == 0 and onBds[1] == 3 else onBds[0]
+        #     J = 0 if onBds[0] == 0 and onBds[1] == 3 else onBds[1]
+        # elif len(onBds)==3:
+        #     j = [__ for __ in onBds if __ not in [_ for _ in range(4)]]
+        #     J = (j[0]+2)%4
+        #     I = (J-1)%4
+        #这一段核心就是挑IJ，每一个IJ都向两边延伸一下，看看最长的有多长，其中别忘了这里的delta需要设置到门的厚度以上，用以屏蔽门的影响，此处设置为0.42吧
+        Area=-100
+        for j in range(4):
+            area=0
+            i = (j-1)%4
+            idx = len(self.wallsSign[i])-1
+            while idx > -1:
+                if self.wallsSign[i][idx][1] < 0.42:
+                    area+=self.wallsSign[i][idx][-1]
+                else:
+                    break
+                idx -= 1
+
+            idx = 0
+            while idx < len(self.wallsSign[j]):
+                if self.wallsSign[j][idx][1] < 0.42:
+                    area+=self.wallsSign[j][idx][-1]
+                else:
+                    break
+                idx += 1
+            if area > Area:
+                self.I,self.J = (j-1)%4,j
+                Area = area
         #print(self.I)
         #print(self.J)
         #raise NotImplementedError
         self.refObj = obje(self.corners[self.J],np.array([1,1,1]),np.array([(2-self.J)*np.math.pi/2])) #if self.J != -1 else  obje((self.corners[self.I]+self.corners[(self.I-1)%4])/2.0,np.array([1,1,1]),self.I*np.math.pi)
         self.relA = np.array([self.a[0],self.a[1],self.a[2]]) if self.J%2==0 else np.array([self.a[2],self.a[1],self.a[0]])
-
-        #annotate doors
-        # for o in [_ for _ in scne.OBJES if _.class_name() == "door"]:
-        #     #for i in range(4):
-        #     p = o.translation + o.matrix(-1)@o.direction()
-        #     if p[0]-self.c[0]/self.a[0] == 1 or p[2]-self.c[1]/self.a[1] == 1:
-        #         pass
-        #     s = o.size()[2] 
 
     def transformInward(self, objes):
         return [self.refObj.rela(o) for o in objes]
@@ -354,7 +456,8 @@ class spce():
     def transformOutward(self, objes):
         return [self.refObj.rely(o) for o in objes]
         
-    def recycle(self,BD):
+    def recycle(self,BD,WALLS):
+        print(BD)
         self.corners[(self.J+1)%4] = self.corners[self.J] + self.refObj.matrix(1)@np.array([BD[0],0,0])#(self.refObj.matrix(1)*np.array([[BD[0],0,0]])).sum(axis=-1)
         self.corners[(self.J+2)%4] = self.corners[self.J] + self.refObj.matrix(1)@np.array([BD[0],0,BD[2]])#(self.refObj.matrix(1)*np.array([[BD[0],0,BD[2]]])).sum(axis=-1)
         self.corners[(self.J+3)%4] = self.corners[self.J] + self.refObj.matrix(1)@np.array([0,0,BD[2]])#(self.refObj.matrix(1)*np.array([[0,0,BD[2]]])).sum(axis=-1)
@@ -363,6 +466,24 @@ class spce():
         self.c1 = np.array(self.corners).max(axis=0)
         self.c = (self.c0+self.c1)/2.0
         self.a = self.c1 - self.c
+
+        PRO = prob(self.c)
+        PRO.res = [(self.a[0]-EPS,True),(self.a[2]-EPS,True),(self.a[0]-EPS,True),(self.a[2]-EPS,True)]
+        # print(WALLS)
+        # print(PRO)
+        # print(self.c0)
+        # print(self.c1)
+        # print(self.c)
+        # print(self.a)
+        PRO.areaFunctionDetection(WALLS, self.delta)#, True,1)
+        self.wallsSign = [[],[],[],[]]
+        
+        w = PRO.toWalls()
+        for i in range(4):
+            for j in PRO.areaF[i]:
+                self.wallsSign[i].append([j[0],j[1],(j[1]<self.delta),w[i].rate(j[0]),w[i].rate(j[0])*w[i].length])
+
+
 
     @classmethod
     def fromProb(cls,c,a):
@@ -403,6 +524,8 @@ class spce():
         #we should also talk about the length of high areas when talking about the Us
         pass
 
+    def toWalls(self,eps=0):
+        return walls(c=[self.c[0],self.c[2]],a=[self.a[0]-eps,self.a[2]-eps])
 
 class spces():
     def __init__(self, scne=None, wals=None, name="", flex=1.2, sz=-4.0, drawFolder=""):
@@ -447,7 +570,130 @@ class spces():
             Prob.p[2] += b
         return Prob
 
+    def eliminatedSpace(self,Spce):
+
+        print("wallsSign:\n"+'\n'.join([ "→".join([ "(%.3f,%.3f)←↑%.3f"%(a[0][0],a[0][2],a[1]) for a in ar[:-1]])+"(%.3f,%.3f)"%(ar[-1][0][0],ar[-1][0][2])  for ar in Spce.wallsSign ]))
+        
+        #just check the off wall segments of the spce?
+        height = Spce.wallsSign[3][-1][1]
+        idx = [0,0]
+        while True:
+            if Spce.wallsSign[idx[0]][idx[1]][1]<EPS and height>EPS:
+                break
+            height = Spce.wallsSign[idx[0]][idx[1]][1]
+            if len(Spce.wallsSign[idx[0]]) > idx[1]+2:
+                idx[1] += 1
+            else:
+                idx[1]=0
+                idx[0]=(idx[0]+1)%4
+
+        IDX = [idx[0],idx[1]]
+        #print(IDX)
+        offWallSegments = []
+        currentSegment = None#[None,0,None,[]] #startingpoint, length, endingpoint, walls
+        tw = Spce.toWalls()
+        while True:
+            height = Spce.wallsSign[idx[0]][idx[1]][1]
+            if len(Spce.wallsSign[idx[0]]) > idx[1]+2:
+                idx[1] += 1
+            else:
+                idx[1]=0
+                idx[0]=(idx[0]+1)%4
+                if currentSegment is not None and not (Spce.wallsSign[idx[0]][idx[1]][1]<EPS and height > EPS):
+                    P = Spce.wallsSign[idx[0]][idx[1]][0]
+                    currentSegment[3][-1].q = np.copy(P)
+                    currentSegment[3][-1].lengthh()
+                    N = currentSegment[3][-1].n
+                    currentSegment[3].append(wall(P,P,np.copy(tw[idx[0]].n),-1,-1,-1))
+            
+            if Spce.wallsSign[idx[0]][idx[1]][1]<EPS and height > EPS:
+                #end an offWallSegment
+                P = Spce.wallsSign[idx[0]][idx[1]][0]
+                currentSegment[2] = deepcopy(P)
+                currentSegment[3][-1].q = np.copy(P)
+                currentSegment[3][-1].lengthh()
+                currentSegment[1] = np.sum([w.length for w in currentSegment[3]])
+                offWallSegments.append(deepcopy(currentSegment))
+                currentSegment = None
+            elif Spce.wallsSign[idx[0]][idx[1]][1]>EPS and height > EPS:
+                P = Spce.wallsSign[idx[0]][idx[1]][0]
+                currentSegment[3][-1].q = np.copy(P)
+                currentSegment[3][-1].lengthh()
+                #stretch the offWallSegment
+                pass
+            elif Spce.wallsSign[idx[0]][idx[1]][1]>EPS and height < EPS: 
+                #start an offWallSegment
+                P = Spce.wallsSign[idx[0]][idx[1]][0]
+                currentSegment = [P,0,None,[wall(P,P,tw[idx[0]].n,-1,-1,-1)]] #startingpoint, length, endingpoint, walls
+                pass
+
+            if idx[0] == IDX[0] and idx[1] == IDX[1]:
+                break 
+        
+        for c in offWallSegments:
+            print("[%.3f, %.3f] -> %.3f -> [%.3f, %.3f]"%(c[0][0],c[0][2],c[1],c[2][0],c[2][2]))
+            for w in c[3]:
+                print(w)
+            print("\n")
+
+        
+
+        A = sorted(offWallSegments,key=lambda x:-x[1])[0]
+
+        print(self.WALLS)
+        print("\n")
+        W = self.WALLS.searchWall(A[0],False)[0]
+        a=W.idx
+        #W.q = A[3][-1].q
+        X = self.WALLS.searchWall(A[2],True)[0]
+        print("W")
+        print(W)
+        W.p = A[3][0].p
+        print("X")
+        print(X)
+        if X.idx == W.idx:
+            a = self.WALLS.insertWall(w2 = W.idx)
+            X = self.WALLS[a]
+        X.q = A[3][-1].q
+        W.w1 = X.idx
+        X.w2 = W.idx
+        print(self.WALLS)
+        print("\n")
+        a=self.WALLS.insertWall(X.idx)
+        A[3].reverse()
+        print(self.WALLS)
+        print("\n")
+        for w in A[3][:-1]:#
+            self.WALLS[a].q = w.p
+            self.WALLS[a].resetN()
+            a=self.WALLS.insertWall(a)
+            print(self.WALLS)
+            print("\n")
+        #X.p = A[3][-1].q
+        #X.resetN()
+        #X.w1 = a
+        #self.WALLS[a].w2 = X.idx
+        # print(self.WALLS)
+        # print("\n")
+
+        valid = [X.idx]
+        b=X.w2
+        while b!=X.idx:
+            valid.append(b)
+            b = self.WALLS[b].w2
+        for w in self.WALLS:
+            w.v = (w.idx in valid)
+
+        
+        print(self.WALLS)
+        #raise NotImplementedError
+
+        return True
+
+
+
     def eliminatingSpace(self, Spce):
+        return self.eliminatedSpace(Spce)
         #addSpace's walls#print(Spce)#print(self.WALLS)
         PID,W=None,None
         for pid in range(4):
@@ -528,7 +774,7 @@ class spces():
 
         #Find a pro in pros
 
-        return sorted([sorted(gg,key=lambda x:-x.key(self.delta,hint))[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key(self.delta,hint))
+        #return sorted([sorted(gg,key=lambda x:-x.key(self.delta,hint))[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key(self.delta,hint))
         PRO = sorted([sorted(gg,key=lambda x:-x.key(self.delta,hint))[0] for gg in GRIDPro if len(gg)],key=lambda x:-x.key(self.delta,hint))[0]
         
         #print(self.WALLS,PRO,PRO.toWalls(),sep="\n")
@@ -539,19 +785,28 @@ class spces():
         #PRO = self.tinyAdjustProb(PRO)
         # print(PRO.toWalls(),PRO.toWalls(EPS),sep="\n")
         #raise NotImplementedError
+        #print(PRO)
 
         return spce.fromPro(PRO,self.scne,self.delta)#spce.fromProb(PRO.p,two23(PRO.nearest()))
 
-    def extractingMoreSpces(self,DIR="",hint=None):
-        spss = self.extractingSpce()
-        for p in spss[:10]:
+    def extractingMoreSpces(self,DIR="",hint=None):#[spce(np.array([-1.8595,0.,-1.332]),np.array([3.3795,0.,1.252]),scne=self)]#
+        spss = self.extractingSpce()#[None]#
+        for p in spss[:20]:
+            #p = prob(np.array([2.84,0,-0.04]))
+            #p.res = [(0.1385,True),(1.3065,True),(6.2185,True),(1.2910,True)] 
+            #print(p)
+            #print(spss.index(p))
+            #p.printConnectivityInfo(self.delta)
+            #print("\n")
+            p.areaFunctionDetection(self.WALLS,self.delta,False)
+            #print("\n")
+            #p.printConnectivityInfo(self.delta)
+            print(str(spss.index(p)/10)+": [p.key() = %.3f ]= [(-1.0 / ratio) = %.3f] + [np.average(self.nearest())*2 = %.3f] -[self.separation()*5 = %.3f] + [self.onWallLength(delta) = %.3f]"%(p.key(self.delta,hint), -1.0/p.ratio(),np.average(p.nearest())*2,p.separation()*5,p.onWallLength(self.delta)))
+            #print(self.WALLS)
             sp = spce.fromPro(p,self.scne,self.delta)
-            print(spss.index(p))
-            p.printConnectivityInfo(self.delta)
-            print("[p.key() = %.3f ]= [(-1.0 / ratio) = %.3f] + [np.average(self.nearest())*2 = %.3f] + [self.separation()*0.5 = %.3f] + [self.onWallLength(delta) = %.3f]"%(p.key(self.delta,hint), -1.0/p.ratio(),np.average(p.nearest())*2,p.separation()*0.5,p.onWallLength(self.delta)))
             self.SPCES.append(sp)
             sp.scne = self.scne
-            self.draw(self.drawFolder+str(spss.index(p))+" ")
+            self.draw(self.drawFolder+" testings "+str(spss.index(p))+" ")
             self.SPCES = []
 
     def extractingSpces(self,bound=1,DIR=""):
@@ -616,5 +871,5 @@ if __name__ == "__main__":
         wlz = walls.fromLog(f=DIR+"rand"+str(i)+".txt",name="rand"+str(i)+"_",drawFolder=DIR) #wlz.draw(DIR)
         #print(wlz)
         sm = spces(wals=wlz,name=wlz.name,drawFolder=DIR+wlz.name+"/")
-        #sm.extractingSpces(2)
-        sm.extractingMoreSpces()
+        sm.extractingSpces(2)
+        #sm.extractingMoreSpces()

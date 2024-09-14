@@ -99,6 +99,8 @@ class walls():
         if len(Walls)>0:
             self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=scne) for j in range(len(walls))]
         else:
+            if a[0]<0 or a[1]<0:
+                print(a)
             self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)]
         self.LOGS = []
         self.printLog = printLog
@@ -193,6 +195,23 @@ class walls():
         #     a=self.WALLS.insertWall(a)
 
         pass
+
+    def searchWall(self,p,back=False):
+        d,W=1000,None
+        for w in self.WALLS:
+            if w.v and w.over(p):
+                print(w.idx)
+                print(w.distance(p)[0])
+                if abs(w.distance(p)[0])<d:
+                    W=w
+                    d=abs(w.distance(p)[0])
+        if back:
+            if self.WALLS[W.w2].over(p) and abs(self.WALLS[W.w2].distance(p)[0])<=d:
+                return self.WALLS[W.w2],d
+        else:
+            if self.WALLS[W.w1].over(p) and abs(self.WALLS[W.w1].distance(p)[0])<=d:
+                return self.WALLS[W.w1],d
+        return W,d
 
     def stickWall(self,w,x):
         wp,wq,xp,xq = np.cross(np.abs(w.n),w.p)[1],np.cross(np.abs(w.n),w.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]

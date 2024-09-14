@@ -188,11 +188,14 @@ class patternManager():
 
             Sps = spces(wals=theScene.WALLS,drawFolder="./spce_generate/"+theScene.WALLS.name+"/")
             theScene.registerSpces(Sps)
-            for r in rots:
+            for r in rots:#[:1]
                 if rots.index(r)>-1:
                     spc = Sps.extractingSpce(hint=[5,5])
                 else:
-                    spc = spce(np.array([-1.8595,0.,-1.332]),np.array([3.3795,0.,1.252]),scne=theScene)
+                    PRO = prob(np.array([-0.2,0,-0.04]))
+                    PRO.res=[(3.1785,True),(2.6265,True),(3.1785,True),(1.2910,True)]
+                    PRO.areaFunctionDetection(theScene.WALLS,Sps.delta)
+                    spc = spce.fromPro(PRO,scne=theScene,delta=Sps.delta)
 
                 cObjectList = []
                 rf = self.nods[0].bunches[self.rootNames.index(r)+1].exp
@@ -248,7 +251,7 @@ class patternManager():
                             #vio = viola[0] if min(viola[0][0],viola[0][2]) < -delta*2 else viola[1]
                             if moving:
                                 # print("moving "+str(len(cObjectList)))
-                                if min(area[0]+viola[0][0],area[2]+viola[0][2]) <-delta*5:
+                                if min(area[0]+viola[0][0],area[2]+viola[0][2]) <-delta*0:
                                     # print("too large viola, please find another node")
                                     continue
                                 else:
@@ -256,11 +259,11 @@ class patternManager():
                                     viola[0] = [max(viola[0][0],-area[0]),viola[0][1],max(viola[0][2],-area[2])]
                                     vio = [(viola[0][0]+vio0[0])/2.0,viola[0][1],(viola[0][2]+vio0[2])/2.0]
                             else:
-                                if max(viola[1][0],viola[1][2]) > delta*5:
+                                if max(viola[1][0],viola[1][2]) > delta*0:
                                     # print("too large viola, please find another node")
                                     continue
                                 else:
-                                    vio = viola[1]
+                                    vio = viola[1]/2.0
                             
                             o.translation -= vio
 
@@ -283,7 +286,6 @@ class patternManager():
                             
                             self.tempDebugger(theScene,cObjectList,o,spc,"%d os=%d %d's child = %s after moving everything"%(rots.index(r),len(cObjectList),ed.startNode.edges.index(ed),Ntype))
 
-                            spc.towardWall(o)                            
                             cObjectList.append(o)
                         else:
                             break
@@ -292,8 +294,9 @@ class patternManager():
                     theScene.addObject(oo)
                 
                 BD = np.array([o.samplesBound()[1] for o in cObjectList]).max(axis=0)
-                spc.recycle(BD)
+                spc.recycle(BD,Sps.WALLS)
                 Sps.SPCES.append(spc)
+                Sps.draw()
                 spc.scne=theScene
 
                 self.tempDebugger(theScene,cObjectList,None,spc,"%d os=%d after recycling"%(rots.index(r),len(cObjectList)))
@@ -353,7 +356,7 @@ def parse(argv):
     parser.add_argument('-n','--name', default="")
     parser.add_argument('-l','--load', default="fixd")#vise
     parser.add_argument('-s','--scaled', default=True, action="store_true")
-    parser.add_argument('-w','--wid', default="rand3")
+    parser.add_argument('-w','--wid', default="rand2")
     parser.add_argument('-o','--oid', default="")
     parser.add_argument('-u','--uid', default="")
     parser.add_argument('-g','--gen', default="")
@@ -376,8 +379,8 @@ if __name__ == "__main__": #load="testings",
     
     DIR = "./newRoom/"
     W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #wlz.draw(DIR)
-    print(W)
-    raise NotImplementedError
+    #print(W)
+    #raise NotImplementedError
     S = scne.empty(args.wid+"_")
     S.registerWalls(W)
     T.generate(nm="testing",theScene=S,useWalls=True,debug=True)

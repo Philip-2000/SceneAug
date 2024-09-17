@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt 
-from Logg import *
-from Obje import *
+from .Logg import *
+from .Obje import *
 import json
 WALLSTATUS = True
 EPS = 0.001
@@ -95,13 +95,16 @@ def two23(a):
     return np.array([a[0],0,a[1]])
 
 class walls():
-    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder=""):
+    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False):
         if len(Walls)>0:
-            self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=scne) for j in range(len(walls))]
+            self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scne=scne) for j in range(len(Walls))]
         else:
-            if a[0]<0 or a[1]<0:
-                print(a)
-            self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)]
+            if keepEmptyWL:
+                self.WALLS = []
+            else:
+                if a[0]<0 or a[1]<0:
+                    print(a)
+                self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)]
         self.LOGS = []
         self.printLog = printLog
         self.scne = scne
@@ -164,6 +167,23 @@ class walls():
             wfr.write(json.dumps({i:a.windoors[i].flat(False).tolist() for i in a.windoors}))
         a.processWithWindoor()
         return a
+    
+    def toWallsJson(self):
+        sha,nor,ori = [],[],[]
+        if len([w.idx for w in self.WALLS if w.v]):
+            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
+            sha,nor,ori,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]],[[self.WALLS[J].n[0],self.WALLS[J].n[2]]],[np.math.atan2(self.WALLS[J].n[0],self.WALLS[J].n[2])], self.WALLS[J].w2
+            while w != J:
+                sha.append([float(self.WALLS[w].p[0]),float(self.WALLS[w].p[2])])
+                nor.append([float(self.WALLS[w].n[0]),float(self.WALLS[w].n[2])])
+                ori.append(float(np.math.atan2(self.WALLS[J].n[0],self.WALLS[J].n[2])))
+                w = self.WALLS[w].w2
+        return sha, nor, ori
+    
+    @classmethod
+    def fromWallsJson(cls,sha,nor):
+        o = walls(np.array([[sha[i][0],sha[i][1],nor[i][0],nor[i][1]] for i in range(len(sha))]))
+        return o
 
     def processWithWindoor(self):
         for a in self.windoors:
@@ -413,6 +433,10 @@ class walls():
             
     def LH(self):
         return [max([abs(w.q[0]) for w in self.WALLS if w.v]),max([abs(w.q[2]) for w in self.WALLS if w.v])]
+
+    def bbox(self):
+        return np.array([[min([w.p[0] for w in self.WALLS if w.v]),0,min([w.p[2] for w in self.WALLS if w.v])],
+                       [max([w.p[0] for w in self.WALLS if w.v]),3,max([w.p[2] for w in self.WALLS if w.v])]])
 
     def field():
         #what about those serial version of Scene Fields?

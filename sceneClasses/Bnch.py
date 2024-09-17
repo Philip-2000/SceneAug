@@ -1,5 +1,5 @@
 import numpy as np
-from Obje import *
+from .Obje import *
 #from Scne import *
 
 DEN,SIGMA2,MDE,OPTRATE = [0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]*5,2.0**2,True,0.5

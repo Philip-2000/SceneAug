@@ -1,9 +1,9 @@
-from Obje import *
-from Link import *
-from Wall import *
-from Grup import *
-from Spce import *
-from Bnch import singleMatch
+from .Obje import *
+from .Link import *
+from .Wall import *
+from .Grup import *
+from .Spce import *
+from .Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
@@ -15,7 +15,7 @@ def two23(a):
 #noPatternType = ["Pendant Lamp", "Ceiling Lamp"]
 
 class scne():
-    def __init__(self, scene, grp=False, windoor=False, wl=False, cen=False, rmm=True, irt=16, imgDir="./"):
+    def __init__(self, scene, grp=False, windoor=False, wl=False, keepEmptyWL=False, cen=False, rmm=True, irt=16, imgDir="./"):
         self.LINKS=[]
         self.copy = copy(scene)
         self.scene_uid = str(scene["scene_uid"]) if "scene_uid" in scene else ""
@@ -46,17 +46,25 @@ class scne():
 
         #obje(t,s,o,c,i)
         #wall(p,q,n,w1,w2)
-        self.WALLS = walls(scene["walls"] if wl else [], c_e, self)
+        self.WALLS = walls(scene["walls"] if wl else [], c_e, self, keepEmptyWL=keepEmptyWL)
+            
+        
         # if wl:
         #     walls = scene["walls"]
         #     self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
-
+        self.text = ""
         self.SPCES = spces(self)#[]
         self.plans = []
 
     @classmethod
-    def empty(cls,nm=""):
-        return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":nm},rmm=False)
+    def empty(cls,nm="",keepEmptyWL=False):
+        return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":nm},rmm=False,keepEmptyWL=keepEmptyWL)
+
+    @classmethod
+    def fromDict(cls, dct): #json.load(open(f,"r"))
+        a = cls.empty()
+        a.__dict__.update(dct)
+        return a
 
     def addObject(self,objec):
         objec.idx = len(self.OBJES)
@@ -115,6 +123,9 @@ class scne():
 
         if drawRoomMask:
             self.drawRoomMask(self.imgDir+self.scene_uid+"_Mask.png" if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
+
+    def render(self):
+        pass
 
     def formGraph(self):
         raise NotImplementedError
@@ -290,6 +301,48 @@ class scne():
     
     def bpt(self):
         return np.concatenate([o.bpt() for o in self.OBJES],axis=0)
+
+    def toSceneJson(self, roomType=None):
+        sj = {"origin": self.scene_uid, "id": self.scene_uid,"bbox": {"min": [0,0,0], "max": [0,0,0]},"up": [0,1,0], "front": [0,0,1], "rooms":[]}
+        #load the room
+
+        rsj = {"id": self.scene_uid+"_0" if self.scene_uid else "0",
+            "modelId": self.scene_uid,"roomTypes": [roomType],"origin": self.scene_uid,"roomId": 0,
+            "bbox": {"min":[1000,1000,1000],"max":[-1000,-1000,-1000]},
+            "objList":[],"blockList":[],"roomShape":[],"roomNorm":[],"roomOrient":[]
+            }
+        
+        for o in self.OBJES:
+            rsj["objList"].append(o.toObjectJson())
+            if o.class_name().lower() in ["window", "door"]:
+                rsj["blockList"].append(o.toObjectJson())
+        
+        #for o in self.OBJES:
+
+        rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = self.WALLS.toWallsJson()
+        if len([w for w in self.WALLS if w.v]) > 0:
+            bb = self.WALLS.bbox()
+            rsj["bbox"] = {"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]}
+
+        sj["bbox"] = rsj["bbox"]
+        sj["rooms"].append(rsj)
+        return sj
+
+    @classmethod
+    def fromSceneJson(cls,sj):
+        scene = cls.empty(keepEmptyWL=True)
+        scene.scene_uid = sj["id"]
+        rsj = sj["rooms"][0]
+
+        for oj in rsj["objList"]:
+            scene.OBJES.append(obje.fromObjectJson(oj))
+        
+        for oj in rsj["blockList"]:
+            if False:
+                scene.OBJES.append(obje.fromObjectJson(oj))
+
+        scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"])
+
 
     def objectView(self,id,bd=100000,scl=False,maxDis=100000):
         newOBJES = [self.OBJES[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)

@@ -1,5 +1,5 @@
-from Wall import *
-from Obje import *
+from .Wall import *
+from .Obje import *
 
 class text():
     def __init__(self):

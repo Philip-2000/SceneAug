@@ -16,7 +16,7 @@ class obje():
     def __init__(self,t=np.array([0,0,0]),s=np.array([1,1,1]),o=np.array([0]),c=None,i=None,n=None,idx=None,modelId=None,gid=0,scne=None,v=True):
         self.translation = t
         self.size = s
-        self.orientation = o if o.shape == (1,) else np.math.atan2(o[1],o[0])
+        self.orientation = o if len(o)==1 or o.shape == (1,) else np.math.atan2(o[1],o[0])
         self.idx=idx
         self.v=v
         if i is None and n is None:
@@ -88,7 +88,7 @@ class obje():
                 "bbox":{"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]},
                 "translate":[float(self.translation[0]),float(self.translation[1]),float(self.translation[2])],
                 "scale":[1,1,1], "rotate":[0,float(self.orientation[0]),0], "rotateOrder": "XYZ",
-                "orient":float(self.orientation[0]), "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False},
+                "orient":float(self.orientation[0]), "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False}
         else: 
             raise NotImplementedError
         return oj
@@ -101,10 +101,11 @@ class obje():
         
     @classmethod
     def fromObjectJson(cls,oj,idx):
-        o = cls.fromFlat(cls,[0,0,0,0,0,0,0],0)
+        o = cls.fromFlat([0,0,0,0,0,0,0],0)
         o.idx = idx
-         
-        o.orientation = np.array([oj["orient"]])
+        #print(oj)
+        #print('\n') 
+        o.orientation = np.array([oj["orient"]]) # is it different?
         o.fromBbox(np.array([oj["bbox"]["min"],oj["bbox"]["max"]]))
 
         o.class_index = object_types.index(oj["coarseSemantic"])

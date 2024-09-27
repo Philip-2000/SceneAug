@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt 
-from .Logg import *
-from .Obje import *
+from Logg import *
+from Obje import *
 import json
 WALLSTATUS = True
 EPS = 0.001
@@ -27,7 +27,7 @@ class wall():
         self.v=v
         self.spaceIn=spaceIn
         self.scne=scne
-        self.array=scne.WALLS if scne is not None else array#return WALLSTATUS
+        self.array=array#scne.WALLS if scne is not None else array#return WALLSTATUS
         
     def __str__(self):
         return (" " if self.v else "              ")+str(self.w1)+"<-"+str(self.idx)+"->"+str(self.w2)+"\t"+str(self.p)+"\t"+str(self.q)+"\t"+str(self.n)
@@ -97,7 +97,7 @@ def two23(a):
 class walls():
     def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False):
         if len(Walls)>0:
-            self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scne=scne) for j in range(len(Walls))]
+            self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scne=scne,array=self) for j in range(len(Walls))]
         else:
             if keepEmptyWL:
                 self.WALLS = []

@@ -35,7 +35,7 @@ class patternManager():
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
         if loadDataset:
-            self.sDs = scneDs(self.sceneDir)
+            self.sDs = scneDs(self.sceneDir, kwargs={"grp":False,"wl":True,"cen":True,"rmm":False})
             if verb == 0:
                 print("scene dataset loaded")
         self.maxDepth = maxDepth
@@ -48,6 +48,8 @@ class patternManager():
 
     def freqInit(self,n):
         for s in self.rootNames:
+            if not os.path.exists(self.fieldDir+s+".txt"):
+                open(self.fieldDir+s+".txt","w").write('\n'.join([ str(sc) for sc in range(len(self.sDs)) if s in [o.class_name() for o in self.sDs[sc].OBJES] ]))
             for f in open(self.fieldDir+s+".txt").readlines():
                 for o in [_ for _ in self.sDs[int(f)].OBJES if _.class_name() == s]:#F+=1
                     if (len(self.nods)) in n.bunches:
@@ -351,14 +353,14 @@ class patternManager():
 import sys,argparse
 def parse(argv):
     parser = argparse.ArgumentParser(prog='ProgramName')
-    parser.add_argument('-v','--verbose', default=0)
-    parser.add_argument('-d','--maxDepth', default=6)
-    parser.add_argument('-n','--name', default="")
-    parser.add_argument('-l','--load', default="fixd")#vise
+    parser.add_argument('-v','--verbose', default=1)
+    parser.add_argument('-d','--maxDepth', default=10)
+    parser.add_argument('-n','--name', default="")#
+    parser.add_argument('-l','--load', default="deat")#deat
     parser.add_argument('-s','--scaled', default=True, action="store_true")
     parser.add_argument('-w','--wid', default="rand2")
     parser.add_argument('-o','--oid', default="")
-    parser.add_argument('-u','--uid', default="")
+    parser.add_argument('-u','--uid', default="1")
     parser.add_argument('-g','--gen', default="")
     args = parser.parse_args(argv)
     return args
@@ -372,22 +374,50 @@ UIDS = ["0a9f23f6-f0a6-4cbb-8db5-48be2996d10a_LivingDiningRoom-507",
         "00f24696-bbb4-42d1-9a4a-e4fc6484c3ae_KidsRoom-19754"]
         
 if __name__ == "__main__": #load="testings",
-    args=parse(sys.argv[1:])
+    args=parse(sys.argv[1:])#,dir=T.sceneDir
+    #[scne.fromNpzs(name=uid,kwargs={"grp":False,"imgDir":"./pattern/rcgs/"}) for uid in UIDS]
+#else:
     #assert (len(args.name)>0 or len(args.load)>0) and (len(args.gen)>0 or len(args.uid)>0 or len(args.oid)>0)
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled,loadDataset=(len(args.load)==0))
     T.treeConstruction(load=args.load,name=args.name,draw=len(args.name)>0 or (len(args.uid)==0 and len(args.gen)==0))#
     
-    DIR = "./newRoom/"
-    W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #wlz.draw(DIR)
-    #print(W)
-    #raise NotImplementedError
-    S = scne.empty(args.wid+"_")
-    S.registerWalls(W)
-    T.generate(nm="testing",theScene=S,useWalls=True,debug=True)
+    # DIR = "./newRoom/"
+    # W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #wlz.draw(DIR)
+    # #print(W)
+    # #raise NotImplementedError
+    # S = scne.empty(args.wid+"_")
+    # S.registerWalls(W)
+    # T.generate(nm="testing",theScene=S,useWalls=True,debug=True)
+    
+    if len(args.load)==0:
+        sys.exit(0)
 
-    # if len(args.gen)>0:
-    #     [T.generate(args.gen+str(i)) for i in range(16)]
-    # elif len(args.uid)>0:
-    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
-    # elif len(args.oid)>0:
-    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]
+
+
+
+    if len(args.gen)>0:
+        [T.generate(args.gen+str(i)) for i in range(16)]
+    elif len(args.uid)>0:#UID
+        scneDs(T.sceneDir,os.listdir(T.sceneDir)[:50],{"grp":False,"wl":False,"keepEmptyWL":True,"imgDir":"./pattern/rcgs/"}).recognize(T)
+        #[scne.fromNpzs(name=uid,kwargs={"grp":False,"wl":False,"keepEmptyWL":True,"imgDir":"./pattern/refs/"}).draw() for uid in UIDS]
+    elif len(args.oid)>0:
+        scneDs(T.sceneDir,UIDS,{"grp":False,"imgDir":"./pattern/opts/"}).optimize(T)
+
+
+
+    # def buildFields(self):
+    #     res = {}
+    #     for s in self.rootNames:
+    #         res[s] = []
+            
+    #     for sc in range(len(self.sDs)):
+    #         scn = self.sDs[sc]
+        
+    #         for s in self.rootNames:
+    #             if s in [o.class_name() for o in scn.OBJES]:
+    #                 res[s].append(str(sc))
+
+    #             #for f in open(self.fieldDir+s+".txt").readlines():
+    #     for s in self.rootNames:
+    #         open(self.fieldDir+s+".txt","w").write('\n'.join(res[s]))
+    #     sys.exit(0)

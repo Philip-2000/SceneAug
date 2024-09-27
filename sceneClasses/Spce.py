@@ -1,6 +1,6 @@
 # from . import SPCES,WALLS
-from .Wall import *
-from .Obje import *
+from Wall import *
+from Obje import *
 import numpy as np
 from copy import deepcopy
 from matplotlib import pyplot as plt

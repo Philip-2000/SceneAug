@@ -1,9 +1,9 @@
-from .Obje import *
-from .Link import *
-from .Wall import *
-from .Grup import *
-from .Spce import *
-from .Bnch import singleMatch
+from Obje import *
+from Link import *
+from Wall import *
+from Grup import *
+from Spce import *
+from Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
@@ -334,14 +334,32 @@ class scne():
         scene.scene_uid = sj["id"]
         rsj = sj["rooms"][0]
 
-        for oj in rsj["objList"]:
-            scene.OBJES.append(obje.fromObjectJson(oj))
+        for oi in range(len(rsj["objList"])):
+            scene.OBJES.append(obje.fromObjectJson(rsj["objList"][oi],oi))
         
         for oj in rsj["blockList"]:
             if False:
                 scene.OBJES.append(obje.fromObjectJson(oj))
 
         scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"])
+        return scene
+
+    @classmethod
+    def fromNpzs(cls,boxes=None,contours=None,conts=None,grops=None,load=True,name=None,dir="../novel3DFront/",kwargs={}):
+        if load:
+            dn = dir+name
+            boxes = np.load(dn+"/boxes.npz")
+            contours = np.load(dn+"/contours.npz")["contour"] if os.path.exists(dn+"/contours.npz") else None
+            conts = np.load(dn+"/conts.npz")["cont"] if os.path.exists(dn+"/conts.npz") else None
+            grops = np.load(dn+"/group.npz")["group"] if os.path.exists(dn+"/group.npz") else None
+        sceneDict = {"room_layout":np.zeros((1,64,64)).astype(np.uint8),"walls":contours,"widos":conts,"grops":grops,
+            "translations":boxes["translations"],"sizes":boxes["sizes"],"angles":boxes["angles"],"class_labels":boxes["class_labels"],
+            "floor_plan_centroid":boxes["floor_plan_centroid"],"scene_uid":boxes["scene_uid"]}
+        kwargs["grp"] = (grops is not None) and ("grp" in kwargs and kwargs["grp"])
+        kwargs["wl"] = (grops is not None) and ("wl" in kwargs and kwargs["wl"])
+        kwargs["windoor"] = (grops is not None) and ("windoor" in kwargs and kwargs["windoor"])
+
+        return cls(sceneDict,**kwargs)
 
 
     def objectView(self,id,bd=100000,scl=False,maxDis=100000):
@@ -438,13 +456,27 @@ class scne():
         self.draw(drawUngroups=True)
 
 import os
-from util import fullLoadScene
+#from util import fullLoadScene
 class scneDs():
-    def __init__(self,dir="../novel3DFront/",grp=False,wl=False,cen=True,rmm=False):
-        self._dataset = [scne(fullLoadScene(n),grp=grp,wl=wl,cen=cen,rmm=rmm) for n in os.listdir(dir)]
+    def __init__(self,dir,lst=None,kwargs={}):
+        self._dataset = [scne.fromNpzs(name=n,kwargs=kwargs) for n in (os.listdir(dir) if lst is None else lst)]
 
     def __len__(self):
         return len(self._dataset)
 
     def __getitem__(self, idx):
         return self._dataset[idx]
+
+    def __iter__(self):
+        return iter(self._dataset)
+
+    def recognize(self,T):
+        for s in self._dataset:
+            try:
+                s.tra(T)
+            except:
+                print(s.scene_uid)
+
+    def optimize(self,T):
+        for s in self._dataset:
+            s.opt(T)

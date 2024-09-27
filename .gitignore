@@ -10,6 +10,7 @@ pattern/trees/
 pattern/imgs/
 pattern/rcgs/
 pattern/gens/
+pattern/refs/
 pattern/opts/
 dist/
 build/

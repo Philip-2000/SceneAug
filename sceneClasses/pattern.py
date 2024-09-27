@@ -177,7 +177,6 @@ class patternManager():
         #tmpScene.imgDir="./spce_generate/"
         tmpScene.draw(imageTitle="./spce_generate/"+imgName,d=True,lim=5)
         
-
     def generate(self,nm="generate",theScene=None,useWalls=False,rots=[],useText=False,debug=False):
         #assert (useWalls or useText)
         if useWalls:
@@ -308,7 +307,7 @@ class patternManager():
             return
 
         if useText is not None:
-            pass
+            return
 
         
         scene = scne.empty(nm) if theScene is None else theScene
@@ -339,13 +338,12 @@ class patternManager():
     def completion(self,scne):
         #we will not extract space in the room walls then,
         #It's so weird, while the nodes are scattering in the tree
-        pass
+        scne.draw(d=True)
 
     def rearrangment(self,scne):
         #search in the tree.
         #assign nodes for these objects.
-
-        pass
+        scne.draw(d=True)
 
 ##################
 import sys,argparse
@@ -358,36 +356,70 @@ def parse(argv):
     parser.add_argument('-s','--scaled', default=True, action="store_true")
     parser.add_argument('-w','--wid', default="rand2")
     parser.add_argument('-o','--oid', default="")
-    parser.add_argument('-u','--uid', default="")
+    parser.add_argument('-u','--uid', default="her")
     parser.add_argument('-g','--gen', default="")
     args = parser.parse_args(argv)
     return args
-UIDS = ["0a9f23f6-f0a6-4cbb-8db5-48be2996d10a_LivingDiningRoom-507",
-        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_MasterBedroom-11395",
-        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_LivingRoom-11414",
-        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_DiningRoom-12475",
-        "00a4ff0c-ec69-4202-9420-cc8536ffffe0_Library-10414",
-        "00c36b04-369f-4df1-9db1-b29913d2c51f_SecondBedroom-5641",
-        "00c196e6-9d8b-42cb-9803-4473d6db1558_LivingDiningRoom-10084",
-        "00f24696-bbb4-42d1-9a4a-e4fc6484c3ae_KidsRoom-19754"]
-        
+UIDS = [
+        # "0005bacf-8c1c-4aef-8c61-e231901e73d7_ElderlyRoom-4173",
+        # "0005bacf-8c1c-4aef-8c61-e231901e73d7_LivingDiningRoom-5375",
+        # "0005bacf-8c1c-4aef-8c61-e231901e73d7_MasterBedroom-2290",
+        # "000ecb5b-b877-4f9a-ab6f-90f385931658_LivingDiningRoom-5782",
+        # "000ecb5b-b877-4f9a-ab6f-90f385931658_MasterBedroom-4710",
+        # "000ecb5b-b877-4f9a-ab6f-90f385931658_SecondBedroom-3805",
+        # "00110bde-f580-40be-b8bb-88715b338a2a_Bedroom-43072",
+        # "00110bde-f580-40be-b8bb-88715b338a2a_LivingDiningRoom-44785",
+        # "0013aa34-3fb3-47f9-bf6b-324f1b2c96e5_LivingDiningRoom-5013",
+        # "0013aa34-3fb3-47f9-bf6b-324f1b2c96e5_MasterBedroom-4026",
+        # "0013aa34-3fb3-47f9-bf6b-324f1b2c96e5_SecondBedroom-6105",
+        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_KidsRoom-1704",
+        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_Library-911",
+        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_LivingRoom-2584",
+        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_MasterBedroom-928",
+        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_SecondBedroom-1986",
+        # "0021297a-0898-4b96-a746-10abeb88ac91_LivingDiningRoom-10469",
+        # "0021297a-0898-4b96-a746-10abeb88ac91_MasterBedroom-9415",
+        # "0021297a-0898-4b96-a746-10abeb88ac91_SecondBedroom-8739",
+        # "0021297a-0898-4b96-a746-10abeb88ac91_SecondBedroom-9049",
+        # "003205a1-f3fe-43a1-8803-e9aa7b03a6cc_LivingDiningRoom-2359",
+        # "003205a1-f3fe-43a1-8803-e9aa7b03a6cc_MasterBedroom-2346",
+        # "0032b185-4914-49e5-b973-f82271674308_Bedroom-11927",
+        # #"0032b185-4914-49e5-b973-f82271674308_LivingDiningRoom-13661",
+        # "0032b185-4914-49e5-b973-f82271674308_SecondBedroom-12951",
+        "0037d052-e88f-4af4-89ee-3ffba55a18cc_LivingDiningRoom-38341",
+        # "0037d052-e88f-4af4-89ee-3ffba55a18cc_MasterBedroom-37799",
+        # "0037d052-e88f-4af4-89ee-3ffba55a18cc_SecondBedroom-35695",
+        # "003e72a5-bdbc-4966-8346-ce78b2228e5b_LivingDiningRoom-641",
+        # "003e72a5-bdbc-4966-8346-ce78b2228e5b_SecondBedroom-1867",
+        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_Library-10171",
+        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_LivingDiningRoom-9613",
+        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_MasterBedroom-12848",
+        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_SecondBedroom-12785",
+        # "0045f18f-0236-415b-9d71-d6930349514e_Bedroom-70996",
+        # "0045f18f-0236-415b-9d71-d6930349514e_Bedroom-72976",
+        # "0045f18f-0236-415b-9d71-d6930349514e_DiningRoom-77736"
+]
+import os
 if __name__ == "__main__": #load="testings",
+    #print("\",\n\"".join([f for f in os.listdir("../novel3DFront/")[:50] if not(f.endswith("2024"))]))
+#else:
     args=parse(sys.argv[1:])
     #assert (len(args.name)>0 or len(args.load)>0) and (len(args.gen)>0 or len(args.uid)>0 or len(args.oid)>0)
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled,loadDataset=(len(args.load)==0))
     T.treeConstruction(load=args.load,name=args.name,draw=len(args.name)>0 or (len(args.uid)==0 and len(args.gen)==0))#
-    
-    DIR = "./newRoom/"
-    W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #wlz.draw(DIR)
-    #print(W)
-    #raise NotImplementedError
-    S = scne.empty(args.wid+"_")
-    S.registerWalls(W)
-    T.generate(nm="testing",theScene=S,useWalls=True,debug=True)
 
-    # if len(args.gen)>0:
-    #     [T.generate(args.gen+str(i)) for i in range(16)]
-    # elif len(args.uid)>0:
-    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
-    # elif len(args.oid)>0:
-    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]
+
+    if len(args.gen)>0:
+        if args.wid == "":
+            [T.generate(args.gen+str(i)) for i in range(16)]    
+        else:
+            DIR = "./newRoom/"
+            W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #W.draw(DIR)
+            S = scne.empty(args.wid+"_")
+            S.registerWalls(W)
+            T.generate(nm="testing",theScene=S,useWalls=True,debug=True)
+    elif len(args.uid)>0:
+        print([o.class_name() for o in scne(fullLoadScene(UIDS[0]),imgDir="./pattern/rcgs/").OBJES])
+        [scne(fullLoadScene(uid),windoor=True,grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
+    elif len(args.oid)>0:
+        [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]

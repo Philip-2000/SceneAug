@@ -541,6 +541,9 @@ class spces():
         if drawFolder and not os.path.exists(drawFolder):
             os.makedirs(drawFolder)
     
+    def __iter__(self):
+        return iter(self.SPCES)
+
     def draw(self,folder="",dr=True):
         #print("here "+folder)
         #print(self.SPCES[0])
@@ -570,9 +573,9 @@ class spces():
             Prob.p[2] += b
         return Prob
 
-    def eliminatedSpace(self,Spce):
-
-        print("wallsSign:\n"+'\n'.join([ "→".join([ "(%.3f,%.3f)←↑%.3f"%(a[0][0],a[0][2],a[1]) for a in ar[:-1]])+"(%.3f,%.3f)"%(ar[-1][0][0],ar[-1][0][2])  for ar in Spce.wallsSign ]))
+    def eliminatedSpace(self,Spce,f=False):
+        if f:
+            print("wallsSign:\n"+'\n'.join([ "→".join([ "(%.3f,%.3f)←↑%.3f"%(a[0][0],a[0][2],a[1]) for a in ar[:-1]])+"(%.3f,%.3f)"%(ar[-1][0][0],ar[-1][0][2])  for ar in Spce.wallsSign ]))
         
         #just check the off wall segments of the spce?
         height = Spce.wallsSign[3][-1][1]
@@ -630,45 +633,52 @@ class spces():
             if idx[0] == IDX[0] and idx[1] == IDX[1]:
                 break 
         
-        for c in offWallSegments:
-            print("[%.3f, %.3f] -> %.3f -> [%.3f, %.3f]"%(c[0][0],c[0][2],c[1],c[2][0],c[2][2]))
-            for w in c[3]:
-                print(w)
-            print("\n")
+        if f:
+            for c in offWallSegments:
+                print("[%.3f, %.3f] -> %.3f -> [%.3f, %.3f]"%(c[0][0],c[0][2],c[1],c[2][0],c[2][2]))
+                for w in c[3]:
+                    print(w)
+                print("\n")
 
         
 
         A = sorted(offWallSegments,key=lambda x:-x[1])[0]
 
-        print(self.WALLS)
-        print("\n")
+        if f:
+            print(self.WALLS)
+            print("\n")
         W = self.WALLS.searchWall(A[0],False)[0]
         a=W.idx
         #W.q = A[3][-1].q
         X = self.WALLS.searchWall(A[2],True)[0]
-        print("W")
-        print(W)
+        if f:
+            print("W")
+            print(W)
         W.p = A[3][0].p
-        print("X")
-        print(X)
+        if f:
+            print("X")
+            print(X)
         if X.idx == W.idx:
             a = self.WALLS.insertWall(w2 = W.idx)
             X = self.WALLS[a]
         X.q = A[3][-1].q
         W.w1 = X.idx
         X.w2 = W.idx
-        print(self.WALLS)
-        print("\n")
+        if f:
+            print(self.WALLS)
+            print("\n")
         a=self.WALLS.insertWall(X.idx)
         A[3].reverse()
-        print(self.WALLS)
-        print("\n")
+        if f:
+            print(self.WALLS)
+            print("\n")
         for w in A[3][:-1]:#
             self.WALLS[a].q = w.p
             self.WALLS[a].resetN()
             a=self.WALLS.insertWall(a)
-            print(self.WALLS)
-            print("\n")
+            if f:
+                print(self.WALLS)
+                print("\n")
         #X.p = A[3][-1].q
         #X.resetN()
         #X.w1 = a
@@ -685,7 +695,8 @@ class spces():
             w.v = (w.idx in valid)
 
         
-        print(self.WALLS)
+        if f:
+            print(self.WALLS)
         #raise NotImplementedError
 
         return True

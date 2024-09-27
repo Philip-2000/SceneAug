@@ -38,7 +38,7 @@ class scne():
         if windoor:
             widos = scene["widos"]
             for k in range(len(widos)):
-                oii = np.math.atan2(widos[k][-1],widos[k][-2])
+                oii = np.array([np.math.atan2(widos[k][-1],widos[k][-2])])
                 sii = np.array([max(widos[k][3],widos[k][5]),widos[k][4],min(widos[k][3],widos[k][5])]) #?
                 tri = widos[k][:3]
                 c = len(object_types)-1 if tri[1]-sii[1] < 0.1 else len(object_types)-2
@@ -83,7 +83,7 @@ class scne():
         if self.grp:
             for i in range(len(self.GRUPS)):
                 self.GRUPS[i].draw()
-
+                
         for i in range(len(self.OBJES)):
             if (not self.grp) or drawUngroups or (self.OBJES[i].gid):
                 self.OBJES[i].draw(self.grp,d)#corners = OBJES[i].corners2()
@@ -324,6 +324,7 @@ class scne():
             cs += ed.confidence
 
     def tra(self,pm,use=True,draw=True): #recognition
+        print(self.scene_uid)
         plan = {"nids":[pm.rootNames.index(o.class_name())+1 if (o.class_name() in pm.rootNames) else -1 for o in self.OBJES], "fats":[o.idx for o in self.OBJES], "fit":0}
         for o in self.OBJES:
             o.nid = plan["nids"][o.idx]
@@ -392,6 +393,9 @@ class scneDs():
 
     def __len__(self):
         return len(self._dataset)
+
+    def __iter__(self):
+        return iter(self._dataset)
 
     def __getitem__(self, idx):
         return self._dataset[idx]

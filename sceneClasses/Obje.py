@@ -129,3 +129,39 @@ class obje():
 
     def bpt(self):
         return np.concatenate([self.class_label,self.translation,self.size,self.orientation]).reshape((1,-1))
+
+class objes():
+    def __init__(self,scene,ce,windoor,scne=None):
+        
+        tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
+        self.OBJES=[obje(tr[i]+ce,si[i],oi[i],np.concatenate([cl[i],[0,0]])if windoor else cl[i],idx=i,scne=scne) for i in range(len(tr))]
+        self.scne=scne
+
+    def __len__(self):
+        return len(self.OBJES)
+
+    def __str__(self):
+        return '\n'.join([str(o) for o in self.OBJES])
+    
+    def draw(self):
+        pass
+
+    def addObject(self,objec):
+        objec.idx = len(self.OBJES)
+        objec.scne = self.scne
+        self.OBJES.append(objec)
+
+    def nids(self):
+        return set([o.nid for o in self.OBJES])
+
+    def searchNid(self, nid, sig=True):
+        s = [o for o in self.OBJES if o.nid == nid]
+        return (s[0] if sig else s) if len(s)>0 else None
+
+    def __iter__(self):
+        return iter(self.OBJES)
+
+sc = {"translations":np.array([[0,0,0]]),"sizes":np.array([[0,0,0]]),"angles":np.array([[0]]),"class_labels":np.array([[1,0,0]])}
+a = objes(sc,np.array([0,0,0]),False)
+for A in a:
+    print(A.class_name())

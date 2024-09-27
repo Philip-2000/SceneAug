@@ -13,19 +13,24 @@ noOriType = ["Pendant Lamp", "Ceiling Lamp", "Round End Table", "Barstool", "Foo
 from matplotlib import pyplot as plt
 #OBJES=[]
 class obje():
-    def __init__(self,t=np.array([0,0,0]),s=np.array([1,1,1]),o=np.array([0]),c=None,i=None,idx=None,gid=0,scne=None,v=True):
+    def __init__(self,t=np.array([0,0,0]),s=np.array([1,1,1]),o=np.array([0]),c=None,i=None,n=None,idx=None,modelId=None,gid=0,scne=None,v=True):
         self.translation = t
         self.size = s
-        self.orientation = o if o.shape == (1,) else np.math.atan2(o[1],o[0])
+        self.orientation = o if len(o)==1 or o.shape == (1,) else np.math.atan2(o[1],o[0])
         self.idx=idx
         self.v=v
-        if i is None:
+        if i is None and n is None:
             self.class_label = c #print(self.class_label,len(object_types))
             self.class_index = np.argmax(c) #print(self.class_index)
-        elif c is None:
+        elif c is None and n is None:
             self.class_index = i
             self.class_label = np.zeros((len(object_types)))
             self.class_label[i] = 1
+        else:
+            self.class_index = object_types.index(n)
+            self.class_label = np.zeros((len(object_types)))
+            self.class_label[self.class_index] = 1
+        self.modelId = modelId
         
         self.linkIndex=[]
         self.destIndex=[]
@@ -70,6 +75,45 @@ class obje():
                 plt.plot([self.translation[0], self.translation[0]+0.5*self.direction()[0]], [-self.translation[2],-self.translation[2]-0.5*self.direction()[2]], marker="x", color=cr)
             else:
                 plt.plot([self.translation[0], self.translation[0]+0.5*self.direction()[0]], [-self.translation[2],-self.translation[2]-0.5*self.direction()[2]], marker="x")
+
+    def bbox3(self):
+        cs = self.corners2()
+        return np.array([[cs[:,0].min(),self.translation[1]-self.size[1],cs[:,1].min()],[cs[:,0].max(),self.translation[1]+self.size[1],cs[:,1].max()]])
+
+    def toObjectJson(self, rid=0):
+        if self.modelId is None:
+            uid = self.scne.scene_uid if self.scne.scene_uid else ""
+            bb = self.bbox3()
+            oj = {"id":uid+"_"+str(self.idx), "type":"Object", "modelId":self.modelId,
+                "bbox":{"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]},
+                "translate":[float(self.translation[0]),float(self.translation[1]),float(self.translation[2])],
+                "scale":[1,1,1], "rotate":[0,float(self.orientation[0]),0], "rotateOrder": "XYZ",
+                "orient":float(self.orientation[0]), "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False}
+        else: 
+            raise NotImplementedError
+        return oj
+
+    def fromBbox(self,bbox):
+        self.translation = np.array([(bbox[0][0]+bbox[1][0])/2.0,(bbox[0][1]+bbox[1][1])/2.0,(bbox[0][2]+bbox[1][2])/2.0])
+        corner = np.array([(bbox[1][0]-bbox[0][0])/2.0,0,(bbox[1][2]-bbox[0][2])/2.0])
+        cnr = self.matrix(-1) @ corner
+        self.size = np.array([abs(cnr[0]),(bbox[1][1]-bbox[0][1])/2.0,abs(cnr[2])])
+        
+    @classmethod
+    def fromObjectJson(cls,oj,idx):
+        o = cls.fromFlat([0,0,0,0,0,0,0],0)
+        o.idx = idx
+        #print(oj)
+        #print('\n') 
+        o.orientation = np.array([oj["orient"]]) # is it different?
+        o.fromBbox(np.array([oj["bbox"]["min"],oj["bbox"]["max"]]))
+
+        o.class_index = object_types.index(oj["coarseSemantic"])
+        o.class_label = np.zeros((len(object_types)))
+        o.class_label[o.class_index] = 1
+        o.modelId = oj["modelId"]
+        
+        return o
 
     def project(self,wid):
         w = self.scne.WALLS[wid]

@@ -534,7 +534,10 @@ class spces():
         self.WALLS = deepcopy(scne.WALLS if wals is None else wals) #a local data structure for processing
         self.SPCES = []
         self.name = name
-        self.LH = self.iWALLS.LH() if sz < 0 else [sz,sz]
+        try:
+            self.LH = self.iWALLS.LH() if sz < 0 else [sz,sz]
+        except:
+            self.LH = None
         self.flex = flex
         self.delta = 0.04
         self.drawFolder = drawFolder

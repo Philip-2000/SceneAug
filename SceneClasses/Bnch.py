@@ -3,12 +3,12 @@ from Obje import *
 #from Scne import *
 
 DEN,SIGMA2,MDE,OPTRATE = [[0.9**2,0.5**2,0.9**2,0.9**2,0.5**2,0.9**2,0.5**2]]*5,2.0**2,True,0.5
-def giveup(B,A,C):#c=len(B)/A, cc=len(B)/C
-    return (B is None) or (len(B) < 10) #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
+def giveup(B,A,C):#c=len(B)/A, cc=len(B)/C  #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
+    return (B is None) or (len(B) < 10) 
 def singleMatch(l,c,cc,od,cs):
     #匹配上了，是一件好事，加分100，但是如果空间分布差异比较大，就扣掉一些分，也就是100-l；
     #如果是在前面给出的，那么算是比较常见的，cs越小越靠前，但如果比较靠后，那么即使比较适配我们也认为你有一定问题？
-    return 100-l
+    return 100-l*0.1
 
 class bnch():
     def __init__(self,obj,exp=None,dev=None):
@@ -22,11 +22,8 @@ class bnch():
     def sample(self):
         return self.exp + np.random.randn(self.exp.shape[-1])*(self.dev**(0.5))/5#np.array([5,1,5,5,1,5,5])
 
-    def loss(self,obj):
-        return ((obj.flat()-self.exp)**2/self.dev).sum()
-
-    def test(self,obj):
-        return ((obj.flat()-self.exp)**2).sum()
+    def loss(self,obj,hint=1):#Nothing for /1       None for /self.dev       np.array for weight
+        return ((obj.flat()-self.exp)**2).sum() if type(hint)==int else (((obj.flat()-self.exp)**2/self.dev).sum() if hint is None else (hint*(obj.flat()-self.exp)**2/self.dev).sum())#/self.dev 
 
     def optimize(self,obj):
         return obje.fromFlat((obj.flat()-self.exp)*OPTRATE+self.exp,j=obj.class_index)
@@ -112,7 +109,7 @@ class bnches():
                 self.bunches.remove(b)
 
     def accept(self,obj,create=True,blackList=[]):
-        for t in sorted([(b,self.bunches[b].test(obj)) for b in range(len(self.bunches)) if (not b in blackList)], key=lambda x:x[1]):#tests:#
+        for t in sorted([(b,self.bunches[b].loss(obj)) for b in range(len(self.bunches)) if (not b in blackList)], key=lambda x:x[1]):#tests:#
             if self.bunches[t[0]].add(obj):
                 return t[0]
         if create:

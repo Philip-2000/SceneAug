@@ -1,8 +1,9 @@
 import os
 import numpy as np
-from Obje import *
-from Scne import *
+from .Obje import *
+from .Scne import *
 import json
+import yaml
 from Bnch import *
 from matplotlib import pyplot as plt
 
@@ -22,20 +23,33 @@ class node():
         self.idx = idx
         self.edges = []
         self.bunches = {}
-        
+
+class merging():
+    def __init__(self,d):
+        self.d=d
+    def __getitem__(self,a):
+        try:
+            a = object_types[int(a)]
+            return object_types.index(self.d[a] if (a in self.d) else a)
+        except:
+            return self.d[a] if (a in self.d) else a
+    def reversed(self,a):
+        return [a]+[k for k in self.d if self.d[k]==a]  
+
 class patternManager():
     def __init__(self,verb=0,maxDepth=1,s=False,loadDataset=True):
         self.version = ""
         self.sceneDir = "../novel3DFront/"
         self.workDir = "./pattern/"
-        self.fieldDir = self.workDir+"fields/"
-        self.imgDir = self.workDir+"imgs/"
-        self.treesDir = self.workDir+"trees/" #self.cnt = len(os.listdir(self.sceneDir))
-        self.rootNames=["Dining Table","King-size Bed","Desk","Dressing Table","Coffee Table","Single bed","Kids Bed"]#
+        self.fieldDir = os.path.join(self.workDir,"fields/")
+        self.imgDir = os.path.join(self.workDir,"imgs/")
+        self.treesDir = os.path.join(self.workDir,"trees/") #self.cnt = len(os.listdir(self.sceneDir))
+        self.rootNames=["Dining Table","King-size Bed","Desk","Dressing Table","Coffee Table"]#,"Single bed","Kids Bed"]#
+        self.merging = merging({"Single bed":"King-size Bed", "Kids Bed":"King-size Bed", "Loveseat Sofa":"Three-seat / Multi-seat Sofa", "Ceiling Lamp":"Pendant Lamp"})
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
         if loadDataset:
-            self.sDs = scneDs(self.sceneDir, kwargs={"grp":False,"wl":True,"cen":True,"rmm":False})
+            self.sDs = scneDs(self.sceneDir, grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
             if verb == 0:
                 print("scene dataset loaded")
         self.maxDepth = maxDepth
@@ -48,14 +62,15 @@ class patternManager():
 
     def freqInit(self,n):
         for s in self.rootNames:
-            if not os.path.exists(self.fieldDir+s+".txt"):
-                open(self.fieldDir+s+".txt","w").write('\n'.join([ str(sc) for sc in range(len(self.sDs)) if s in [o.class_name() for o in self.sDs[sc].OBJES] ]))
-            for f in open(self.fieldDir+s+".txt").readlines():
-                for o in [_ for _ in self.sDs[int(f)].OBJES if _.class_name() == s]:#F+=1
-                    if (len(self.nods)) in n.bunches:
-                        n.bunches[len(self.nods)].add(obje(np.array([0,0,0]),o.size,np.array([0]),i=o.class_index,idx=o.idx,scne=o.scne),True)
-                    else:
-                        n.bunches[len(self.nods)] = bnch(obje(np.array([0,0,0]),o.size,np.array([0]),i=o.class_index,idx=o.idx,scne=o.scne))
+            for ss in self.merging.reversed(s):
+                if not os.path.exists(os.path.join(self.fieldDir,ss+".txt")):
+                    open(os.path.join(self.fieldDir,ss+".txt"),"w").write('\n'.join([ str(sc) for sc in range(len(self.sDs)) if ss in [o.class_name() for o in self.sDs[sc].OBJES] ]))
+                for f in open(os.path.join(self.fieldDir,ss+".txt")).readlines():
+                    for o in [_ for _ in self.sDs[int(f)].OBJES if self.merging[_.class_name()] == s]:#F+=1
+                        if (len(self.nods)) in n.bunches:
+                            n.bunches[len(self.nods)].add(obje(np.array([0,0,0]),o.size,np.array([0]),i=self.merging[o.class_index],idx=o.idx,scne=o.scne),True)
+                        else:
+                            n.bunches[len(self.nods)] = bnch(obje(np.array([0,0,0]),o.size,np.array([0]),i=self.merging[o.class_index],idx=o.idx,scne=o.scne))
             n.bunches[len(self.nods)].enable(len(self.nods))
             self.createNode(n,s,len(n.bunches[len(self.nods)])/len(self.sDs),len(n.bunches[len(self.nods)])/len(self.sDs))
             
@@ -76,7 +91,7 @@ class patternManager():
                         if o.nid in sheet: #o.nid == n.idx:
                             res = scene.objectView(o.idx,self.objectViewBd,self.scaled) #assert len(res) <= self.objectViewBd
                             for r in res:#print(r.class_name())
-                                blackLists[o.nid][r.class_name()].append(sheet[o.nid][r.class_name()].accept(r,1,blackLists[o.nid][r.class_name()]))
+                                blackLists[o.nid][self.merging[r.class_name()]].append(sheet[o.nid][self.merging[r.class_name()]].accept(r,1,blackLists[o.nid][self.merging[r.class_name()]]))
             [[sheet[k][s].refresh() for s in sheet[k]] for k in sheet]
     
             if self.verb > 1:
@@ -95,12 +110,12 @@ class patternManager():
             if giveup(B[0],len(field),cnt):
                 break
             
-            self.createNode(n,B[0].obs[0].class_name(),len(B[0])/len(field),len(B[0])/cnt)
+            self.createNode(n,self.merging[B[0].obs[0].class_name()],len(B[0])/len(field),len(B[0])/cnt)
             B[0].enable(len(self.nods)-1)#nn.idx)
             self.nods[B[1]].bunches[len(self.nods)-1] = B[0]
 
             if self.verb > 1:
-                print(B[0].obs[0].class_name() + " " + str(len(B[0])) + "\n")
+                print(self.merging[B[0].obs[0].class_name()] + " " + str(len(B[0])) + "\n")
 
         if self.verb > 0:
             print('\t'.join(['\t']*lev+[e.endNode.type for e in n.edges]+["fuck"]))
@@ -122,20 +137,26 @@ class patternManager():
             if id>0:
                 suf += "--"+dct[e]["type"]
 
-    def storeTree(self,name):
-        if len(name) > 0:
-            lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
-                    "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
-            open(self.treesDir+name+".js","w").write("var dat="+json.dumps(lst)+";")
-            open(self.treesDir+name+".json","w").write(json.dumps(lst))
-        
+    def storeTree(self):
+        #if len(name) > 0:
+        lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
+                "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
+        open(os.path.join(self.treesDir,self.version+".js"),"w").write("var dat="+json.dumps(lst)+";")#open(os.path.join(self.treesDir,self.version+".json"),"w").write(json.dumps(lst))
+        yaml.dump({"merging":self.merging.d,"rootNames":self.rootNames,"DEN":DEN,"SIGMA2":SIGMA2,"giveup":('\n'.join(inspect.getsource(giveup).split('\n')[1:-1]))},open(os.path.join(self.treesDir,self.version+".yaml"),"w"))
+
     def treeConstruction(self,load="",name="",draw=True):#print(self.treesDir+load+".json")
+        self.version = name if load == "" else load
         if load != "":
-            self.loadTre(json.load(open(self.treesDir+load+".json")))
+            self.loadTre(json.loads(open(os.path.join(self.treesDir,self.version+".js")).read()[8:-1]))#self.loadTre(json.load(open(os.path.join(self.treesDir,self.version+".js"))))
+            config = yaml.load(open(os.path.join(self.treesDir,self.version+".yaml")), Loader=yaml.FullLoader)
+            self.rootNames = config["rootNames"]
+            global DEN
+            global SIGMA2
+            DEN,SIGMA2 = config["DEN"], config["SIGMA2"]
         else:
             self.freqInit(self.nods[0])
-            self.storeTree(name)
-        if draw:
+            self.storeTree()
+        #if draw:
             self.draw(load if len(load) > 0 else name)
 
     def draw(self,name,all=False,lim=5):
@@ -348,13 +369,13 @@ class patternManager():
         scne.draw(d=True)
 
 ##################
-import sys,argparse
 def parse(argv):
+    import argparse
     parser = argparse.ArgumentParser(prog='ProgramName')
     parser.add_argument('-v','--verbose', default=1)
     parser.add_argument('-d','--maxDepth', default=10)
     parser.add_argument('-n','--name', default="")#
-    parser.add_argument('-l','--load', default="deat")#deat
+    parser.add_argument('-l','--load', default="merg")#deat
     parser.add_argument('-s','--scaled', default=True, action="store_true")
     parser.add_argument('-w','--wid', default="rand2")
     parser.add_argument('-o','--oid', default="")
@@ -362,63 +383,30 @@ def parse(argv):
     parser.add_argument('-g','--gen', default="")
     args = parser.parse_args(argv)
     return args
-UIDS = [
-        # "0005bacf-8c1c-4aef-8c61-e231901e73d7_ElderlyRoom-4173",
-        # "0005bacf-8c1c-4aef-8c61-e231901e73d7_LivingDiningRoom-5375",
-        # "0005bacf-8c1c-4aef-8c61-e231901e73d7_MasterBedroom-2290",
-        # "000ecb5b-b877-4f9a-ab6f-90f385931658_LivingDiningRoom-5782",
-        # "000ecb5b-b877-4f9a-ab6f-90f385931658_MasterBedroom-4710",
-        # "000ecb5b-b877-4f9a-ab6f-90f385931658_SecondBedroom-3805",
-        # "00110bde-f580-40be-b8bb-88715b338a2a_Bedroom-43072",
-        # "00110bde-f580-40be-b8bb-88715b338a2a_LivingDiningRoom-44785",
-        # "0013aa34-3fb3-47f9-bf6b-324f1b2c96e5_LivingDiningRoom-5013",
-        # "0013aa34-3fb3-47f9-bf6b-324f1b2c96e5_MasterBedroom-4026",
-        # "0013aa34-3fb3-47f9-bf6b-324f1b2c96e5_SecondBedroom-6105",
-        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_KidsRoom-1704",
-        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_Library-911",
-        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_LivingRoom-2584",
-        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_MasterBedroom-928",
-        # "001ef085-8b13-48ec-b4e4-4a0dc1230390_SecondBedroom-1986",
-        # "0021297a-0898-4b96-a746-10abeb88ac91_LivingDiningRoom-10469",
-        # "0021297a-0898-4b96-a746-10abeb88ac91_MasterBedroom-9415",
-        # "0021297a-0898-4b96-a746-10abeb88ac91_SecondBedroom-8739",
-        # "0021297a-0898-4b96-a746-10abeb88ac91_SecondBedroom-9049",
-        # "003205a1-f3fe-43a1-8803-e9aa7b03a6cc_LivingDiningRoom-2359",
-        # "003205a1-f3fe-43a1-8803-e9aa7b03a6cc_MasterBedroom-2346",
-        # "0032b185-4914-49e5-b973-f82271674308_Bedroom-11927",
-        # #"0032b185-4914-49e5-b973-f82271674308_LivingDiningRoom-13661",
-        # "0032b185-4914-49e5-b973-f82271674308_SecondBedroom-12951",
-        "0037d052-e88f-4af4-89ee-3ffba55a18cc_LivingDiningRoom-38341",
-        # "0037d052-e88f-4af4-89ee-3ffba55a18cc_MasterBedroom-37799",
-        # "0037d052-e88f-4af4-89ee-3ffba55a18cc_SecondBedroom-35695",
-        # "003e72a5-bdbc-4966-8346-ce78b2228e5b_LivingDiningRoom-641",
-        # "003e72a5-bdbc-4966-8346-ce78b2228e5b_SecondBedroom-1867",
-        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_Library-10171",
-        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_LivingDiningRoom-9613",
-        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_MasterBedroom-12848",
-        # "0044ad10-aac5-4086-886e-17aa16a1f6a3_SecondBedroom-12785",
-        # "0045f18f-0236-415b-9d71-d6930349514e_Bedroom-70996",
-        # "0045f18f-0236-415b-9d71-d6930349514e_Bedroom-72976",
-        # "0045f18f-0236-415b-9d71-d6930349514e_DiningRoom-77736"
-]
-import os
+
 if __name__ == "__main__": #load="testings",
+    import sys
     args=parse(sys.argv[1:])
     #assert (len(args.name)>0 or len(args.load)>0) and (len(args.gen)>0 or len(args.uid)>0 or len(args.oid)>0)
     T = patternManager(verb=int(args.verbose),maxDepth=int(args.maxDepth),s=args.scaled,loadDataset=(len(args.load)==0))
     T.treeConstruction(load=args.load,name=args.name,draw=len(args.name)>0 or (len(args.uid)==0 and len(args.gen)==0))#
     
-    DIR = "./newRoom/"
-    W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #wlz.draw(DIR)
-    #print(W)
-    #raise NotImplementedError
-    S = scne.empty(args.wid+"_")
-    S.registerWalls(W)
-    T.generate(nm="testing",theScene=S,useWalls=True,debug=True)
+    # DIR = "./newRoom/"
+    # W = walls.fromLog(f=DIR+args.wid+".txt",name=args.wid+"_") #wlz.draw(DIR)
+    # #print(W)
+    # #raise NotImplementedError
+    # S = scne.empty(args.wid+"_")
+    # S.registerWalls(W)
+    # T.generate(nm="testing",theScene=S,useWalls=True,debug=True)
 
-    # if len(args.gen)>0:
-    #     [T.generate(args.gen+str(i)) for i in range(16)]
-    # elif len(args.uid)>0:
-    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
-    # elif len(args.oid)>0:
-    #     [scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]
+    if len(args.name)>0:#only for constructing
+        sys.exit(0)
+
+    if len(args.gen)>0:
+        [T.generate(args.gen+str(i)) for i in range(16)]
+    elif len(args.uid)>0:#
+        UIDS = os.listdir(T.sceneDir)[:300] #["81c47424-f98c-418d-b810-ad23e586b3b2_LivingDiningRoom-876"]#
+        scneDs(T.sceneDir,lst=UIDS,grp=False,cen=True,wl=False,keepEmptyWL=True,imgDir="./pattern/rcgs/").recognize(T) #[scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/rcgs/").tra(T) for uid in UIDS]
+    elif len(args.oid)>0:
+        UIDS = os.listdir(T.sceneDir)[:300]
+        scneDs(T.sceneDir,lst=UIDS,grp=False,cen=True,wl=True,imgDir="./pattern/opts/").optimize(T) #[scne(fullLoadScene(uid),grp=False,cen=True,wl=True,imgDir="./pattern/opts/").opt(T) for uid in UIDS]

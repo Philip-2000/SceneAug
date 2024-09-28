@@ -3,11 +3,12 @@ after/
 newRooms/
 newRoom/
 __pycache__/
-classes/__pycache__/
+SceneClasses/__pycache__/
 segment/
 pattern/fields/
 pattern/trees/
 pattern/imgs/
+pattern/rcgf/
 pattern/rcgs/
 pattern/gens/
 pattern/refs/

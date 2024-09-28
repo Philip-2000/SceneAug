@@ -1,4 +1,4 @@
-grupA=["white","lightblue","lightgreen"]
+grupA=["white","lightblue","lightgreen","pink","lime"]
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
@@ -15,7 +15,7 @@ def matrix(ori):
     
 #WALLS=[]
 class grup():
-    def __init__(self, objIdList, imgMeta, idx=-1, scne=None):
+    def __init__(self, objIdList, imgMeta, idx=0, scne=None):
         self.objIdList = copy(objIdList)
         self.scne=scne
         for i in objIdList:#assert (self.scne.OBJES[i].gid == idx)

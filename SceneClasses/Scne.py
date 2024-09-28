@@ -15,7 +15,7 @@ def two23(a):
 #noPatternType = ["Pendant Lamp", "Ceiling Lamp"]
 
 class scne():
-    def __init__(self, scene, grp=False, windoor=False, wl=False, keepEmptyWL=False, cen=False, rmm=True, irt=16, imgDir="./"):
+    def __init__(self, scene, grp=False, windoor=False, wl=False, keepEmptyWL=False, cen=False, rmm=True, irt=16, imgDir="./"):#print(wl)print(keepEmptyWL)
         self.LINKS=[]
         self.copy = copy(scene)
         self.scene_uid = str(scene["scene_uid"]) if "scene_uid" in scene else ""
@@ -83,7 +83,8 @@ class scne():
         sps.scne=self
         self.SPCES = sps
 
-    def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False):
+    def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=False):
+        plt.figure(figsize=(10, 8))
         self.SPCES.draw(dr=False)
         # for i in range(len(self.SPCES)):
         #     self.SPCES[i].draw()
@@ -94,7 +95,7 @@ class scne():
                 
         for i in range(len(self.OBJES)):
             if (not self.grp) or drawUngroups or (self.OBJES[i].gid):
-                self.OBJES[i].draw(self.grp,d)#corners = OBJES[i].corners2()
+                self.OBJES[i].draw(self.grp,d,text=classText)#corners = OBJES[i].corners2()
     
         if drawWall and len(self.WALLS):
             self.WALLS.draw()
@@ -345,7 +346,7 @@ class scne():
         return scene
 
     @classmethod
-    def fromNpzs(cls,boxes=None,contours=None,conts=None,grops=None,load=True,name=None,dir="../novel3DFront/",kwargs={}):
+    def fromNpzs(cls,boxes=None,contours=None,conts=None,grops=None,load=True,name=None,dir="../novel3DFront/",**kwargs):
         if load:
             dn = dir+name
             boxes = np.load(dn+"/boxes.npz")
@@ -357,7 +358,7 @@ class scne():
             "floor_plan_centroid":boxes["floor_plan_centroid"],"scene_uid":boxes["scene_uid"]}
         kwargs["grp"] = (grops is not None) and ("grp" in kwargs and kwargs["grp"])
         kwargs["wl"] = (grops is not None) and ("wl" in kwargs and kwargs["wl"])
-        kwargs["windoor"] = (grops is not None) and ("windoor" in kwargs and kwargs["windoor"])
+        kwargs["windoor"] = (grops is not None) and ("windoor" in kwargs and kwargs["windoor"])#print(kwargs)
 
         return cls(sceneDict,**kwargs)
 
@@ -376,17 +377,17 @@ class scne():
         s = [o for o in self.OBJES if o.nid == nid]
         return (s[0] if sig else s) if len(s)>0 else None
 
-    def traverse(self,pm,o,plan,lev=0): #print(str(lev)+" traverse: "+o.class_name() + " nid="+str(o.nid) + " idx="+str(o.idx))
+    def traverse(self,pm,o,plan,lev=0): #print(str(lev)+" traverse: "+pm.merging[o.class_name()] + " nid="+str(o.nid) + " idx="+str(o.idx))
         cs=0
         for ed in pm.nods[o.nid].edges:
             m = ed.startNode
             while not(ed.endNode.idx in m.bunches):
                 m = m.source.startNode
             a = self.searchNid(m.idx)#search one from what?
-            losses = [(oo,m.bunches[ed.endNode.idx].loss(a.rela(oo))) for oo in [o for o in self.OBJES if (o.class_name()==ed.endNode.type and o.nid==-1)]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
+            losses = [(oo,m.bunches[ed.endNode.idx].loss(a.rela(oo))) for oo in [o for o in self.OBJES if (pm.merging[o.class_name()]==ed.endNode.type and o.nid==-1)]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
             if len(losses):
-                oo = sorted(losses,key=lambda x:x[1])[0][0]
-                v = singleMatch(m.bunches[ed.endNode.idx].loss(a.rela(oo)),ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
+                oo,loss = sorted(losses,key=lambda x:x[1])[0]#[0] 
+                v = singleMatch(loss,ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
                 pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))], "fats":[(plan["fats"][i] if self.OBJES[i].idx!=oo.idx else a.idx) for i in range(len(plan["fats"]))], "fit":float(plan["fit"])+v}#?????
                 self.plans.append(deepcopy(pl))
                 oo.nid=ed.endNode.idx
@@ -394,21 +395,21 @@ class scne():
                 oo.nid=-1
             cs += ed.confidence
 
-    def tra(self,pm,use=True,draw=True): #recognition
-        print(self.scene_uid)
-        plan = {"nids":[pm.rootNames.index(o.class_name())+1 if (o.class_name() in pm.rootNames) else -1 for o in self.OBJES], "fats":[o.idx for o in self.OBJES], "fit":0}
+    def tra(self,pm,use=True,draw=True): #recognition print(self.scene_uid)
+        plan = {"nids":[pm.rootNames.index(pm.merging[o.class_name()])+1 if (pm.merging[o.class_name()] in pm.rootNames) else -1 for o in self.OBJES], "fats":[o.idx for o in self.OBJES], "fit":0}
         for o in self.OBJES:
             o.nid = plan["nids"][o.idx]
         for r in pm.rootNames:
-            for o in [o for o in self.OBJES if o.class_name() == r]:#print(r)
+            for o in [o for o in self.OBJES if pm.merging[o.class_name()] == r]:#print(r)
                 self.traverse(pm,o,plan)
-        #for p in self.plans:print(str(p["fit"])+[self.OBJES[i].class_name()+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1])
-            if len(self.plans):
-                plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
+        #for p in self.plans:
+            #print(str(p["fit"])+"\t".join([pm.merging[self.OBJES[i].class_name()]+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1]))
+        if len(self.plans):
+            plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
         if use:
             self.useP(plan["nids"],plan["fats"],pm)
             if draw:
-                self.draw(drawUngroups=True)
+                self.draw(drawUngroups=True,classText=True,d=True)
         return plan
 
     def useP(self,P,fats,pm):
@@ -433,7 +434,25 @@ class scne():
             self.OBJES[i].gid = ROOTS.index(j)+1 if P[i] != -1 else 0
             self.OBJES[i].nid = P[i]
         self.grp=True
+        #print(ROOTS)
+        #print([self.OBJES[i].class_name() for i in ROOTS])
         self.GRUPS = [grup([o.idx for o in self.OBJES if o.gid==j],{"sz":self.roomMask.shape[-1],"rt":16},j,scne=self) for j in range(1,len(ROOTS)+1)]
+
+    def recognize(self,pm,use=True,draw=True):
+        #give up the version above, use this one
+        #a breadth first version
+        #find each root, regard each root node will be a segment
+        #splay each segment, one by one
+        
+        #when splaying one, search all the object satisfying all the classes of its child node, and find the minimum one? no
+        # 
+        overFlag = []
+        segments = []
+        links = []
+        
+
+        
+        pass
 
     def optimize(self,o,pm):
         for e in pm.nods[o.nid].edges:
@@ -459,8 +478,9 @@ class scne():
 import os
 #from util import fullLoadScene
 class scneDs():
-    def __init__(self,dir,lst=None,kwargs={}):
-        self._dataset = [scne.fromNpzs(name=n,kwargs=kwargs) for n in (os.listdir(dir) if lst is None else lst)]
+    def __init__(self,dir,lst=None,**kwargs):
+        #print(kwargs)
+        self._dataset = [scne.fromNpzs(name=n,**kwargs) for n in (os.listdir(dir) if lst is None else lst)]
 
     def __len__(self):
         return len(self._dataset)
@@ -474,11 +494,14 @@ class scneDs():
     def __iter__(self):
         return iter(self._dataset)
 
-    def recognize(self,T):
+    def recognize(self,T,**kwargs):
         for s in self._dataset:
             try:
-                s.tra(T)
+                s.tra(T,**kwargs)
             except:
+                s.imgDir = s.imgDir.replace("rcgs","rcgf")
+                s.grp=False
+                s.draw(classText=True)
                 print(s.scene_uid)
 
     def optimize(self,T):

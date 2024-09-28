@@ -26,7 +26,7 @@ class wall():
         self.w2=w2
         self.v=v
         self.spaceIn=spaceIn
-        self.scne=scne
+        self.scne=scene
         self.array=array#scne.WALLS if scne is not None else array#return WALLSTATUS
         
     def __str__(self):
@@ -96,12 +96,11 @@ def two23(a):
 
 class walls():
     def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False):
+        #print(keepEmptyWL)
         if len(Walls)>0:
-            self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=scne) for j in range(len(walls))]
-        else:
-            if a[0]<0 or a[1]<0:
-                print(a)
-            self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)]
+            self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scene=scne,array=self) for j in range(len(Walls))]
+        else:#if a[0]<0 or a[1]<0:print(a)
+            self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)] if not keepEmptyWL else []
         self.LOGS = []
         self.printLog = printLog
         self.scne = scne
@@ -443,6 +442,7 @@ class walls():
         pass
 
     def draw(self,end=False,suffix=".png",color="black"):
+        print(self)
         if len([w.idx for w in self.WALLS if w.v]):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
             contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2

@@ -1,5 +1,5 @@
 import numpy as np
-grupC=["black","red","gray"]
+grupC=["black","red","gray","purple","yellow"]
 object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Round End Table", "Dining Table", "Sideboard / Side Cabinet / Console table", "Corner/Side Table", "Desk", "Coffee Table", "Dressing Table", \
 "Children Cabinet", "Drawer Chest / Corner cabinet", "Shelf", "Wine Cabinet", \
@@ -7,7 +7,7 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Three-seat / Multi-seat Sofa", "Loveseat Sofa", "L-shaped Sofa", "Lazy Sofa", "Chaise Longue Sofa", "Wardrobe", "TV Stand", "Nightstand", \
 "King-size Bed", "Kids Bed", "Bunk Bed", "Single bed", "Bed Frame", "window", "door"]
 
-noOriType = ["Pendant Lamp", "Ceiling Lamp", "Round End Table", "Barstool", "Footstool / Sofastool / Bed End Stool / Stool", "Nightstand"]
+noOriType = ["Pendant Lamp", "Ceiling Lamp", "Round End Table", "Corner/Side Table", "Barstool", "Footstool / Sofastool / Bed End Stool / Stool", "Nightstand"]
         
 
 from matplotlib import pyplot as plt
@@ -61,7 +61,7 @@ class obje():
         realX = CenterX + CornerOriginalZ*z2x + CornerOriginalX*x2x
         return np.array([[realX[i],realZ[i]] for i in range(4)])
 
-    def draw(self,g=False,d=False,color="",alpha=1.0,cr=""):
+    def draw(self,g=False,d=False,color="",alpha=1.0,cr="",text=False):
         corners = self.corners2()
         if g:
             plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*", color=grupC[self.gid])
@@ -75,6 +75,9 @@ class obje():
                 plt.plot([self.translation[0], self.translation[0]+0.5*self.direction()[0]], [-self.translation[2],-self.translation[2]-0.5*self.direction()[2]], marker="x", color=cr)
             else:
                 plt.plot([self.translation[0], self.translation[0]+0.5*self.direction()[0]], [-self.translation[2],-self.translation[2]-0.5*self.direction()[2]], marker="x")
+        if text:
+            plt.text(self.translation[0]-0.15, -self.translation[2]-0.15, ("%d "%(self.nid) if self.nid>-1 else "")+self.class_name()[:min(len(self.class_name()),10)],fontdict={"fontsize":8})
+
 
     def bbox3(self):
         cs = self.corners2()
@@ -205,7 +208,7 @@ class objes():
     def __iter__(self):
         return iter(self.OBJES)
 
-sc = {"translations":np.array([[0,0,0]]),"sizes":np.array([[0,0,0]]),"angles":np.array([[0]]),"class_labels":np.array([[1,0,0]])}
-a = objes(sc,np.array([0,0,0]),False)
-for A in a:
-    print(A.class_name())
+# sc = {"translations":np.array([[0,0,0]]),"sizes":np.array([[0,0,0]]),"angles":np.array([[0]]),"class_labels":np.array([[1,0,0]])}
+# a = objes(sc,np.array([0,0,0]),False)
+# for A in a:
+#     print(A.class_name())

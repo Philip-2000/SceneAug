@@ -1,7 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt 
-from Logg import *
-from Obje import *
+from .Logg import *
+from .Obje import *
 import json
 WALLSTATUS = True
 EPS = 0.001
@@ -467,12 +467,3 @@ class walls():
     def output(self):
         self.draw(True)
         self.writeLog()
-
-
-
-if __name__ == "__main__": #load="testings",
-    
-    DIR = "./newRoom/"
-    W = walls.fromLog(f=DIR+"rand3.txt",name="",drawFolder=DIR) #wlz.draw(DIR)
-    print(W)
-    W.draw(True)

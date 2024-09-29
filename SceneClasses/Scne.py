@@ -1,9 +1,9 @@
-from Obje import *
-from Link import *
-from Wall import *
-from Grup import *
-from Spce import *
-from Bnch import singleMatch
+from .Obje import *
+from .Link import *
+from .Wall import *
+from .Grup import *
+from .Spce import *
+from .Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy

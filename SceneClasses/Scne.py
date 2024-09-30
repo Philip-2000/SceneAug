@@ -6,7 +6,7 @@ from .Spce import *
 from .Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
-from copy import copy
+from copy import copy,deepcopy
 from PIL import Image, ImageDraw
 
 def two23(a):
@@ -19,6 +19,11 @@ class scne():
         self.LINKS=[]
         self.copy = copy(scene)
         self.scene_uid = str(scene["scene_uid"]) if "scene_uid" in scene else ""
+        self.roomType = "Room"
+        for r in ["Bedroom","KidsRoom", "ElderlyRoom", "LivingDiningRoom", "LivingRoom", "DiningRoom", "Library"]:
+            if self.scene_uid.find(r) > -1:
+                self.roomType = r
+                break        
         tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
         #firstly, store those objects and walls into the WALLS and OBJES
         ce = scene["floor_plan_centroid"] if cen else np.array([0,0,0])
@@ -362,7 +367,6 @@ class scne():
 
         return cls(sceneDict,**kwargs)
 
-
     def objectView(self,id,bd=100000,scl=False,maxDis=100000):
         newOBJES = [self.OBJES[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
         return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
@@ -404,8 +408,8 @@ class scne():
                 self.traverse(pm,o,plan)
         #for p in self.plans:
             #print(str(p["fit"])+"\t".join([pm.merging[self.OBJES[i].class_name()]+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1]))
-        if len(self.plans):
-            plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
+            if len(self.plans):
+                plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
         if use:
             self.useP(plan["nids"],plan["fats"],pm)
             if draw:
@@ -438,17 +442,21 @@ class scne():
         #print([self.OBJES[i].class_name() for i in ROOTS])
         self.GRUPS = [grup([o.idx for o in self.OBJES if o.gid==j],{"sz":self.roomMask.shape[-1],"rt":16},j,scne=self) for j in range(1,len(ROOTS)+1)]
 
-    def recognize(self,pm,use=True,draw=True):
+    def recognize(self,pm,use=True,draw=True,show=False):
+        self.tra(pm,use,draw)
         #give up the version above, use this one
         #a breadth first version
         #find each root, regard each root node will be a segment
         #splay each segment, one by one
         
         #when splaying one, search all the object satisfying all the classes of its child node, and find the minimum one? no
-        # 
+        #
         overFlag = []
         segments = []
         links = []
+
+        #But the problem is, does this breadth first strategy really works?
+        #We said why we introduce the depth first.
         
 
         
@@ -469,7 +477,7 @@ class scne():
             son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
             self.optimize(son,pm)
 
-    def opt(self,pm): #optimize
+    def opt(self,pm,show=False): #optimize
         self.tra(pm,draw=False)
         for o in [_ for _ in self.OBJES if _.nid in [e.endNode.idx for e in pm.nods[0].edges] ]:
             self.optimize(o,pm)

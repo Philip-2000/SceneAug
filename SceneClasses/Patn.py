@@ -4,8 +4,9 @@ from .Obje import *
 from .Scne import *
 import json
 import yaml
-from Bnch import *
+from .Bnch import *
 from matplotlib import pyplot as plt
+import inspect
 
 class edge():
     def __init__(self,n,nn,c,cc):
@@ -37,9 +38,8 @@ class merging():
         return [a]+[k for k in self.d if self.d[k]==a]  
 
 class patternManager():
-    def __init__(self,verb=0,maxDepth=1,s=False,loadDataset=True):
-        self.version = ""
-        self.sceneDir = "../novel3DFront/"
+    def __init__(self,vers,verb=0,new=False):
+        self.version = vers
         self.workDir = "./pattern/"
         self.fieldDir = os.path.join(self.workDir,"fields/")
         self.imgDir = os.path.join(self.workDir,"imgs/")
@@ -48,13 +48,20 @@ class patternManager():
         self.merging = merging({"Single bed":"King-size Bed", "Kids Bed":"King-size Bed", "Loveseat Sofa":"Three-seat / Multi-seat Sofa", "Ceiling Lamp":"Pendant Lamp"})
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
-        if loadDataset:
-            self.sDs = scneDs(self.sceneDir, grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
-            if verb == 0:
-                print("scene dataset loaded")
-        self.maxDepth = maxDepth
+        self.sDs = None#scneDs(self.sceneDir, grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
+        self.maxDepth = 10
+        self.Q = []
         self.objectViewBd = 6
-        self.scaled=s
+        self.scaled=True
+        if not new:
+            self.loadTre(json.loads(open(os.path.join(self.treesDir,self.version+".js")).read()[8:-1]))#self.loadTre(json.load(open(os.path.join(self.treesDir,self.version+".js"))))
+            config = yaml.load(open(os.path.join(self.treesDir,self.version+".yaml")), Loader=yaml.FullLoader)
+            self.rootNames = config["rootNames"]
+            # self.maxDepth = config["maxDepth"] if "maxDepth" in config else 10
+            self.scaled = config["scale"] if "scale" in config else True
+            # global DEN
+            # global SIGMA2
+            # DEN,SIGMA2 = config["DEN"], config["SIGMA2"]
     
     def createNode(self,fat,s,c=0.0,cc=0.0):
         self.nods.append(node(s,fat.suffix if len(fat.suffix)>0 else s.replace('/','.'),len(self.nods)))#nod(nn))
@@ -73,11 +80,16 @@ class patternManager():
                             n.bunches[len(self.nods)] = bnch(obje(np.array([0,0,0]),o.size,np.array([0]),i=self.merging[o.class_index],idx=o.idx,scne=o.scne))
             n.bunches[len(self.nods)].enable(len(self.nods))
             self.createNode(n,s,len(n.bunches[len(self.nods)])/len(self.sDs),len(n.bunches[len(self.nods)])/len(self.sDs))
-            
-        for e in n.edges:
-            self.freq(e.endNode,[e.endNode.idx])#frequentRecursive(n.endNode,form)#
 
-    def freq(self,n,path,ex=True,lev=0):
+        self.Q = [e for e in n.edges]
+        while len(self.Q):
+            e = self.Q.pop(0)
+            self.freq(e.endNode)#,[e.endNode.idx]
+
+    def freq(self,n,ex=True,lev=0): #,path
+        path,m = [],n
+        while m.idx != 0:
+            path,m = (path if (m.type in noOriType) else [m.idx] + path), m.source.startNode
         field= [self.sDs[int(f)] for f in open(self.fieldDir+n.suffix+".txt").readlines() if n.idx in self.sDs[int(f)].nids()]
         while 1:
             sheet = {id:{o:bnches() for o in object_types} for id in path}
@@ -121,7 +133,8 @@ class patternManager():
             print('\t'.join(['\t']*lev+[e.endNode.type for e in n.edges]+["fuck"]))
         if lev < self.maxDepth:
             for e in n.edges:
-                self.freq(e.endNode,(path if (e.endNode.type in noOriType) else path+[e.endNode.idx]),ex,lev+1)
+                self.freq(e.endNode,ex,lev+1)#,(path if (e.endNode.type in noOriType) else path+[e.endNode.idx])
+        self.Q = self.Q + [e for e in n.edges] if self.maxDepth == -1 else self.Q
 
     def loadTre(self,dct,id=0):
         if id == 0:
@@ -142,14 +155,22 @@ class patternManager():
         lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
                 "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
         open(os.path.join(self.treesDir,self.version+".js"),"w").write("var dat="+json.dumps(lst)+";")#open(os.path.join(self.treesDir,self.version+".json"),"w").write(json.dumps(lst))
-        yaml.dump({"merging":self.merging.d,"rootNames":self.rootNames,"DEN":DEN,"SIGMA2":SIGMA2,"giveup":('\n'.join(inspect.getsource(giveup).split('\n')[1:-1]))},open(os.path.join(self.treesDir,self.version+".yaml"),"w"))
+        yaml.dump({"merging":self.merging.d,"rootNames":self.rootNames,"maxDepth":self.maxDepth,"scaled":self.scaled,"DEN":DEN,"SIGMA2":SIGMA2,"giveup":('\n'.join(inspect.getsource(giveup).split('\n')[1:-1]))},open(os.path.join(self.treesDir,self.version+".yaml"),"w"))
+
+    def construct(self,maxDepth,scaled,sDs):
+        self.maxDepth,self.scaled,self.sDs = maxDepth,scaled,sDs
+        self.freqInit(self.nods[0])
+        self.storeTree()
+        self.draw(self.version)
 
     def treeConstruction(self,load="",name="",draw=True):#print(self.treesDir+load+".json")
+        raise NotImplementedError
         self.version = name if load == "" else load
         if load != "":
             self.loadTre(json.loads(open(os.path.join(self.treesDir,self.version+".js")).read()[8:-1]))#self.loadTre(json.load(open(os.path.join(self.treesDir,self.version+".js"))))
             config = yaml.load(open(os.path.join(self.treesDir,self.version+".yaml")), Loader=yaml.FullLoader)
             self.rootNames = config["rootNames"]
+            self.maxDepth = config["maxDepth"] if "maxDepth" in config else self.maxDepth
             global DEN
             global SIGMA2
             DEN,SIGMA2 = config["DEN"], config["SIGMA2"]

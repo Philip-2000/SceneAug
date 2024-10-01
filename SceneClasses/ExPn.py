@@ -55,7 +55,7 @@ class expn():
         for i in range(len(self.devs)):
             for j in range(len(self.mt)):
                 st = metricsStandard[j]
-                A = ax1.boxplot((data[i:i+1,:,j]-st[0])/st[1], positions=[(i*(self.mtl+2)+j)*scl], labels = [metricsTitles[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]})
+                A = ax1.boxplot((data[i:i+1,:,j]-st[0])/st[1], positions=[(i*(self.mtl+2)+j)*scl], labels = [self.mt[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]})
                 B = {"medians":A["medians"][0].get_data()[1][0],"means":A["means"][0].get_data()[1][0],"capsUp":A["caps"][0].get_data()[1][0],"capsDown":A["caps"][1].get_data()[1][0],"x":A["means"][0].get_data()[0][0]}
                 ax1.text(B["x"]+0.1,B["means"],"%.2f"%((B["means"]-st[0])*st[1]+st[0]),fontsize='xx-small')
                 ax1.text(B["x"]+0.1,B["capsUp"]-0.05,"%.2f"%((B["capsUp"]-st[0])*st[1]+st[0]),fontsize='xx-small')

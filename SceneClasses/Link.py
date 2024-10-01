@@ -1,4 +1,4 @@
-
+from matplotlib import pyplot as plt
 common_links={
     "Dining Chair":["Dining Table"],
     "Chaise Longue Sofa":["Coffee Table"],
@@ -11,17 +11,25 @@ common_links={
 
 #LINKS=[]
 class link():
-    def __init__(self, src, dst, idx=None, scne=None):
+    def __init__(self, src, dst, idx=None, scne=None, color="gray"):
         #type?
         self.src=src
         self.dst=dst
         self.idx=idx
         self.scne=scne
+        self.color=color
+
+    def arrow(self):
         pass
     
+    def draw(self):
+        src,dst = self.arrow()
+        plt.plot([dst[0]], [-dst[2]], marker="x", color=self.color)
+        plt.plot([src[0], dst[0]], [-src[2], -dst[2]], marker=".", color=self.color)
+
 class objLink(link):
-    def __init__(self, src, dst, idx, scne=None):
-        super(objLink,self).__init__(src, dst, idx, scne)
+    def __init__(self, src, dst, idx, scne=None, color="gray"):
+        super(objLink,self).__init__(src, dst, idx, scne, color)
         self.scne.OBJES[self.src].linkIndex.append(idx)
         self.scne.OBJES[self.dst].destIndex.append(idx)
         pass
@@ -36,8 +44,8 @@ class objLink(link):
         return self.scne.OBJES[self.src].translation, self.scne.OBJES[self.dst].translation
 
 class walLink(link):
-    def __init__(self, src, dst, idx, dstTranslation, scne=None):
-        super(walLink,self).__init__(src, dst, idx, scne)
+    def __init__(self, src, dst, idx, dstTranslation, scne=None, color="gray"):
+        super(walLink,self).__init__(src, dst, idx, scne, color)
         self.scne.WALLS[self.src].linkIndex.append(idx)
         self.scne.OBJES[self.dst].destIndex.append(idx)
 

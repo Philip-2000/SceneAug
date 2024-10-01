@@ -12,7 +12,5 @@ def parse():
 
 if __name__ == "__main__": #load="testings",
     args = parse()
-    T = patternManager(args.version,verb=args.verbose,new = True)
-    S = scneDs(args.dataset, grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
-
+    T,S = patternManager(args.version,verb=args.verbose,new = True), scneDs(args.dataset, grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
     T.construct(args.maxDepth,args.scaled,S)

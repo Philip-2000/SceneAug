@@ -3,16 +3,13 @@ from .Link import *
 from .Wall import *
 from .Grup import *
 from .Spce import *
+from .Plan import *
 from .Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy,deepcopy
 from PIL import Image, ImageDraw
-
-def two23(a):
-    return np.array([a[0],0,a[1]])
-
-#noPatternType = ["Pendant Lamp", "Ceiling Lamp"]
+import os
 
 class scne():
     def __init__(self, scene, grp=False, windoor=False, wl=False, keepEmptyWL=False, cen=False, rmm=True, irt=16, imgDir="./"):#print(wl)print(keepEmptyWL)
@@ -114,9 +111,7 @@ class scne():
         plt.axis('equal')
 
         for li in self.LINKS:
-            src,dst = li.arrow()
-            plt.plot([dst[0]], [-dst[2]], marker="x")
-            plt.plot([src[0], dst[0]], [-src[2], -dst[2]], marker=".")
+            li.draw()
 
         if lim > 0:
             plt.xlim(-lim,lim)
@@ -400,6 +395,7 @@ class scne():
             cs += ed.confidence
 
     def tra(self,pm,use=True,draw=True): #recognition print(self.scene_uid)
+        raise NotImplementedError
         plan = {"nids":[pm.rootNames.index(pm.merging[o.class_name()])+1 if (pm.merging[o.class_name()] in pm.rootNames) else -1 for o in self.OBJES], "fats":[o.idx for o in self.OBJES], "fit":0}
         for o in self.OBJES:
             o.nid = plan["nids"][o.idx]
@@ -442,26 +438,6 @@ class scne():
         #print([self.OBJES[i].class_name() for i in ROOTS])
         self.GRUPS = [grup([o.idx for o in self.OBJES if o.gid==j],{"sz":self.roomMask.shape[-1],"rt":16},j,scne=self) for j in range(1,len(ROOTS)+1)]
 
-    def recognize(self,pm,use=True,draw=True,show=False):
-        self.tra(pm,use,draw)
-        #give up the version above, use this one
-        #a breadth first version
-        #find each root, regard each root node will be a segment
-        #splay each segment, one by one
-        
-        #when splaying one, search all the object satisfying all the classes of its child node, and find the minimum one? no
-        #
-        overFlag = []
-        segments = []
-        links = []
-
-        #But the problem is, does this breadth first strategy really works?
-        #We said why we introduce the depth first.
-        
-
-        
-        pass
-
     def optimize(self,o,pm):
         for e in pm.nods[o.nid].edges:
             son = self.searchNid(e.endNode.idx)
@@ -483,11 +459,8 @@ class scne():
             self.optimize(o,pm)
         self.draw(drawUngroups=True)
 
-import os
-#from util import fullLoadScene
 class scneDs():
-    def __init__(self,dir,lst=None,**kwargs):
-        #print(kwargs)
+    def __init__(self,dir,lst=None,**kwargs):#print(kwargs)
         self._dataset = [scne.fromNpzs(name=n,**kwargs) for n in (os.listdir(dir) if lst is None else lst)]
 
     def __len__(self):
@@ -499,19 +472,17 @@ class scneDs():
     def __getitem__(self, idx):
         return self._dataset[idx]
 
-    def __iter__(self):
-        return iter(self._dataset)
-
     def recognize(self,T,**kwargs):
         for s in self._dataset:
             try:
-                s.tra(T,**kwargs)
+                plans(s,T).recognize(**kwargs)
             except:
                 s.imgDir = s.imgDir.replace("rcgs","rcgf")
                 s.grp=False
                 s.draw(classText=True)
-                print(s.scene_uid)
+            print(s.scene_uid)
+            break
 
-    def optimize(self,T):
+    def optimize(self,T,**kwargs):
         for s in self._dataset:
             s.opt(T)

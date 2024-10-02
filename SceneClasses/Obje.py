@@ -1,5 +1,6 @@
 import numpy as np
-grupC=["black","red","gray","purple","yellow"]
+from shapely.geometry import Polygon
+grupC=["black","red","gray","purple","yellow","red","gray","purple","yellow"]
 object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Round End Table", "Dining Table", "Sideboard / Side Cabinet / Console table", "Corner/Side Table", "Desk", "Coffee Table", "Dressing Table", \
 "Children Cabinet", "Drawer Chest / Corner cabinet", "Shelf", "Wine Cabinet", \
@@ -9,6 +10,10 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 
 noOriType = ["Pendant Lamp", "Ceiling Lamp", "Round End Table", "Corner/Side Table", "Barstool", "Footstool / Sofastool / Bed End Stool / Stool", "Nightstand"]
         
+def angleNorm(ori):
+    ori = ori % (2*np.math.pi)
+    return ori-2*np.math.pi if 2*np.math.pi-ori < ori else ori
+
 
 from matplotlib import pyplot as plt
 #OBJES=[]
@@ -60,6 +65,9 @@ class obje():
         realZ = CenterZ + CornerOriginalZ*z2z + CornerOriginalX*x2z
         realX = CenterX + CornerOriginalZ*z2x + CornerOriginalX*x2x
         return np.array([[realX[i],realZ[i]] for i in range(4)])
+    
+    def shape(self):
+        return Polygon(self.corners2()).convex_hull
 
     def draw(self,g=False,d=False,color="",alpha=1.0,cr="",text=False):
         corners = self.corners2()
@@ -159,15 +167,15 @@ class obje():
         ns = ds / self.size.reshape((1,3))
         return (ds**2).sum(-1)**0.5, np.abs(ns).min() < 1
 
-    def rely(self, o, scl=False):
+    def rely(self, o, scl=True):
         t = self.translation + self.matrix()@(o.translation * (self.size if scl else np.array([1,1,1])) )
-        ori = (o.orientation + self.orientation) % (2*np.math.pi)#- (0.0 if (o.orientation - self.orientation) % (2*np.math.pi) < np.math.pi else 2*np.math.pi)
+        ori = angleNorm(o.orientation + self.orientation)#- (0.0 if (o.orientation - self.orientation) % (2*np.math.pi) < np.math.pi else 2*np.math.pi)
         s = o.size * np.linalg.norm(obje.mat(-o.orientation,self.size), axis=1) if scl else o.size
         return obje(t,s,ori,i=o.class_index,idx=o.idx,scne=o.scne)
 
-    def rela(self, o, scl=False):
+    def rela(self, o, scl=True):
         t = self.matrix(-1)@(o.translation-self.translation) / (self.size if scl else np.array([1,1,1]))
-        ori = (o.orientation - self.orientation) % (2*np.math.pi)#- (0.0 if (o.orientation - self.orientation) % (2*np.math.pi) < np.math.pi else 2*np.math.pi)
+        ori = angleNorm(o.orientation - self.orientation)#- (0.0 if (o.orientation - self.orientation) % (2*np.math.pi) < np.math.pi else 2*np.math.pi)
         s = o.size / np.linalg.norm(obje.mat(ori,self.size), axis=1) if scl else o.size
         return obje(t,s,ori,i=o.class_index,idx=o.idx,scne=o.scne)
 

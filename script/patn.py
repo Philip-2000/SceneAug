@@ -3,11 +3,11 @@ from SceneClasses.Scne import scneDs
 def parse():
     import argparse,sys
     parser = argparse.ArgumentParser(prog='ProgramName')
-    parser.add_argument("-v","--version",   default="broe")
+    parser.add_argument("-v","--version", required=True)#,   default="brot"
     parser.add_argument('-e','--verbose',   default=0, type=int)
     parser.add_argument("-u","--usage",     default="rcgs", choices=["rcgs","evas","opts"])
     parser.add_argument("-a","--dataset",   default="../novel3DFront/")
-    parser.add_argument('-i','--id',        default="")#81c47424-f98c-418d-b810-ad23e586b3b2_LivingDiningRoom-876#
+    parser.add_argument('-i','--id',        default="")#ede1bcab-2298-4756-b03a-690d5cf8dfe5_LivingDiningRoom-199172024
     return parser.parse_args(sys.argv[1:])
 
 if __name__ == "__main__": #load="testings",

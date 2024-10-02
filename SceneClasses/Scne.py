@@ -16,11 +16,8 @@ class scne():
         self.LINKS=[]
         self.copy = copy(scene)
         self.scene_uid = str(scene["scene_uid"]) if "scene_uid" in scene else ""
-        self.roomType = "Room"
-        for r in ["Bedroom","KidsRoom", "ElderlyRoom", "LivingDiningRoom", "LivingRoom", "DiningRoom", "Library"]:
-            if self.scene_uid.find(r) > -1:
-                self.roomType = r
-                break        
+        rs = [r for r in ["Bedroom","KidsRoom", "ElderlyRoom", "LivingDiningRoom", "LivingRoom", "DiningRoom", "Library"] if self.scene_uid.find(r) > -1]
+        self.roomType = "Room" if len(rs)==0 else rs[0]
         tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
         #firstly, store those objects and walls into the WALLS and OBJES
         ce = scene["floor_plan_centroid"] if cen else np.array([0,0,0])
@@ -119,11 +116,11 @@ class scne():
         else:
             plt.axis('off')
         
-        plt.savefig(self.imgDir+self.scene_uid+"_Layout.png" if imageTitle=="" else imageTitle)
+        plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_Layout.png") if imageTitle=="" else imageTitle)
         plt.clf()
 
         if drawRoomMask:
-            self.drawRoomMask(self.imgDir+self.scene_uid+"_Mask.png" if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
+            self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
     def render(self):
         pass
@@ -474,14 +471,16 @@ class scneDs():
 
     def recognize(self,T,**kwargs):
         for s in self._dataset:
-            try:
-                plans(s,T).recognize(**kwargs)
-            except:
-                s.imgDir = s.imgDir.replace("rcgs","rcgf")
-                s.grp=False
-                s.draw(classText=True)
             print(s.scene_uid)
-            break
+            plans(s,T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
+            # try:
+            #     plans(s,T).recognize(**kwargs)
+            # except:
+            #     s.imgDir = s.imgDir.replace("rcgs","rcgf")
+            #     s.grp=False
+            #     s.draw(classText=True)
+            #     print(s.scene_uid)
+            #break
 
     def optimize(self,T,**kwargs):
         for s in self._dataset:

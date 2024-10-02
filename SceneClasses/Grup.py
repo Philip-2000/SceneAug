@@ -1,7 +1,8 @@
-grupA=["white","lightblue","lightgreen","pink","lime"]
+grupA=["white","lightblue","lightgreen","pink","lime","lightblue","lightgreen","pink","lime"]
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
+from shapely.geometry import Polygon
 
 def fTheta(theta):
     while theta > np.math.pi:
@@ -48,7 +49,11 @@ class grup():
 
     def bbox2(self):
         cs = np.array([self.scne.OBJES[i].corners2() for i in self.objIdList]).reshape((-1,2))
-        return [np.min(cs,dim=0), np.max(cs,dim=0)]
+        return [np.min(cs,axis=0), np.max(cs,axis=0)]
+    
+    def shape(self):
+        bbox = self.bbox2()
+        return Polygon(np.array([[bbox[0][0],bbox[0][1]],[bbox[0][0],bbox[1][1]],[bbox[1][0],bbox[1][1]],[bbox[1][0],bbox[0][1]]])).convex_hull
 
     def adjust(self, t, s, o):
         rTrans,t[1],s[1] = {}, 0.0, 1.0

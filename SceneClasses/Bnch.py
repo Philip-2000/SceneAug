@@ -2,13 +2,13 @@ import numpy as np
 from .Obje import *
 #from Scne import *
 
-DEN,SIGMA2,MDE,OPTRATE = [[1.2**2,0.5**2,1.2**2,1.2**2,0.5**2,1.2**2,0.5**2]]*5,2.0**2,True,0.5
+DEN,SIGMA2,MDE,OPTRATE = [[1.2**2,0.5**2,1.2**2,1.2**2,0.5**2,1.2**2,0.5**2]]*50,2.0**2,True,0.5
 def giveup(B,A,C):#c=len(B)/A, cc=len(B)/C  #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
-    return (B is None) or (len(B) < 30) 
+    return (B is None) or (len(B) < 10) 
 def singleMatch(l,c,cc,od,cs):
     #匹配上了，是一件好事，加分100，但是如果空间分布差异比较大，就扣掉一些分，也就是100-l；
     #如果是在前面给出的，那么算是比较常见的，cs越小越靠前，但如果比较靠后，那么即使比较适配我们也认为你有一定问题？
-    return 100-l*0.1
+    return 15-l*1
 
 class bnch():
     def __init__(self,obj,exp=None,dev=None):
@@ -22,26 +22,38 @@ class bnch():
     def sample(self):
         return self.exp + np.random.randn(self.exp.shape[-1])*(self.dev**(0.5))/5#np.array([5,1,5,5,1,5,5])
 
+    def diff(self,obj): #self.diff(obj)
+        a = obj.flat()-self.exp
+        return np.concatenate([a[:-1],[angleNorm(a[-1])]])
+
     def loss(self,obj,hint=1):#Nothing for /1       None for /self.dev       np.array for weight
-        return ((obj.flat()-self.exp)**2).sum() if type(hint)==int else (((obj.flat()-self.exp)**2/self.dev).sum() if hint is None else (hint*(obj.flat()-self.exp)**2/self.dev).sum())#/self.dev 
+        return ((self.diff(obj))**2).sum() if type(hint)==int else (((self.diff(obj))**2/self.dev).sum() if hint is None else (hint*(self.diff(obj))**2/self.dev).sum())#/self.dev 
 
     def optimize(self,obj):
-        return obje.fromFlat((obj.flat()-self.exp)*OPTRATE+self.exp,j=obj.class_index)
+        return obje.fromFlat((self.diff(obj))*OPTRATE+self.exp,j=obj.class_index)
 
     def add(self,obj,f=False):
         if self.accept(obj) or f:
-            self.exp = (self.exp * len(self.obs) + obj.flat()) / (len(self.obs)+1)
+            self.exp = (self.exp * (len(self.obs) + 1) + self.diff(obj)) / (len(self.obs)+1)
+            self.exp[-1] = angleNorm(self.exp[-1])
             self.obs.append(obj)
-            self.dev = np.average(np.array([(o.flat()-self.exp)**2 for o in self.obs]+DEN),axis=0) if MDE else self.dev
+            self.dev = np.average(np.array([(self.diff(obj))**2 for o in self.obs]+DEN),axis=0) if MDE else self.dev
             return True
         return False
 
     def accept(self,obj):#,add=True):
-        return np.min(self.dev*SIGMA2 - (obj.flat()-self.exp)**2) > 0
+        return np.min(self.dev*SIGMA2 - (self.diff(obj))**2) > 0
     
     def refresh(self):
-        self.exp = np.average(np.array([o.flat() for o in self.obs]),axis=0) if len(self.obs) > 0 else self.exp
-        self.dev = np.average(np.array([(o.flat()-self.exp)**2 for o in self.obs]+DEN),axis=0) if MDE and (len(self.obs) > 0) else self.dev
+        if len(self.obs)==0:
+            return False
+        self.exp = np.zeros_like(self.obs[0].flat())
+        
+        for oi in range(len(self.obs)):
+            self.exp = (self.exp * (oi + 1) + self.diff(self.obs[oi])) / (oi+1)
+
+        #self.exp = np.average(np.array([o.flat() for o in self.obs]),axis=0) if len(self.obs) > 0 else self.exp
+        self.dev = np.average(np.array([(self.diff(o))**2 for o in self.obs]+DEN),axis=0) if MDE and (len(self.obs) > 0) else self.dev
         return len(self.obs) > 0
 
     def enable(self,nid):
@@ -101,6 +113,7 @@ class bnches():
             obs += b.obs
             b.obs = [] 
         for o in obs:
+            #sorted([(b,self.bunches[b].loss(o)) for b in range(len(self.bunches))], key=lambda x:x[1])
             for b in self.bunches:
                 if b.add(o):
                     break

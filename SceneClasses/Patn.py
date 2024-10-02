@@ -44,8 +44,13 @@ class patternManager():
         self.fieldDir = os.path.join(self.workDir,"fields/")
         self.imgDir = os.path.join(self.workDir,"imgs/")
         self.treesDir = os.path.join(self.workDir,"trees/") #self.cnt = len(os.listdir(self.sceneDir))
-        self.rootNames=["Dining Table","King-size Bed","Desk","Dressing Table","Coffee Table"]#,"Single bed","Kids Bed"]#
-        self.merging = merging({"Single bed":"King-size Bed", "Kids Bed":"King-size Bed", "Loveseat Sofa":"Three-seat / Multi-seat Sofa", "Ceiling Lamp":"Pendant Lamp"})
+        self.rootNames=["Dining Table","Coffee Table","King-size Bed","Desk","Dressing Table"]#,"Single bed","Kids Bed"]#
+        self.merging = merging(
+            {"Single bed":"King-size Bed", "Kids Bed":"King-size Bed",
+             "Loveseat Sofa":"Three-seat / Multi-seat Sofa",
+             "Lounge Chair / Cafe Chair / Office Chair":"Dining Chair", "Classic Chinese Chair":"Dining Chair", "Dressing Chair":"Dining Chair", "armchair":"Dining Chair",
+             "Corner/Side Table": "Nightstand",
+             "Ceiling Lamp":"Pendant Lamp"})
         self.nods = [node("","",0)]#[nod(node("","",0))]
         self.verb = verb
         self.sDs = None#scneDs(self.sceneDir, grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
@@ -54,6 +59,7 @@ class patternManager():
         self.objectViewBd = 6
         self.scaled=True
         if not new:
+            assert os.path.exists(os.path.join(self.treesDir,self.version+".js"))
             self.loadTre(json.loads(open(os.path.join(self.treesDir,self.version+".js")).read()[8:-1]))#self.loadTre(json.load(open(os.path.join(self.treesDir,self.version+".js"))))
             config = yaml.load(open(os.path.join(self.treesDir,self.version+".yaml")), Loader=yaml.FullLoader)
             self.rootNames = config["rootNames"]
@@ -62,6 +68,8 @@ class patternManager():
             # global DEN
             # global SIGMA2
             # DEN,SIGMA2 = config["DEN"], config["SIGMA2"]
+        else:
+            assert not os.path.exists(os.path.join(self.treesDir,self.version+".js"))
     
     def createNode(self,fat,s,c=0.0,cc=0.0):
         self.nods.append(node(s,fat.suffix if len(fat.suffix)>0 else s.replace('/','.'),len(self.nods)))#nod(nn))

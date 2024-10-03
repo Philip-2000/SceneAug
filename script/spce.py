@@ -1,7 +1,7 @@
 from SceneClasses.Spce import *
 def parse():
     import argparse,sys
-    parser = argparse.ArgumentParser(prog='ProgramName')
+    parser = argparse.ArgumentParser(prog='Space Extraction')
     parser.add_argument('-i','--identity', default="3")
     parser.add_argument('-n','--new', default=False, action="store_true")
     parser.add_argument('-b','--bound', default=19)

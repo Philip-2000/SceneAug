@@ -3,7 +3,7 @@ from .Link import *
 from .Wall import *
 from .Grup import *
 from .Spce import *
-from .Plan import *
+from .Plan import plans
 from .Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
@@ -118,6 +118,7 @@ class scne():
         
         plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_Layout.png") if imageTitle=="" else imageTitle)
         plt.clf()
+        plt.close()
 
         if drawRoomMask:
             self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
@@ -456,9 +457,14 @@ class scne():
             self.optimize(o,pm)
         self.draw(drawUngroups=True)
 
+import tqdm
 class scneDs():
-    def __init__(self,dir,lst=None,**kwargs):#print(kwargs)
-        self._dataset = [scne.fromNpzs(name=n,**kwargs) for n in (os.listdir(dir) if lst is None else lst)]
+    def __init__(self,dir,lst=None,name="novel3DFront",**kwargs):#print(kwargs)
+        self.name,LST,self._dataset = name, os.listdir(dir) if lst is None else lst, []
+        pbar = tqdm.tqdm(range(len(LST)))
+        for i in pbar:
+            pbar.set_description("%s loading %s "%(name,LST[i][:20]))
+            self._dataset.append(scne.fromNpzs(name=LST[i],**kwargs))
 
     def __len__(self):
         return len(self._dataset)
@@ -470,18 +476,21 @@ class scneDs():
         return self._dataset[idx]
 
     def recognize(self,T,**kwargs):
-        for s in self._dataset:
-            print(s.scene_uid)
-            plans(s,T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
-            # try:
-            #     plans(s,T).recognize(**kwargs)
-            # except:
-            #     s.imgDir = s.imgDir.replace("rcgs","rcgf")
-            #     s.grp=False
-            #     s.draw(classText=True)
-            #     print(s.scene_uid)
-            #break
+        # for i in range(len(self)):
+        #     try:
+        #         plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
+        #     except:
+        #         print("error " + self._dataset[i].scene_uid)
+        pbar = tqdm.tqdm(range(len(self)))
+        for i in pbar:
+            pbar.set_description("recognizing %s "%(self._dataset[i].scene_uid[:20]))
+            plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
 
     def optimize(self,T,**kwargs):
-        for s in self._dataset:
-            s.opt(T)
+        pbar = tqdm.tqdm(range(len(self)))
+        for i in pbar:
+            pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
+            plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
+            self._dataset[i].opt(T)
+        #for s in self._dataset:
+        #    s.opt(T)

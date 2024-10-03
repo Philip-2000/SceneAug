@@ -2,7 +2,7 @@ from SceneClasses.Patn import patternManager
 from SceneClasses.Scne import scneDs
 def parse():
     import argparse,sys
-    parser = argparse.ArgumentParser(prog='ProgramName')
+    parser = argparse.ArgumentParser(prog='Pattern Manager Construction')
     parser.add_argument("-v","--version", required=True)#,   default="brot"
     parser.add_argument('-e','--verbose',   default=1, type=int)
     parser.add_argument("-a","--dataset",   default="../novel3DFront/")

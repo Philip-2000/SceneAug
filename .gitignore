@@ -5,6 +5,7 @@ newRoom/
 __pycache__/
 SceneClasses/__pycache__/
 segment/
+experiment/
 pattern/fields/
 pattern/trees/
 pattern/imgs/

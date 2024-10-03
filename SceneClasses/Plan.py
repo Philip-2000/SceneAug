@@ -132,9 +132,38 @@ class plas(): #it's a recognize plan
 
             self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene))
 
+    def optimize(self,iRate):
+        #handly search the father and son relation among objects,
+
+        self.scene.grp=True
+        j = -1
+        for p in self.plas:
+            if len(p)<=1:
+                continue
+            j += 1
+            for id in range(1,len(p.nids)):
+                oid,nid = p.nids[id][0], p.nids[id][1]
+                assert self.scene.OBJES[oid].nid == nid
+                assert self.scene.OBJES[oid].gid == j
+                son = self.scene.OBJES[oid]
+                m = self.pm.nods[nid].source.startNode
+                while not(nid in m.bunches):
+                    m = m.source.startNode
+                for md in range(0,id):
+                    if p.nids[md][1] == m.idx:
+                        fid = p.nids[md][0]
+                        assert self.scene.OBJES[fid].nid == m.idx
+                        fat = self.scene.OBJES[fid]
+                        fat_son = fat.rela(son,self.pm.scaled)
+                        fat_son = m.bunches[nid].optimize(fat_son)
+                        new_son = fat.rely(fat_son,self.pm.scaled)
+                        son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
+
+        pass
+
 
 class plans():
-    def __init__(self,scene,pm,v):
+    def __init__(self,scene,pm,v=0):
         self.verb=v
         self.iRate=0.6
         self.scene = scene
@@ -184,18 +213,17 @@ class plans():
         #a more aggresive version of spatially recorrection will drag the not orphans in other segments, but not done yet
         pass
 
-    def recognize(self,use=True,draw=True,show=False):
+    def recognize(self,use=True,opt=False,draw=True,show=False):
         import math
         if self.verb > 1:
             print("start recognize")
             print(self.currentPlas)
         if len(self.currentPlas) == 0:
-            return
+            return 0.0,0
         self.currentPlas.singleExtend(0)
         if self.verb > 1:
             print("recognize 0")
             print(self.currentPlas)
-
 
         R = 1
         for s in range(1,self.segments):
@@ -274,13 +302,17 @@ class plans():
             print("recorrect over")
             print(self.currentPlas)
         
-        if use:
+        if use or opt:
             self.currentPlas.utilize()
         if draw:
             self.scene.draw(drawUngroups=True,classText=True,d=True)
+        if opt:
+            self.currentPlas.optimize()
+            if draw:
+                self.scene.draw(drawUngroups=True,classText=True,d=True)
         if show:
             pass
-        return self.currentPlas.fit
+        return self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas])
     
     def optimize(self,draw=True,show=False):
         self.recognize(use=True,draw=True,show=False)

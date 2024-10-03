@@ -3,41 +3,55 @@
 
 #but seting up the experiment by instantiating the object and calling its functions is the ../script/expn.py 's work.
 from .Patn import *
+from .Plan import plans
 from itertools import chain
 from moviepy.editor import ImageSequenceClip
-EXP_IMG_BASE_DIR = "../experiment/"
+EXP_IMG_BASE_DIR = "./experiment/"
 class ma():
     def __getitem__(self,a):
         return "Room"
     
 class expn():
-    def __init__(self,pmVersion,expName,mt,roomMapping={},loadDataset=True):
-        self.pm = patternManager(loadDataset=loadDataset)
-        self.pm.treeConstruction(load=pmVersion)
-        self.sDs = self.pm.sDs
-        self.devs = [0.0]
+    def __init__(self,pmVersion,dataset,UIDS,expName,mt,roomMapping={}):
+        self.pm = patternManager(pmVersion)
+        if dataset is not None:
+            self.sDs = scneDs(dataset,lst=UIDS,grp=False,cen=True,wl=False,keepEmptyWL=True)
+        self.devs = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]
         self.ld = len(self.devs)
-        self.roomMapping = { #roomMapping
-            "Bedroom":"Bedroom", "MasterBedroom":"Bedroom", "SecondBedroom":"Bedroom", "KidsRoom":"Bedroom", "ElderlyRoom":"Bedroom",
-            "LivingRoom":"LivingRoom", "DiningRoom":"DiningRoom", "LivingDiningRoom":"LivingDiningRoom", "Library":"Library"}
+        self.roomMapping = ma()#roomMapping #{"Bedroom":"Bedroom", "MasterBedroom":"Bedroom", "SecondBedroom":"Bedroom", "KidsRoom":"Bedroom", "ElderlyRoom":"Bedroom",
+                                        #"LivingRoom":"LivingRoom", "DiningRoom":"DiningRoom", "LivingDiningRoom":"LivingDiningRoom", "Library":"Library"}
         self.rooms = list(set(self.roomMapping.values())) if self.roomMapping["Bedroom"] != "Room" else ["Room"]
 
-        self.result = [[ [] for j in self.rooms ] for i in self.ld]
+        self.result = [[ [] for j in self.rooms ] for i in self.devs]
         
-        self.imgDir = os.join(EXP_IMG_BASE_DIR,pmVersion,expName)
+        self.visualDir = os.path.join(EXP_IMG_BASE_DIR,pmVersion,expName)
+        os.makedirs(self.visualDir,exist_ok=True)
         self.mt = mt
         self.mtl = len(self.mt)
 
     def randomize(self, s, dev):
         t = deepcopy(s)
         for o in t.OBJES:
-            o.translation += np.randn((3)) * dev
-            o.size += np.randn((3)) * dev * 0.1
-            o.orientation += np.randn((1)) * dev
+            o.translation += np.random.randn((3)) * dev* 0.1
+            o.size += np.random.randn((3)) * dev * 0.01
+            o.orientation += np.random.randn((1)) * dev*0.1
         return t
 
-    def run(self):
-        pass
+    def run(self, **kwargs):
+
+        
+        pbar = tqdm.tqdm(range(len(self.sDs)))
+        for i in pbar:
+            pbar.set_description("%s experiment %s "%(self.__class__.__name__,self.sDs[i].scene_uid[:20]))
+            s=self.sDs[i]
+        #for s in self.sDs:
+            res = self.execute(s, **kwargs)#[fit,n]
+            self.store(0,s.roomType,res)
+            for dev in self.devs[1:]:
+                rands = self.randomize(s,dev)
+                res = self.execute(rands, **kwargs)#[fitr,nr] rands.recognize(self.pm) #plans(rands,self.pm,v=0).recognize(draw=False,**kwargs)
+                self.store(self.devs.index(dev),s.roomType,res)
+        self.visualize()
 
     def store(self,id,roomType,res):
         self.result[id][self.rooms.index(self.roomMapping[roomType])].append(res)
@@ -48,14 +62,14 @@ class expn():
 
         metricsExp = np.average(data.reshape((-1,self.mtl)),axis=0)
         metricsDev = (np.average((data.reshape((-1,self.mtl)) - metricsExp.reshape((1,-1)))**2,axis=0))**0.5
-        metricsStandard = [[metricsExp[j],metricsDev[j]] for j in range(self.mtl)]
+        metricsStandard = np.array([[metricsExp[j],metricsDev[j]] for j in range(self.mtl)])
 
         colors = ["khaki","paleturquoise","plum","tomato", "springgreen"]
         scl=1
         for i in range(len(self.devs)):
             for j in range(len(self.mt)):
                 st = metricsStandard[j]
-                A = ax1.boxplot((data[i:i+1,:,j]-st[0])/st[1], positions=[(i*(self.mtl+2)+j)*scl], labels = [self.mt[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]})
+                A = ax1.boxplot((data[i,:,j]-st[0].reshape((-1)))/st[1].reshape((-1)), positions=[(i*(self.mtl+2)+j)*scl], labels = [self.mt[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]})
                 B = {"medians":A["medians"][0].get_data()[1][0],"means":A["means"][0].get_data()[1][0],"capsUp":A["caps"][0].get_data()[1][0],"capsDown":A["caps"][1].get_data()[1][0],"x":A["means"][0].get_data()[0][0]}
                 ax1.text(B["x"]+0.1,B["means"],"%.2f"%((B["means"]-st[0])*st[1]+st[0]),fontsize='xx-small')
                 ax1.text(B["x"]+0.1,B["capsUp"]-0.05,"%.2f"%((B["capsUp"]-st[0])*st[1]+st[0]),fontsize='xx-small')
@@ -67,21 +81,25 @@ class expn():
         
         if self.mtl>1:
             ax1.legend(handles=[plt.Line2D([0],[0],color=colors[i],lw=5,label=self.mt[i]) for i in range(self.mtl)], labels=self.mt, ncol=self.mtl) #, labelcolor=colors, loc='lower left'
-        plt.savefig(os.join(self.imgDir,figName+".png"))
+        plt.savefig(os.path.join(self.visualDir,figName+".png"))
         plt.clf()
+        plt.close()
 
     def visualize(self):
         #roomSum = sum(roomCnt)
         lens = [len(j) for j in self.result[0]]
         locs = [sum(lens[:r+1]) for r in range(-1,len(self.rooms))]
 
-        data = np.array([chain(*(self.result[l])) for l in range(self.ld) ])
+        data = np.array([list(chain(*(self.result[l]))) for l in range(self.ld) ])
         self.visualSingle(data,figName="Overall")
         for r in range(len(locs)-1):
             if len(locs)>2:
                 self.visualSingle(data[:,locs[r]:locs[r+1],:],figName=self.rooms[r])
 
     def proc(self, procs):
+        pass
+
+    def execute(self,scene,**kwargs):
         pass
 
     def show(self, cnt):
@@ -106,48 +124,32 @@ class expn():
         return
 
 class RecExpn(expn):
-    def __init__(self,pmVersion):
-        super(RecExpn,self).__init__(pmVersion,self.__class__.__name__,["fitness","assigned"])
-    
-    def run(self):
-        for s in self.sDs:
-            fit,n = s.recognize(self.pm)
-            for dev in self.devs:
-                rands,_ = self.randomize(s,dev)
-                fitr,nr = rands.recognize(self.pm)
-                self.store(self.devs.index(dev),s.roomType,[fitr/fit,nr/n])
-        self.visualize()
+    def __init__(self,pmVersion,dataset,UIDS):
+        super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["fitness","assigned"])
 
+    def execute(self, s, **kwargs):
+        return plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
+        
     def proc(self, procs):
         procs.recognize(self.pm)
 
 
 class OptExpn(expn):
-    def __init__(self,pmVersion):
-        super(OptExpn,self).__init__(pmVersion,self.__class__.__name__,["modify"])
+    def __init__(self,pmVersion,dataset,UIDS):
+        super(OptExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["modify"])
     
     def loss(self,ope,noise):
         return ope-noise
 
-    def run(self):
-        for s in self.sDs:
-            operate = s.optimize(self.pm)
-            for dev in self.devs:
-                rands,noise = self.randomize(s,dev)
-                operater = rands.optimize(self.pm)
-                
-                loss = self.loss((operater - operate),noise)
-                
-                self.store(self.devs.index(dev),s.roomType,[loss])
-        self.visualize()    
-        pass
+    def execute(self, s, **kwargs):
+        return plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
 
     def proc(self, procs):
         procs.optimize(self.pm)
 
 class GenExpn(expn):
     def __init__(self,pmVersion):
-        super(GenExpn,self).__init__(pmVersion,loadDataset=False)
+        super(GenExpn,self).__init__(pmVersion,None,None,self.__class__.__name__,["modify"],loadDataset=False)
         pass
     
     def run(self):

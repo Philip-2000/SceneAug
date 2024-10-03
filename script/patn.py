@@ -2,7 +2,7 @@ from SceneClasses.Patn import patternManager
 from SceneClasses.Scne import scneDs
 def parse():
     import argparse,sys
-    parser = argparse.ArgumentParser(prog='ProgramName')
+    parser = argparse.ArgumentParser(prog='Pattern Manager Application')
     parser.add_argument("-v","--version", required=True)#,   default="brot"
     parser.add_argument('-e','--verbose',   default=0, type=int)
     parser.add_argument("-u","--usage",     default="rcgs", choices=["rcgs","evas","opts"])
@@ -13,7 +13,7 @@ def parse():
 if __name__ == "__main__": #load="testings",
     args = parse()
     import os
-    UIDS = os.listdir(args.dataset)[:300] if len(args.id)==0 else [args.id]
+    UIDS = os.listdir(args.dataset)[:1000] if len(args.id)==0 else [args.id]
     T = patternManager(args.version,verb=args.verbose)
     S = scneDs(args.dataset,lst=UIDS,grp=False,cen=True,wl=False,keepEmptyWL=True,imgDir=os.path.join(T.workDir,args.usage,T.version))
     if args.usage == "rcgs":

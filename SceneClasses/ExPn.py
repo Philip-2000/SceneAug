@@ -12,7 +12,7 @@ class ma():
         return "Room"
     
 class expn():
-    def __init__(self,pmVersion,dataset,UIDS,expName,mt,roomMapping={}):
+    def __init__(self,pmVersion,dataset,UIDS,expName,mt,task,roomMapping={}):
         self.pm = patternManager(pmVersion)
         if dataset is not None:
             self.sDs = scneDs(dataset,lst=UIDS,grp=False,cen=True,wl=False,keepEmptyWL=True)
@@ -24,7 +24,7 @@ class expn():
 
         self.result = [[ [] for j in self.rooms ] for i in self.devs]
         
-        self.visualDir = os.path.join(EXP_IMG_BASE_DIR,pmVersion,expName)
+        self.visualDir = os.path.join(EXP_IMG_BASE_DIR,pmVersion,expName,task)
         os.makedirs(self.visualDir,exist_ok=True)
         self.mt = mt
         self.mtl = len(self.mt)
@@ -37,20 +37,30 @@ class expn():
             o.orientation += np.random.randn((1)) * dev*0.1
         return t
 
-    def run(self, **kwargs):
+    def save(self):#roomSum = sum(roomCnt)
+        lens = [len(j) for j in self.result[0]]
+        locs = [sum(lens[:r+1]) for r in range(-1,len(self.rooms))]
+        data = np.array([list(chain(*(self.result[l]))) for l in range(self.ld) ])
+        np.savez_compressed(os.path.join(self.visualDir,"result.npz"),data=data,locs=locs,rooms=self.rooms)
+        return locs, data
 
-        
+    def load(self):#roomSum = sum(roomCnt)
+        result = np.load(os.path.join(self.visualDir,"result.npz"))
+        self.rooms = result["rooms"]
+        return result["locs"], result["data"]
+
+    def run(self, **kwargs):
         pbar = tqdm.tqdm(range(len(self.sDs)))
         for i in pbar:
             pbar.set_description("%s experiment %s "%(self.__class__.__name__,self.sDs[i].scene_uid[:20]))
             s=self.sDs[i]
-        #for s in self.sDs:
             res = self.execute(s, **kwargs)#[fit,n]
             self.store(0,s.roomType,res)
             for dev in self.devs[1:]:
                 rands = self.randomize(s,dev)
                 res = self.execute(rands, **kwargs)#[fitr,nr] rands.recognize(self.pm) #plans(rands,self.pm,v=0).recognize(draw=False,**kwargs)
                 self.store(self.devs.index(dev),s.roomType,res)
+        self.save()
         self.visualize()
 
     def store(self,id,roomType,res):
@@ -86,11 +96,7 @@ class expn():
         plt.close()
 
     def visualize(self):
-        #roomSum = sum(roomCnt)
-        lens = [len(j) for j in self.result[0]]
-        locs = [sum(lens[:r+1]) for r in range(-1,len(self.rooms))]
-
-        data = np.array([list(chain(*(self.result[l]))) for l in range(self.ld) ])
+        locs, data = self.load()
         self.visualSingle(data,figName="Overall")
         for r in range(len(locs)-1):
             if len(locs)>2:
@@ -124,8 +130,8 @@ class expn():
         return
 
 class RecExpn(expn):
-    def __init__(self,pmVersion,dataset,UIDS):
-        super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["fitness","assigned"])
+    def __init__(self,pmVersion,dataset,UIDS,task):
+        super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["fitness","assigned"],task)
 
     def execute(self, s, **kwargs):
         return plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
@@ -135,8 +141,8 @@ class RecExpn(expn):
 
 
 class OptExpn(expn):
-    def __init__(self,pmVersion,dataset,UIDS):
-        super(OptExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["modify"])
+    def __init__(self,pmVersion,dataset,UIDS,task):
+        super(OptExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["modify"],task)
     
     def loss(self,ope,noise):
         return ope-noise
@@ -148,8 +154,8 @@ class OptExpn(expn):
         procs.optimize(self.pm)
 
 class GenExpn(expn):
-    def __init__(self,pmVersion):
-        super(GenExpn,self).__init__(pmVersion,None,None,self.__class__.__name__,["modify"],loadDataset=False)
+    def __init__(self,pmVersion,task):
+        super(GenExpn,self).__init__(pmVersion,None,None,self.__class__.__name__,["modify"],task)
         pass
     
     def run(self):

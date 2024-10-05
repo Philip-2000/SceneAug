@@ -230,6 +230,7 @@ class patternManager():
         tmpScene.draw(imageTitle="./spce_generate/"+imgName,d=True,lim=5)
         
     def generate(self,nm="generate",theScene=None,useWalls=False,rots=[],useText=False,debug=False):
+        raise NotImplementedError
         #assert (useWalls or useText)
         if useWalls:
             assert theScene.WALLS is not None

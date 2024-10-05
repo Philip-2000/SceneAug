@@ -1,4 +1,4 @@
-from SceneClasses.Patn import patternManager
+from SceneClasses.Patn import patternManager #construting pattern
 from SceneClasses.Scne import scneDs
 def parse():
     import argparse,sys

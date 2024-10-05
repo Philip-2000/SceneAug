@@ -1,4 +1,4 @@
-from SceneClasses.Spce import *
+from SceneClasses.Spce import * #construting spaces
 def parse():
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Space Extraction')

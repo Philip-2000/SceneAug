@@ -6,6 +6,7 @@ from .Patn import *
 from .Plan import plans
 from itertools import chain
 from moviepy.editor import ImageSequenceClip
+from evaClasses.manipulator import manipulator, defaultInfo
 EXP_IMG_BASE_DIR = "./experiment/"
 class ma():
     def __getitem__(self,a):
@@ -156,10 +157,16 @@ class OptExpn(expn):
 class GenExpn(expn):
     def __init__(self,pmVersion,task):
         super(GenExpn,self).__init__(pmVersion,None,None,self.__class__.__name__,["modify"],task)
-        pass
-    
+        info = deepcopy(defaultInfo)
+        #edit config to call the evaClasses.manipulator 
+        tasks = None#[{"method":["pm"]}, ......]
+        self.mani = manipulator(tasks, info)
+
     def run(self):
-        #generating?
-        #but the validation can not be used here?
-        #we can design some experiments for
-        pass
+        self.mani.manipulate()
+
+    def visualize(self):
+        print("visualize unabled for "+self.__class__.__name__)
+
+    def show(self,cnt):
+        print("show unabled for "+self.__class__.__name__)

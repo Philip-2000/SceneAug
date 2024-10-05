@@ -1,4 +1,4 @@
-from SceneClasses.ExPn import RecExpn,OptExpn,GenExpn  #Execute the pattern application experiments
+from SceneClasses.ExSy import *  #Execute the pattern synthesis the experiments
 def parse():
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Experiment of the Pattern Manager\'s Application')
@@ -14,15 +14,15 @@ if __name__ == "__main__": #load="testings",
     import os
     args,E = parse(),None
     if args.expr == "rcg":
-        E = RecExpn(args.version,args.dataset if args.usage!="vis" else None,os.listdir(args.dataset)[:500],args.task)
+        pass#E = RecExpn(args.version,args.dataset if args.usage!="vis" else None,os.listdir(args.dataset)[:500],args.task)
     elif args.expr == "opt":
-        E = OptExpn(args.version,args.dataset if args.usage!="vis" else None,os.listdir(args.dataset)[:500],args.task)
+        pass#E = OptExpn(args.version,args.dataset if args.usage!="vis" else None,os.listdir(args.dataset)[:500],args.task)
     elif args.expr == "gen":
-        E = GenExpn(args.version)
+        pass#E = GenExpn(args.version)
 
     if args.usage == "run":
-        E.run()
+        pass#E.run()
     elif args.usage == "vis":
-        E.visualize()
+        pass#E.visualize()
     elif args.usage == "show":
-        E.show(cnt=args.cnt)
+        pass#E.show(cnt=args.cnt)

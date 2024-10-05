@@ -240,6 +240,7 @@ class scne():
         self.WALLS[id].w2= A
 
     def adjustGroup(self,sdev=0.2,cdev=2.): #augmentation
+        raise NotImplementedError
         from numpy.random import rand as R
         from numpy.random import randint as Ri 
         from math import pi as PI 
@@ -452,6 +453,7 @@ class scne():
             self.optimize(son,pm)
 
     def opt(self,pm,show=False): #optimize
+        raise NotImplementedError
         self.tra(pm,draw=False)
         for o in [_ for _ in self.OBJES if _.nid in [e.endNode.idx for e in pm.nods[0].edges] ]:
             self.optimize(o,pm)
@@ -491,6 +493,6 @@ class scneDs():
         for i in pbar:
             pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
             plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
-            self._dataset[i].opt(T)
+            #self._dataset[i].opt(T)
         #for s in self._dataset:
         #    s.opt(T)

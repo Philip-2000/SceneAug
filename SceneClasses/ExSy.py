@@ -1,7 +1,8 @@
 from .Spce import *
 from .Patn import *
+from .Syth import *
 
-class exsp():
+class exsy():
     def __init__():
         pass
 

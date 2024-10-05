@@ -1,4 +1,4 @@
-from SceneClasses.Patn import patternManager
+from SceneClasses.Patn import patternManager #using pattern to understand scene
 from SceneClasses.Scne import scneDs
 def parse():
     import argparse,sys
@@ -23,7 +23,7 @@ if __name__ == "__main__": #load="testings",
     elif args.usage == "opts":
         raise NotImplementedError
         S.optimize(T)
-    #synthesis is in spce.py; constructing is in patc.py
+    #synthesis is in syth.py; constructing is in patc.py
 
 # In this file, we only present some examples of calling recognize/evaluate/optimize in patternManager
 # The operation in this file have no real meanings.

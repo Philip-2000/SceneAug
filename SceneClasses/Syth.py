@@ -1,17 +1,21 @@
-from .Scne import scne, scneDs
+#from .Scne import scne
 from .Patn import patternManager
 from .Plan import plans
 from .Obje import object_types, obje
 from .Link import objLink
+import os
+SYN_IMG_BASE_DIR = "./pattern/syth/"
 
 class agmt():
     def __init__(self,pmVersion,scene,nm="test",v=0):
         self.verb=v
         self.scene = scene
+        self.scene.imgDir = os.path.join(SYN_IMG_BASE_DIR,pmVersion,"agmt")
+        os.makedirs(self.scene.imgDir,exist_ok=True)
         self.pm = patternManager(pmVersion)
         self.name = nm
 
-    def augment(self,sdev=0.2,cdev=2.,cnt=8):
+    def augment(self,sdev=0.2,cdev=2.,cnt=8,draw=False):
         if not self.scene.grp:
             plans(self.scene,self.pm,v=0).recognize(use=True,draw=False,opt=False,show=False)
         from numpy.random import rand as R
@@ -22,7 +26,10 @@ class agmt():
     
         result,logs = [],[]
         for _ in range(cnt):
-            scene = copy(self.scene)
+            if cnt > 1:
+                scene = copy(self.scene)
+                scene.scene_uid = scene.scene_uid+str(_)
+            os.makedirs(scene.imgDir,exist_ok=True)
             if len(scene.GRUPS) == 1:
                 l  = (R(3,)-0.5)*cdev
                 R0 = (R(3,)-0.5)*sdev+1.0
@@ -49,15 +56,19 @@ class agmt():
         
             scene.draftRoomMask()
             result.append(scene)
+            if draw:
+                scene.draw()
         return result, self.scene, logs
     
     def show():
         return
 
 class syth():
-    def __init__(self,pmVersion,scene,nm,v):
+    def __init__(self,pmVersion,scene,appli,nm,v):
         self.verb=v
         self.scene = scene
+        self.scene.imgDir = os.path.join(SYN_IMG_BASE_DIR,pmVersion,appli)
+        os.makedirs(self.scene.imgDir,exist_ok=True)
         self.pm = patternManager(pmVersion)
         self.name = nm
     
@@ -75,11 +86,11 @@ class syth():
 
 class gnrt(syth):
     def __init__(self,pmVersion,scene=None,nm="test",v=0):
-        super(gnrt,self).__init__(pmVersion,(scne.empty(nm) if scene is None else scene),self.__class__.__name__,nm,v)
+        super(gnrt,self).__init__(pmVersion,scene,self.__class__.__name__,nm,v)
 
-    def uncond(self):
+    def uncond(self,draw=False,uid=""):
         import numpy as np
-        N = self.nods[0]
+        N = self.pm.nods[0]
         while len(N.edges)>0:
             cs = 0
             for ed in N.edges:
@@ -90,7 +101,7 @@ class gnrt(syth):
                         m = m.source.startNode
                     r = m.bunches[N.idx].sample()
                     a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
-                    o = a[0].rely(obje.fromFlat(r,j=object_types.index(N.type)),self.scaled)
+                    o = a[0].rely(obje.fromFlat(r,j=object_types.index(N.type)),self.pm.scaled)
                     self.scene.addObject(o)
                     o.nid = N.idx
                     if m.idx > 0:
@@ -100,6 +111,8 @@ class gnrt(syth):
             
                 if np.random.rand() < cs:
                     break
+        if draw:
+            self.scene.draw()
         return self.scene
 
     def textcond(self):

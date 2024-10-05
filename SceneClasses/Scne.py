@@ -4,6 +4,7 @@ from .Wall import *
 from .Grup import *
 from .Spce import *
 from .Plan import plans
+from .Syth import agmt,gnrt,copl,rarg
 from .Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
@@ -461,12 +462,18 @@ class scne():
 
 import tqdm
 class scneDs():
-    def __init__(self,dir,lst=None,name="novel3DFront",**kwargs):#print(kwargs)
-        self.name,LST,self._dataset = name, os.listdir(dir) if lst is None else lst, []
-        pbar = tqdm.tqdm(range(len(LST)))
-        for i in pbar:
-            pbar.set_description("%s loading %s "%(name,LST[i][:20]))
-            self._dataset.append(scne.fromNpzs(name=LST[i],**kwargs))
+    def __init__(self,name="../novel3DFront",lst=[],prepare="uncond",num=8,**kwargs):#print(kwargs)
+        from numpy.random import choice
+        self.name,self._dataset = name, []
+        if prepare=="uncond":
+            LST = os.listdir(name) if os.path.exists(name) and len(lst)==0 else lst
+            self.load(LST,name,num,**kwargs)
+        elif prepare=="textcond":
+            LST = [choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst
+            self.prepareTextCond(LST,name,num,**kwargs)
+        elif prepare=="roomcond":
+            LST = [choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst
+            self.prepareRoomCond(LST,name,num,**kwargs)
 
     def __len__(self):
         return len(self._dataset)
@@ -476,13 +483,73 @@ class scneDs():
 
     def __getitem__(self, idx):
         return self._dataset[idx]
+    
+    def load(self,LST,name="",num=8,**kwargs):
+        pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
+        for i in pbar:
+            if os.path.exists(name) and len(LST):
+                pbar.set_description("%s loading %s "%(name,LST[i][:20]))
+                scene = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+            else:
+                pbar.set_description("empty scene %s "%(i))
+                scene = scne.empty(str(i))
+            self._dataset.append(scene)
+    
+    def prepareTextCond(self,LST,name="",num=8,**kwargs):
+        pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
+        for i in pbar:
+            if os.path.exists(name) and len(LST):
+                pbar.set_description("%s texting %s "%(name,LST[i][:20]))
+                template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                scene = scne.empty(template.scene_uid)
+                scene.text = template.text
+            else:
+                pbar.set_description("random texting %s "%(i))
+                scene = scne.empty(str(i))
+                #FIXME: generate a text for scene, although it hasn't been done yet, 
+            self._dataset.append(scene)
+
+    def prepareRoomCond(self,LST,name="",num=8,**kwargs):
+        pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
+        for i in pbar:
+            if os.path.exists(name) and len(LST):
+                pbar.set_description("%s rooming %s "%(name,LST[i][:20]))
+                template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                scene = scne.empty(template.scene_uid)
+                scene.registerWalls = template.WALLS
+            else:
+                pbar.set_description("random rooming %s "%(i))
+                scene = scne.empty(str(i),keepEmptyWL=False)
+                scene.WALLS.randomWalls()
+            self._dataset.append(scene)
+
+    def synthesis(self,syth,cond,T):
+        pbar = tqdm.tqdm(range(len(self)))
+        for i in pbar:
+            pbar.set_description("%s-%s, %s "%(syth,cond,self._dataset[i].scene_uid[:20]))
+            V=3 if len(self._dataset)==1 else 0
+            if syth == "gnrt":
+                S = gnrt(T,self._dataset[i],v=V)
+            elif syth == "copl":
+                S = copl(T,self._dataset[i],v=V)
+            elif syth == "rarg":
+                S = rarg(T,self._dataset[i],v=V)
+            elif syth == "agmt":
+                S = agmt(T,self._dataset[i],v=V)
+
+            if syth == "agmt":
+                S.scene.scene_uid += str(i)
+                S.augment(cnt=1,draw=True)
+            elif cond == "uncond":
+                S.uncond(draw=True)
+            elif cond == "textcond":
+                S.textcond(draw=True)
+            elif cond == "roomcond":
+                S.roomcond(draw=True)
+            #plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
+        pass
 
     def recognize(self,T,**kwargs):
-        # for i in range(len(self)):
-        #     try:
-        #         plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
-        #     except:
-        #         print("error " + self._dataset[i].scene_uid)
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("recognizing %s "%(self._dataset[i].scene_uid[:20]))
@@ -493,6 +560,3 @@ class scneDs():
         for i in pbar:
             pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
             plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
-            #self._dataset[i].opt(T)
-        #for s in self._dataset:
-        #    s.opt(T)

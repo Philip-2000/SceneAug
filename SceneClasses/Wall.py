@@ -442,7 +442,7 @@ class walls():
         pass
 
     def draw(self,end=False,suffix=".png",color="black"):
-        print(self)
+        #print(self)
         if len([w.idx for w in self.WALLS if w.v]):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
             contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2

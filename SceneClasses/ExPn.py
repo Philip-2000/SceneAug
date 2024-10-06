@@ -5,19 +5,18 @@
 from .Patn import *
 from .Plan import plans
 from itertools import chain
-from moviepy.editor import ImageSequenceClip
-from evaClasses.manipulator import manipulator, defaultInfo
+import tqdm
 EXP_IMG_BASE_DIR = "./experiment/"
 class ma():
     def __getitem__(self,a):
         return "Room"
     
 class expn():
-    def __init__(self,pmVersion,dataset,UIDS,expName,mt,task,roomMapping={}):
+    def __init__(self,pmVersion,dataset,UIDS,expName,num,mt,task,roomMapping={}):
         self.pm = patternManager(pmVersion)
         if dataset is not None:
-            self.sDs = scneDs(dataset,lst=UIDS,grp=False,cen=True,wl=False,keepEmptyWL=True)
-        self.devs = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0]
+            self.sDs = scneDs(dataset,lst=UIDS,num=num,grp=False,cen=True,wl=False,keepEmptyWL=True)
+        self.devs = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
         self.ld = len(self.devs)
         self.roomMapping = ma()#roomMapping #{"Bedroom":"Bedroom", "MasterBedroom":"Bedroom", "SecondBedroom":"Bedroom", "KidsRoom":"Bedroom", "ElderlyRoom":"Bedroom",
                                         #"LivingRoom":"LivingRoom", "DiningRoom":"DiningRoom", "LivingDiningRoom":"LivingDiningRoom", "Library":"Library"}
@@ -26,17 +25,24 @@ class expn():
         self.result = [[ [] for j in self.rooms ] for i in self.devs]
         
         self.visualDir = os.path.join(EXP_IMG_BASE_DIR,pmVersion,expName,task)
+        self.videoDir = os.path.join(EXP_IMG_BASE_DIR,pmVersion,expName,"video")
         os.makedirs(self.visualDir,exist_ok=True)
+        os.makedirs(self.videoDir,exist_ok=True)
         self.mt = mt
         self.mtl = len(self.mt)
 
-    def randomize(self, s, dev):
+    def randomize(self, s, dev, hint=None):
         t = deepcopy(s)
+        diff = []
         for o in t.OBJES:
-            o.translation += np.random.randn((3)) * dev* 0.1
-            o.size += np.random.randn((3)) * dev * 0.01
-            o.orientation += np.random.randn((1)) * dev*0.1
-        return t
+            dT = (np.random.randn((3)) if hint is None else hint[:3] + np.random.randn((3))*0.05) * dev* 0.1
+            o.translation += dT #np.random.randn((3)) * dev* 0.1
+            dS = (np.random.randn((3)) if hint is None else hint[3:-1] + np.random.randn((3))*0.05) * dev * 0.01
+            o.size += dS #np.random.randn((3)) * dev * 0.01
+            dO = (np.random.randn((1)) if hint is None else hint[-1:] + np.random.randn((1))*0.05) * dev* 0.1
+            o.orientation += dO #np.random.randn((1)) * dev*0.1
+            diff.append(np.concatenate([dT,dS,dO]))
+        return t, diff
 
     def save(self):#roomSum = sum(roomCnt)
         lens = [len(j) for j in self.result[0]]
@@ -58,8 +64,8 @@ class expn():
             res = self.execute(s, **kwargs)#[fit,n]
             self.store(0,s.roomType,res)
             for dev in self.devs[1:]:
-                rands = self.randomize(s,dev)
-                res = self.execute(rands, **kwargs)#[fitr,nr] rands.recognize(self.pm) #plans(rands,self.pm,v=0).recognize(draw=False,**kwargs)
+                rands,diff = self.randomize(s,dev)
+                res = self.execute(rands,diff, **kwargs)#[fitr,nr] rands.recognize(self.pm) #plans(rands,self.pm,v=0).recognize(draw=False,**kwargs)
                 self.store(self.devs.index(dev),s.roomType,res)
         self.save()
         self.visualize()
@@ -103,60 +109,69 @@ class expn():
             if len(locs)>2:
                 self.visualSingle(data[:,locs[r]:locs[r+1],:],figName=self.rooms[r])
 
-    def proc(self, procs):
-        pass
-
     def execute(self,scene,**kwargs):
         pass
 
-    def show(self, cnt):
-        while cnt:
-            Id = np.random.randint(len(self.sDs))
-            s = self.sDs[Id]
-            thisDir = os.join(self.imgDir,"show",s.scene_uid)
+class RecExpn(expn):
+    def __init__(self,pmVersion,dataset,UIDS,task,num):
+        super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,num,["fitness","assigned"],task)
+
+    def execute(self, s, diff, **kwargs):
+        return plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
+        
+    def show(self):
+        from moviepy.editor import ImageSequenceClip
+        pbar = tqdm.tqdm(range(len(self.sDs)))
+
+        B=3
+        devs = np.array([0])
+        for _ in range(B):
+            devs = np.concatenate([devs[:-1],(devs[-1]+np.array(self.devs))])
+        self.devs = (devs*(1/B))
+
+        for i in pbar:
+            pbar.set_description("%s showing %s "%(self.__class__.__name__,self.sDs[i].scene_uid[:20]))
+            s=self.sDs[i]
+            thisDir = os.path.join(self.videoDir,s.scene_uid)
+            os.makedirs(thisDir,exist_ok=True)
+
             rands = deepcopy(s)
-            d = 0
-            for dev in ([0]+self.devs):
-                rands = self.randomize(rands,dev-d)
-                rands.draw(figName = os.join(thisDir,"%.3f rand.png"%(dev))) #where???
+            rands.draw(imageTitle = os.path.join(thisDir,"%.3f rand.png"%(self.devs[0]))) #where???
+            procs = deepcopy(rands)
+            self.execute(procs,None)
+            procs.draw(imageTitle = os.path.join(thisDir,"%.3f proc.png"%(self.devs[0]))) #where???
+            d = self.devs[0]
+            for dev in self.devs[1:]:
+                rands,diff = self.randomize(rands,dev-d)
+                rands.draw(imageTitle = os.path.join(thisDir,"%.3f rand.png"%(dev))) #where???
                 procs = deepcopy(rands)
-                self.proc(procs)
-                procs.draw(figName = os.join(thisDir,"%.3f proc.png"%(dev))) #where???
+                self.execute(procs,diff)
+                procs.draw(imageTitle = os.path.join(thisDir,"%.3f proc.png"%(dev)),drawUngroups=True) #where???
                 d = dev
-            ImageSequenceClip([os.path.join(thisDir,f) for f in os.listdir(thisDir) if f.endswith('rand.png')]).write_videofile(os.path.join(thisDir,self.__class__.__name__+" rand.mp4"), fps=5)
-            ImageSequenceClip([os.path.join(thisDir,f) for f in os.listdir(thisDir) if f.endswith('proc.png')]).write_videofile(os.path.join(thisDir,self.__class__.__name__+" proc.mp4"), fps=5)
+            ImageSequenceClip([os.path.join(thisDir,"%.3f rand.png"%(dev)) for dev in self.devs], fps=5*B).write_videofile(os.path.join(thisDir,self.__class__.__name__+" rand.mp4"),logger=None)
+            ImageSequenceClip([os.path.join(thisDir,"%.3f proc.png"%(dev)) for dev in self.devs], fps=5*B).write_videofile(os.path.join(thisDir,self.__class__.__name__+" proc.mp4"),logger=None)
             
-            cnt-=1
                 
         return
 
-class RecExpn(expn):
-    def __init__(self,pmVersion,dataset,UIDS,task):
-        super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["fitness","assigned"],task)
-
-    def execute(self, s, **kwargs):
-        return plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
-        
-    def proc(self, procs):
-        procs.recognize(self.pm)
-
-
 class OptExpn(expn):
-    def __init__(self,pmVersion,dataset,UIDS,task):
-        super(OptExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,["modify"],task)
+    def __init__(self,pmVersion,dataset,UIDS,task,num):
+        super(OptExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,num,["modify"],task)
     
     def loss(self,ope,noise):
         return ope-noise
 
-    def execute(self, s, **kwargs):
-        return plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
+    def execute(self, s, diff, **kwargs):
+        return plans(s,self.pm).recognize(draw=False,opt=True,**kwargs)#rands.recognize(self.pm)
 
-    def proc(self, procs):
-        procs.optimize(self.pm)
+    def show(self):
+        raise NotImplementedError
+        return
 
 class GenExpn(expn):
     def __init__(self,pmVersion,task):
-        super(GenExpn,self).__init__(pmVersion,None,None,self.__class__.__name__,["modify"],task)
+        super(GenExpn,self).__init__(pmVersion,None,None,self.__class__.__name__,["result"],task)
+        from evaClasses.manipulator import manipulator, defaultInfo
         info = deepcopy(defaultInfo)
         #edit config to call the evaClasses.manipulator 
         tasks = None#[{"method":["pm"]}, ......]

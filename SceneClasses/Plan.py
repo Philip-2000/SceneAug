@@ -109,11 +109,16 @@ class plas(): #it's a recognize plan
         newPlas.fit = sum([sum(p.fits) for p in newPlas.plas])
         return newPlas
 
-    def utilize(self):
+    def utilize(self,clear=True,forShow=False):
+        if clear:
+            self.scene.LINKS.clear()
+            self.scene.GRUPS.clear()
+            for o in self.scene.OBJES:
+                o.gid,o.nid=-1,0
         self.scene.grp=True
         j = -1
         for p in self.plas:
-            if len(p)<=1:
+            if len(p)<=1 and not forShow:
                 continue
             j += 1
             for id in range(1,len(p.nids)):
@@ -173,6 +178,7 @@ class plans():
         if self.verb > 1:
             print(self.segments)
         self.plases = [self.currentPlas]
+        self.showTitles = []
 
     def addPlas(self,Plas): #bounded insert sort
         for _ in range(20):
@@ -213,7 +219,10 @@ class plans():
         #a more aggresive version of spatially recorrection will drag the not orphans in other segments, but not done yet
         pass
 
-    def recognize(self,use=True,opt=False,draw=True,show=False):
+    def recognize(self,use=True,opt=False,draw=True,show=False):        
+        if show:
+            self.show()
+            return None,None,None
         import math
         if self.verb > 1:
             print("start recognize")
@@ -307,13 +316,84 @@ class plans():
         if draw:
             self.scene.draw(drawUngroups=True,classText=True,d=True)
         if opt:
-            self.currentPlas.optimize()
+            opts = self.currentPlas.optimize()
             if draw:
                 self.scene.draw(drawUngroups=True,classText=True,d=True)
-        if show:
-            pass
-        return self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas])
+        return self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas]), opts if opt else None
     
-    def optimize(self,draw=True,show=False):
-        self.recognize(use=True,draw=True,show=False)
+    def optimize(self,draw=True):
+        self.recognize(use=True,draw=True,opt=False)
         #self.currentPlas.singleExtend(0)
+
+    def addFrame(self,plas,name,dir,idx=-1,stay=1):
+        import os,shutil
+        if idx>=0:
+            zeros = [0 for _ in range(len(plas))]
+            for l in range(len(plas.plas[idx])-1,0,-1):
+                zeros[idx] = l
+                pl = plas.retreats(plas, zeros)
+                pl.utilize(forShow=True)
+                self.scene.draw(imageTitle=os.path.join(dir,name+str(l)+".png"))
+                self.showTitles.append(name+str(l))
+        plas.utilize(forShow=True)
+        self.scene.draw(imageTitle=os.path.join(dir,name+".png"))
+        for _ in range(stay):
+            self.showTitles.append(name)
+
+    def show(self): #show the recognizing process with several frames,
+        from moviepy.editor import ImageSequenceClip
+        import math,os
+        thisDir = os.path.join(self.scene.imgDir,self.scene.scene_uid)
+        os.makedirs(thisDir,exist_ok=True)
+        #self.showTitles = ['first3', 'first2', 'first1', 'first', 'first', 'first', 'second02', 'second01', 'second0', 'second0', 'second0', 'second12', 'second11', 'second1', 'second1', 'second1', 'second22', 'second21', 'second2', 'second2', 'second2', 'over1', 'over1', 'over1', 'spatial', 'spatial']
+        #ImageSequenceClip([os.path.join(thisDir,t+".png") for t in self.showTitles], fps=5).write_videofile(os.path.join(thisDir,"recognize.mp4"),logger=None)#return
+
+        self.currentPlas.singleExtend(0)
+        self.addFrame(self.currentPlas,"first",thisDir,0,3)              #--------------------------go first
+
+        for s in range(1,self.segments):
+            #assert s<3
+            R = math.prod([len(self.currentPlas.plas[t].nids) for t in range(s)])
+
+            hint = [0 for j in range(s)]
+            for r in range(R-1):
+                hint[0],i = hint[0]+1,0
+                while hint[i]==len(self.currentPlas.plas[i].nids):
+                    hint[i],i=0,i+1
+                    hint[i]=hint[i]+1
+
+                nowPlas = plas.retreats(self.currentPlas,hint)
+                nowPlas.singleExtend(s)
+                self.addPlas(nowPlas)
+                if s==1:
+                    self.addFrame(nowPlas,"second%d"%(r),thisDir,1,3)    #--------------------------squeeze the first and get second
+            
+            self.currentPlas.plas[s] = self.plases[0].plas[s]
+        
+            fixedOids = [on[0] for on in self.currentPlas.plas[s].nids]
+            for t in range(0,s):
+                onId = 0
+                while onId < len(self.currentPlas.plas[t].nids):
+                    on = self.currentPlas.plas[t].nids[onId]
+                    oid,nid= on[0],on[1]
+                    if oid in fixedOids:
+                        onJd = onId+1
+                        while onJd < len(self.currentPlas.plas[t].nids):
+                            jN = self.currentPlas.plas[t].nids[onJd]
+                            if (jN[1] in self.pm.nods[nid].bunches):
+                                self.currentPlas.plas[t].nids.pop(onJd)
+                            else:
+                                onJd += 1
+                        self.currentPlas.plas[t].nids.pop(onId)
+                    else:
+                        onId += 1
+            
+            self.addFrame(self.currentPlas,"over%d"%(s),thisDir,-1,3)             #--------------------------squeeze the existing and get next, (directly get the best one, ok)
+
+        if self.iRate < 1.0:
+            self.spatiallyRecorrect(self.currentPlas)
+            self.addFrame(self.currentPlas,"spatial",thisDir,-1,2)                #--------------------------spatially recorrect,
+        self.showTitles = self.showTitles[:1]*2+self.showTitles #print(len(self.showTitles))
+        
+        ImageSequenceClip([os.path.join(thisDir,t+".png") for t in self.showTitles], fps=2).write_videofile(os.path.join(thisDir,"recognize.mp4"),logger=None)#
+       

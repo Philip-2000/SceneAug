@@ -60,8 +60,8 @@ class agmt():
                 scene.draw()
         return result, self.scene, logs
     
-    def show():
-        return
+    def show(self):
+        return #not sure yet
 
 class syth():
     def __init__(self,pmVersion,scene,appli,nm,v):

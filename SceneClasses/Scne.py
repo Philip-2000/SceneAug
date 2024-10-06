@@ -4,7 +4,6 @@ from .Wall import *
 from .Grup import *
 from .Spce import *
 from .Plan import plans
-from .Syth import agmt,gnrt,copl,rarg
 from .Bnch import singleMatch
 import numpy as np
 from matplotlib import pyplot as plt
@@ -466,7 +465,7 @@ class scneDs():
         from numpy.random import choice
         self.name,self._dataset = name, []
         if prepare=="uncond":
-            LST = os.listdir(name) if os.path.exists(name) and len(lst)==0 else lst
+            LST = [choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst
             self.load(LST,name,num,**kwargs)
         elif prepare=="textcond":
             LST = [choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst
@@ -524,6 +523,7 @@ class scneDs():
             self._dataset.append(scene)
 
     def synthesis(self,syth,cond,T):
+        from .Syth import agmt,gnrt,copl,rarg
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("%s-%s, %s "%(syth,cond,self._dataset[i].scene_uid[:20]))
@@ -549,11 +549,11 @@ class scneDs():
             #plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
         pass
 
-    def recognize(self,T,**kwargs):
+    def recognize(self,T,show=False,**kwargs):
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("recognizing %s "%(self._dataset[i].scene_uid[:20]))
-            plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
+            plans(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
 
     def optimize(self,T,**kwargs):
         pbar = tqdm.tqdm(range(len(self)))

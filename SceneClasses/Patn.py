@@ -40,7 +40,7 @@ class merging():
 class patternManager():
     def __init__(self,vers,verb=0,new=False):
         self.version = vers
-        self.workDir = "./pattern/"
+        self.workDir = os.path.join(os.path.dirname(os.path.dirname(__file__)),"pattern")#"./pattern/"
         self.fieldDir = os.path.join(self.workDir,"fields/")
         self.imgDir = os.path.join(self.workDir,"imgs/")
         self.treesDir = os.path.join(self.workDir,"trees/") #self.cnt = len(os.listdir(self.sceneDir))

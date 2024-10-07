@@ -375,89 +375,8 @@ class scne():
         s = [o for o in self.OBJES if o.nid == nid]
         return (s[0] if sig else s) if len(s)>0 else None
 
-    def traverse(self,pm,o,plan,lev=0): #print(str(lev)+" traverse: "+pm.merging[o.class_name()] + " nid="+str(o.nid) + " idx="+str(o.idx))
-        cs=0
-        for ed in pm.nods[o.nid].edges:
-            m = ed.startNode
-            while not(ed.endNode.idx in m.bunches):
-                m = m.source.startNode
-            a = self.searchNid(m.idx)#search one from what?
-            losses = [(oo,m.bunches[ed.endNode.idx].loss(a.rela(oo))) for oo in [o for o in self.OBJES if (pm.merging[o.class_name()]==ed.endNode.type and o.nid==-1)]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
-            if len(losses):
-                oo,loss = sorted(losses,key=lambda x:x[1])[0]#[0] 
-                v = singleMatch(loss,ed.confidence,ed.confidenceIn,pm.nods[o.nid].edges.index(ed),cs)
-                pl = {"nids":[(plan["nids"][i] if self.OBJES[i].idx!=oo.idx else ed.endNode.idx) for i in range(len(plan["nids"]))], "fats":[(plan["fats"][i] if self.OBJES[i].idx!=oo.idx else a.idx) for i in range(len(plan["fats"]))], "fit":float(plan["fit"])+v}#?????
-                self.plans.append(deepcopy(pl))
-                oo.nid=ed.endNode.idx
-                self.traverse(pm,oo,pl,lev+1)
-                oo.nid=-1
-            cs += ed.confidence
-
-    def tra(self,pm,use=True,draw=True): #recognition print(self.scene_uid)
-        raise NotImplementedError
-        plan = {"nids":[pm.rootNames.index(pm.merging[o.class_name()])+1 if (pm.merging[o.class_name()] in pm.rootNames) else -1 for o in self.OBJES], "fats":[o.idx for o in self.OBJES], "fit":0}
-        for o in self.OBJES:
-            o.nid = plan["nids"][o.idx]
-        for r in pm.rootNames:
-            for o in [o for o in self.OBJES if pm.merging[o.class_name()] == r]:#print(r)
-                self.traverse(pm,o,plan)
-        #for p in self.plans:
-            #print(str(p["fit"])+"\t".join([pm.merging[self.OBJES[i].class_name()]+":"+str(p["nids"][i]) for i in range(len(p["nids"])) if p["nids"][i] != -1]))
-            if len(self.plans):
-                plan = sorted(self.plans,key=lambda x:-x["fit"])[0]
-        if use:
-            self.useP(plan["nids"],plan["fats"],pm)
-            if draw:
-                self.draw(drawUngroups=True,classText=True,d=True)
-        return plan
-
-    def useP(self,P,fats,pm):
-        for n in pm.nods:
-            if n is None:
-                break
-            for pid in range(len(P)):
-                p = P[pid]
-                if p == n.idx:
-                    for qid in range(len(P)):
-                        q = P[qid]
-                        if q in [_.endNode.idx for _ in n.edges]:
-                            self.LINKS.append(objLink(pid,qid,len(self.LINKS),self))
-                        elif q in [_ for _ in n.bunches.keys()]:
-                            self.LINKS.append(objLink(pid,qid,len(self.LINKS),self))
-        
-        ROOTS = [i for i in range(len(fats)) if fats[i] == i and P[i] != -1] #for i in ROOTS:assert P[i] in [e.endNode.idx for e in pm.nods[0].edges]
-        for i in range(len(fats)):
-            j = i
-            while j != fats[j]:
-                j = fats[j]
-            self.OBJES[i].gid = ROOTS.index(j)+1 if P[i] != -1 else 0
-            self.OBJES[i].nid = P[i]
-        self.grp=True
-        #print(ROOTS)
-        #print([self.OBJES[i].class_name() for i in ROOTS])
-        self.GRUPS = [grup([o.idx for o in self.OBJES if o.gid==j],{"sz":self.roomMask.shape[-1],"rt":16},j,scne=self) for j in range(1,len(ROOTS)+1)]
-
-    def optimize(self,o,pm):
-        for e in pm.nods[o.nid].edges:
-            son = self.searchNid(e.endNode.idx)
-            if son is None:
-                continue
-            m = pm.nods[o.nid]
-            while not (son.nid in m.bunches):
-                m = m.source.startNode
-            fat = self.searchNid(m.idx)
-            fat_son = fat.rela(son,pm.scaled)
-            fat_son = m.bunches[son.nid].optimize(fat_son)
-            new_son = fat.rely(fat_son,pm.scaled)
-            son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
-            self.optimize(son,pm)
-
-    def opt(self,pm,show=False): #optimize
-        raise NotImplementedError
-        self.tra(pm,draw=False)
-        for o in [_ for _ in self.OBJES if _.nid in [e.endNode.idx for e in pm.nods[0].edges] ]:
-            self.optimize(o,pm)
-        self.draw(drawUngroups=True)
+    def outOfBoundaries(self):
+        pass
 
 import tqdm
 class scneDs():
@@ -488,7 +407,10 @@ class scneDs():
         for i in pbar:
             if os.path.exists(name) and len(LST):
                 pbar.set_description("%s loading %s "%(name,LST[i][:20]))
-                scene = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                try:
+                    scene = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                except:
+                    scene = scne.fromSceneJson(json.load(os.path.join(dir,LST[i])))
             else:
                 pbar.set_description("empty scene %s "%(i))
                 scene = scne.empty(str(i))
@@ -499,7 +421,10 @@ class scneDs():
         for i in pbar:
             if os.path.exists(name) and len(LST):
                 pbar.set_description("%s texting %s "%(name,LST[i][:20]))
-                template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                try:
+                    template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                except:
+                    template = scne.fromSceneJson(json.load(os.path.join(dir,LST[i])))
                 scene = scne.empty(template.scene_uid)
                 scene.text = template.text
             else:
@@ -513,7 +438,10 @@ class scneDs():
         for i in pbar:
             if os.path.exists(name) and len(LST):
                 pbar.set_description("%s rooming %s "%(name,LST[i][:20]))
-                template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                try:
+                    template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
+                except:
+                    template = scne.fromSceneJson(json.load(os.path.join(dir,LST[i])))
                 scene = scne.empty(template.scene_uid)
                 scene.registerWalls = template.WALLS
             else:
@@ -560,3 +488,12 @@ class scneDs():
         for i in pbar:
             pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
             plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
+
+    def evaluate(self,T):
+        pbar = tqdm.tqdm(range(len(self)))
+        for i in pbar:
+            pbar.set_description("evaluating %s "%(self._dataset[i].scene_uid[:20]))
+            P = plans(self._dataset[i],T,v=0)
+            fit,ass,_ = P.recognize(use=True,draw=False)
+            pl = P.currentPlas
+            #self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas]), None

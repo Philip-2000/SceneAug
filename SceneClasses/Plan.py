@@ -325,8 +325,8 @@ class plans():
         self.recognize(use=True,draw=True,opt=False)
         #self.currentPlas.singleExtend(0)
 
-    def addFrame(self,plas,name,dir,idx=-1,stay=1):
-        import os,shutil
+    def addFrame(self,plas,name,dir,idx=-1,stay=1):#for show
+        import os
         if idx>=0:
             zeros = [0 for _ in range(len(plas))]
             for l in range(len(plas.plas[idx])-1,0,-1):
@@ -394,6 +394,6 @@ class plans():
             self.spatiallyRecorrect(self.currentPlas)
             self.addFrame(self.currentPlas,"spatial",thisDir,-1,2)                #--------------------------spatially recorrect,
         self.showTitles = self.showTitles[:1]*2+self.showTitles #print(len(self.showTitles))
-        
+        #FIXME:the first several frames are black
         ImageSequenceClip([os.path.join(thisDir,t+".png") for t in self.showTitles], fps=2).write_videofile(os.path.join(thisDir,"recognize.mp4"),logger=None)#
        

@@ -18,6 +18,9 @@ class bnch():
     
     def __len__(self):
         return len(self.obs)
+    
+    def __str__(self):
+        return "("+",".join(["%.3f±%.3f"%(self.exp[i],self.dev[i],) for i in range(len(self.exp))])+")"
 
     def sample(self):
         return self.exp + np.random.randn(self.exp.shape[-1])*(self.dev**(0.5))/5#np.array([5,1,5,5,1,5,5])

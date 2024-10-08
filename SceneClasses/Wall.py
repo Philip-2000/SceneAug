@@ -182,6 +182,10 @@ class walls():
         o = walls(np.array([[sha[i][0],sha[i][1],nor[i][0],nor[i][1]] for i in range(len(sha))]))
         return o
 
+    def shape(self):
+        from shapely.geometry import Polygon
+        return Polygon(self.toWallsJson()[0])
+
     def processWithWindoor(self):
         for a in self.windoors:
             o = self.windoors[a]

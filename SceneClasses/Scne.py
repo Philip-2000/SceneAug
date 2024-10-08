@@ -375,8 +375,9 @@ class scne():
         s = [o for o in self.OBJES if o.nid == nid]
         return (s[0] if sig else s) if len(s)>0 else None
 
-    def outOfBoundaries(self):
-        pass
+    def outOfBoundaries(self): #intersect area,  object occupied area in total,  room area
+        contour = self.WALLS.shape()
+        return sum([o.area-contour.intersection(o.shape()).area for o in self.OBJES]), sum([o.area for o in self.OBJES]), contour.area
 
 import tqdm
 class scneDs():

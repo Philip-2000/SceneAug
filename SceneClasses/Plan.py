@@ -32,9 +32,54 @@ class plas(): #it's a recognize plan
             self.plas = deepcopy(base.plas)
         self.occupied = copy(list(chain(*[p.occupied() for p in self.plas])))
         self.fit = sum([sum(p.fits) for p in self.plas])
+        self.myPM = None
 
     def __str__(self):
         return "\n".join([ "%d\t"%(pp) + "→".join(["(%s,%d,%d)"%(self.scene.OBJES[p[0]].class_name(),p[0],p[1]) for p in self.plas[pp].nids]) for pp in range(len(self.plas))])
+
+    def __iter__(self):
+        return iter(self.plas)
+
+    def formPM(self):
+        from SceneClasses.Bnch import bnch
+        from SceneClasses.Patn import patternManager
+        pm = patternManager(vers="tmp",new=True)
+        pm.rootNames = []
+        for p in self.plas:
+            newNids= {0:0}
+            fid = 0
+            for id in range(len(p.nids)):
+                oid,nid = p.nids[id][0], p.nids[id][1]
+                o = self.scene.OBJES[oid]
+                m = self.pm.nods[nid].source.startNode
+                while not(nid in m.bunches):
+                    m = m.source.startNode
+                mid = m.idx
+                if id != 0:
+                    for md in range(id):
+                        if p.nids[md][1] == mid:
+                            O = self.scene.OBJES[p.nids[md][0]]
+                            break
+                else:
+                    assert mid == 0 and fid == 0
+                    pm.rootNames.append(pm.merging[o.class_name()])
+                    from SceneClasses.Obje import obje
+                    O = obje(o.translation,np.array([1,1,1]),o.orientation,i=0)
+                pm.createNode(pm.nods[fid],self.pm.merging[o.class_name()],1,1)
+                fid = len(pm.nods)-1
+                Oo = O.rela(o,self.pm.scaled).flat()
+                Dev = np.abs(Oo-m.bunches[nid].exp)
+                pm.nods[newNids[mid]].bunches[fid] = bnch(None,Oo,Dev)
+                newNids[nid]=fid
+        return pm
+
+    def diff(self,scene,ref):
+        if self.myPM is None:
+            self.myPM = self.formPM()
+            #print(self.myPM)
+        fit,ass,_ = plans(scene,self.myPM).recognize(use=False,opt=False,draw=False,show=False)
+        assert fit < ref
+        return abs(ref - fit)
 
     def printIds(self):
         return
@@ -50,6 +95,10 @@ class plas(): #it's a recognize plan
             m = ed.startNode
             while not(ed.endNode.idx in m.bunches):
                 m = m.source.startNode
+                #print(m.idx)
+            
+            #print(m.idx)
+            #print(p.nids)
 
             a = [on[0] for on in p.nids if on[1] == m.idx]
             a = self.scene.OBJES[a[0]]
@@ -228,7 +277,7 @@ class plans():
             print("start recognize")
             print(self.currentPlas)
         if len(self.currentPlas) == 0:
-            return 0.0,0
+            return 0.0,0,None
         self.currentPlas.singleExtend(0)
         if self.verb > 1:
             print("recognize 0")

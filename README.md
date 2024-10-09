@@ -11,7 +11,7 @@ Mainly focusing on indoor scene synthesis and human-computer interacting.
 <img src="media_of_readme/semantic.png" alt="semantic" width="600">
 
 ### Code Structure
-<img src="media_of_readme/codespng.png" alt="code structure" width="600">
+<img src="media_of_readme/codes.png" alt="code structure" width="600">
 
 ### Terms
 visualize: plot the statistics in a figure

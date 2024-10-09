@@ -1,10 +1,5 @@
-# from . import SPCES,WALLS
 from ..Basic.Wall import *
-from ..Basic.Obje import *
 import numpy as np
-from copy import deepcopy
-from matplotlib import pyplot as plt
-from PIL import Image,ImageOps,ImageDraw
 
 class prob():
     def __init__(self,p):
@@ -369,6 +364,7 @@ class spce():
         #print(self.I)
         #print(self.J)
         #raise NotImplementedError
+        from ..Basic.Obje import obje
         self.refObj = obje(self.corners[self.J],np.array([1,1,1]),np.array([(2-self.J)*np.math.pi/2])) #if self.J != -1 else  obje((self.corners[self.I]+self.corners[(self.I-1)%4])/2.0,np.array([1,1,1]),self.I*np.math.pi)
         self.relA = np.array([self.a[0],self.a[1],self.a[2]]) if self.J%2==0 else np.array([self.a[2],self.a[1],self.a[0]])
 
@@ -421,6 +417,7 @@ class spce():
         return "[[%.2f,%.2f],[%.2f,%.2f],[%.2f,%.2f],[%.2f,%.2f]] at [%.2f,%.2f] with [%.2f,%.2f]"%(self.corners[0][0],self.corners[0][2],self.corners[1][0],self.corners[1][2],self.corners[2][0],self.corners[2][2],self.corners[3][0],self.corners[3][2],self.c[0],self.c[2],self.a[0],self.a[2])
 
     def draw(self):
+        from matplotlib import pyplot as plt
         scl = [1.0,0.8,0.6,0.4]
         c,a = self.c, self.a
         for s in scl:
@@ -451,6 +448,7 @@ class spce():
 
 class spces():
     def __init__(self, scne=None, wals=None, name="", flex=1.2, sz=-4.0, drawFolder=""):
+        from copy import deepcopy
         self.scne = scne
         self.iWALLS= deepcopy(scne.WALLS if wals is None else wals) #a copy for visualization
         self.WALLS = deepcopy(scne.WALLS if wals is None else wals) #a local data structure for processing
@@ -473,6 +471,8 @@ class spces():
     def draw(self,folder="",dr=True):
         #print("here "+folder)
         #print(self.SPCES[0])
+        from PIL import Image,ImageOps
+        from matplotlib import pyplot as plt
         [s.draw() for s in self.SPCES]
         if (folder or self.drawFolder) and dr:#print("spces draaw", (folder if folder else self.drawFolder)+str(len(self.SPCES))+".png")
             self.iWALLS.draw(color="gray")
@@ -503,6 +503,7 @@ class spces():
         if f:
             print("wallsSign:\n"+'\n'.join([ "→".join([ "(%.3f,%.3f)←↑%.3f"%(a[0][0],a[0][2],a[1]) for a in ar[:-1]])+"(%.3f,%.3f)"%(ar[-1][0][0],ar[-1][0][2])  for ar in Spce.wallsSign ]))
         
+        from copy import deepcopy
         #just check the off wall segments of the spce?
         height = Spce.wallsSign[3][-1][1]
         idx = [0,0]
@@ -758,6 +759,7 @@ class spces():
             sp = self.extractingSpce((DIR if DIR else self.drawFolder))
 
     def drawProb(self, probArray, DIR="", order=0, aFlag=True):
+        from PIL import Image,ImageDraw
         N,M = 1+2*int(self.flex*self.LH[0]/self.delta),1+2*int(self.flex*self.LH[1]/self.delta)
         #H = int(len(probArray)**0.5) #i*delta-L
         assert N*M == len(probArray)

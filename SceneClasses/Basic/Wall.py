@@ -83,6 +83,9 @@ class wall():
         assert (not checkOn) or (abs((p-self.p)@self.n)<EPS and 0<=r and r<=1)
         return r
 
+    def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5):
+        from simple_3dviz import Lines
+        return Lines( [ self.p+np.array([0,height,0]), self.q+np.array([0,height,0]) ], colors=colors, width=width )
 
 def two23(a):
     return np.array([a[0],0,a[1]])
@@ -90,8 +93,8 @@ def two23(a):
 class walls():
     def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False):
         #print(keepEmptyWL)
-        if len(Walls)>0:
-            self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scene=scne,array=self) for j in range(len(Walls))]
+        if len(Walls)>0: #Walls[j][2] is z, Walls[j][3] is x
+            self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scene=scne,array=self) for j in range(len(Walls))]
         else:#if a[0]<0 or a[1]<0:print(a)
             self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)] if not keepEmptyWL else []
         self.LOGS = []
@@ -171,7 +174,7 @@ class walls():
                 nor.append([float(self.WALLS[w].n[0]),float(self.WALLS[w].n[2])])
                 ori.append(float(np.math.atan2(self.WALLS[J].n[0],self.WALLS[J].n[2])))
                 w = self.WALLS[w].w2
-        return sha, nor, ori
+        return sha, nor, ori #nor[:][0] is x, nor[:][1] is z
     
     @classmethod
     def fromWallsJson(cls,sha,nor):
@@ -181,6 +184,10 @@ class walls():
     def shape(self):
         from shapely.geometry import Polygon
         return Polygon(self.toWallsJson()[0])
+    
+    def npArray(self):
+        sha,nor,_ = self.toWallsJson()
+        return np.concatenate([np.array(sha), np.array(nor)[:,1:], np.array(nor)[:,:1]],axis=0)
 
     def processWithWindoor(self):
         for a in self.windoors:
@@ -469,3 +476,32 @@ class walls():
     def output(self):
         self.draw(True)
         self.writeLog()
+
+    def draftRoomMask(self,sz=64,rt=25.):
+        from PIL import Image,ImageDraw
+        try:
+            L = self.scne.roomMask.shape[-1]
+        except:
+            L = sz
+        img = Image.new("L",(L,L)) 
+        img1 = ImageDraw.Draw(img)  
+        img1.polygon([ (w.p[0]*rt+(L>>1), w.p[2]*rt+(L>>1)) for w in self.WALLS], fill ="white")  
+        self.scne.roomMask = np.array(img).astype(np.float32)
+        return self.scne.roomMask
+
+    def renderable_floor(self):
+        from simple_3dviz import Lines
+        sz,rt = 192, 25.
+        pixels,points = self.draftRoomMask(sz*2+1,rt),[]
+        for i in range(-sz,sz+1):
+            out = True #
+            for j in range(-sz,sz+1):
+                if (pixels[i+sz,j+sz][0] < 0.9) ^ out:
+                    points.append([i/rt, 0, j/rt])
+                    out = not out
+            assert out
+        return Lines(points,colors=(1,1,1,1),width=1.2/rt)
+    
+    def renderable(self):
+        return [self.renderable_floor()] + [w.renderable() for w in self.WALLS]
+        

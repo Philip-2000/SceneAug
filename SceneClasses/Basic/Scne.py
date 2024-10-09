@@ -50,7 +50,7 @@ class scne():
         # if wl:
         #     walls = scene["walls"]
         #     self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
-        self.text = ""
+        self.text = scene["text"] if "text" in scene else ""
         self.SPCES = spces(self)#[]
         self.plans = []
 
@@ -122,91 +122,14 @@ class scne():
         if drawRoomMask:
             self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
-    def render(self):
-        pass
-
-    def formGraph(self):
-        raise NotImplementedError
-        #把经典关系标示出来
-        for oi in range(len(self.OBJES)):
-            o = self.OBJES[oi]
-            shortest = 3
-            RI = -1
-            for ri in range(len(self.OBJES)):
-                r = self.OBJES[ri]
-                if (oi == ri) or not(o.class_name() in common_links.keys() and r.class_name() in common_links[o.class_name()]):
-                    continue #semantic check print(o.class_name()+"   "+r.class_name())
-                Tor = r.translation - o.translation
-                Tor[1] = 0
-                Lor = (Tor**2).sum()**0.5 + 0.0001
-                Ior = Tor / Lor
-                if Lor < shortest:
-                    shortest = Lor
-                    RI = ri
-            if RI >= 0:
-                self.LINKS.append(objLink(RI,oi,len(self.LINKS),self))
-
-        #把贴墙关系都标识出来
-        for oi in range(len(self.OBJES)):
-            o = self.OBJES[oi]
-            if len(o.destIndex)>0:
-                continue
-            om = o.matrix()
-            for wi in range(len(self.WALLS)):
-                w = self.WALLS[wi]
-                #translate w.p into o's co-ordinate, scaled
-                p=(om @ (w.p-o.translation)) / o.size
-                #translate w.q into o's co-ordinate, scaled
-                q=(om @ (w.q-o.translation)) / o.size
-                #get a distance and projection
-                n=(om @ w.n)
-
-                pp=np.cross(n,p)[1]#min(np.cross(n,p),np.cross(n,q))
-                qq=np.cross(n,q)[1]#max(np.cross(n,p),np.cross(n,q))
-                
-                if(wi==4 and oi == 5) and False:
-                    print(w.p)
-                    print(w.q)
-                    print(w.n)
-                    print(o.class_name())
-                    print(o.translation)
-                    print(" ")
-                    print(p)
-                    print(q)
-                    print(n)
-                    print(pp)
-                    print(qq)
-                    
-                    pass
-
-                if abs(abs(p@n)-1.0)<0.1 and min(pp,qq) < 0.9 and max(pp,qq) > -0.9:
-                    self.LINKS.append(walLink(wi,oi,len(self.LINKS),o.translation,self))#a,b = LINKS[-1].arrow()
-                
-                elif abs((p*o.size-o.size)@n)<0.1 and min(pp,qq) < 0.0 and max(pp,qq) > -0.0:
-                    self.LINKS.append(walLink(wi,oi,len(self.LINKS),o.translation,self))#a,b = LINKS[-1].arrow()
-
-        #物体指向它朝向的一个东西
-        for oi in range(len(self.OBJES)):
-            o = self.OBJES[oi] #print("\n"+o.class_name() + "\n")
-            if len(o.destIndex)>0:
-                continue
-            shortest = 3
-            RI = -1
-            for ri in range(len(self.OBJES)):
-                r = self.OBJES[ri] #print(r.class_name())
-                if ri == oi: #len(r.destIndex)==0:
-                    continue 
-                Tor = r.translation - o.translation
-                Tor[1] = 0
-                Lor = (Tor**2).sum()**0.5 + 0.0001
-                Ior = Tor / Lor
-                #find the facing one
-                if (Ior @ o.direction()) > 0.5:# or True: #print("     ??? "+r.class_name())
-                    if Lor < shortest:
-                        shortest = Lor
-                        RI = ri
-            if RI >= 0:
-                self.LINKS.append(objLink(RI,oi,len(self.LINKS),self))#print("    "+OBJES[RI].class_name())
+    def renderables(self,objects_dataset,scene_render,no_texture=True):     #class top2down():
+        import seaborn as sns                                               #   def __init__(self): self.renderables=[]
+        for o in self.OBJES:                                                #   def add(self,a): self.renderables.append(a)
+            scene_render.add(o.renderable(objects_dataset, np.array(sns.color_palette('hls', len(object_types)-2)), no_texture))
+        scene_render.add(self.WALLS.renderable_floor())
+        for w in self.WALLS:
+            scene_render.add(w.renderable())
+        return scene_render.renderables
 
     def breakWall(self,id,rate):
         #load all the links of 
@@ -238,22 +161,6 @@ class scne():
         self.WALLS[id].q = np.copy(cutP)
         self.WALLS[id].w2= A
 
-    def adjustGroup(self,sdev=0.2,cdev=2.): #augmentation
-        raise NotImplementedError
-        from numpy.random import rand as R
-        from numpy.random import randint as Ri 
-        from math import pi as PI 
-               
-        if len(self.GRUPS) == 1:
-            self.GRUPS[0].adjust((R(3,)-0.5)*cdev,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
-        else:
-            t,l = (R()*2-1)*PI,max([self.GRUPS[0].size[0],self.GRUPS[0].size[2],self.GRUPS[1].size[0],self.GRUPS[1].size[2]]) - R()*0.1
-            d = np.array([np.math.cos(t),0.0,np.math.sin(t)])
-            self.GRUPS[0].adjust( d*l,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
-            self.GRUPS[1].adjust(-d*l,(R(3,)-0.5)*sdev+1.0,(Ri(4)/2.0-1)*PI)
-        if self.rmm:
-            self.draftRoomMask()
-
     def drawRoomMask(self,maskTitle=""):
         Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
 
@@ -282,14 +189,6 @@ class scne():
                 c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
             c["walls"] = np.array(c["walls"])
         return c
-
-    def roomMaskFromWalls(self,LST=None):
-        L = self.roomMask.shape[-1]
-        img = Image.new("L",(L,L)) 
-        img1 = ImageDraw.Draw(img)  
-        img1.polygon([ (w.p[0]*25.+(L>>1), w.p[2]*25.+(L>>1)) for w in self.WALLS], fill ="white")  
-        self.roomMask = np.array(img).astype(np.float32)
-        pass
 
     def areaField():
         pass

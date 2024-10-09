@@ -183,6 +183,16 @@ class obje():
     def bpt(self):
         return np.concatenate([self.class_label,self.translation,self.size,self.orientation]).reshape((1,-1))
 
+    def renderable(self,objects_dataset,color_palette,no_texture=True):
+        from simple_3dviz import Mesh
+        from simple_3dviz.renderables.textured_mesh import TexturedMesh
+        furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
+        raw_mesh = Mesh.from_file(furniture.raw_model_path, color=color_palette[self.class_index, :]) if no_texture else TexturedMesh.from_file(furniture.raw_model_path)
+        raw_mesh.scale(furniture.scale)
+        raw_mesh.affine_transform(t=-(raw_mesh.bbox[0] + raw_mesh.bbox[1])/2)
+        raw_mesh.affine_transform(R=self.matrix(-1), t=self.translation)
+        return raw_mesh
+
 class objes():
     def __init__(self,scene,ce,windoor,scne=None):
         

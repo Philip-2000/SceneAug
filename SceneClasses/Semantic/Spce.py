@@ -1,6 +1,6 @@
 # from . import SPCES,WALLS
-from .Wall import *
-from .Obje import *
+from ..Basic.Wall import *
+from ..Basic.Obje import *
 import numpy as np
 from copy import deepcopy
 from matplotlib import pyplot as plt
@@ -463,6 +463,7 @@ class spces():
         self.flex = flex
         self.delta = 0.04
         self.drawFolder = drawFolder
+        import os
         if drawFolder and not os.path.exists(drawFolder):
             os.makedirs(drawFolder)
     

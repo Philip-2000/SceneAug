@@ -1,6 +1,4 @@
-from SceneClasses.Patn import patternManager #using pattern to understand scene
-from SceneClasses.Scne import scneDs
-def parse():
+def parse(): #using pattern to understand scene
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Pattern Manager Application')
     parser.add_argument("-v","--version", required=True)#,   default="brot"
@@ -15,8 +13,10 @@ if __name__ == "__main__": #load="testings",
     args = parse()
     import os
     UIDS = os.listdir(args.dataset)[:1000] if len(args.id)==0 else [args.id]
-    T = patternManager(args.version,verb=args.verbose)
-    S = scneDs(args.dataset,lst=UIDS,grp=False,cen=True,wl=False,keepEmptyWL=True,imgDir=os.path.join(T.workDir,args.usage,T.version))
+    from SceneClasses.Operation.Patn import patternManager as PM 
+    from SceneClasses.Basic.Scne import scneDs as SDS
+    T = PM(args.version,verb=args.verbose)
+    S = SDS(args.dataset,lst=UIDS,grp=False,cen=True,wl=False,keepEmptyWL=True,imgDir=os.path.join(T.workDir,args.usage,T.version))
     if args.usage == "rcgs":
         S.recognize(T,show=args.show)
     elif args.usage == "evas":

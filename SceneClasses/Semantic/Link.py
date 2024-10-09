@@ -1,12 +1,12 @@
 from matplotlib import pyplot as plt
-common_links={
-    "Dining Chair":["Dining Table"],
-    "Chaise Longue Sofa":["Coffee Table"],
-    "Coffee Table":["Lazy Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","L-shaped Sofa"],
-    "Dressing Chair":["Dressing Table"],
-    "Pendant Lamp":["King-size Bed", "Kids Bed", "Single bed", "Coffee Table", "Dining Table"],
-    "Nightstand":["King-size Bed", "Kids Bed", "Single bed"]
-}
+# common_links={
+#     "Dining Chair":["Dining Table"],
+#     "Chaise Longue Sofa":["Coffee Table"],
+#     "Coffee Table":["Lazy Sofa","Three-seat / Multi-seat Sofa","Loveseat Sofa","L-shaped Sofa"],
+#     "Dressing Chair":["Dressing Table"],
+#     "Pendant Lamp":["King-size Bed", "Kids Bed", "Single bed", "Coffee Table", "Dining Table"],
+#     "Nightstand":["King-size Bed", "Kids Bed", "Single bed"]
+# }
 
 
 #LINKS=[]

@@ -1,4 +1,3 @@
-from SceneClasses.Spce import * #construting spaces
 def parse():
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Space Extraction')
@@ -9,6 +8,7 @@ def parse():
 
 if __name__ == "__main__":
     DIR,args = "./newRoom/",parse()
+    from SceneClasses.Semantic.Spce import * #construting spaces
     for i in (range(9,args.bound) if int(args.identity) == -1 else range(int(args.identity),int(args.identity)+1)):
         if args.new:
             wls = walls(name="rand"+str(i))#print(wls.LOGS)

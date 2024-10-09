@@ -1,6 +1,4 @@
 import numpy as np
-from .Obje import *
-#from Scne import *
 
 DEN,SIGMA2,MDE,OPTRATE = [[1.2**2,1.2**2,1.2**2,1.2**2,1.2**2,1.2**2,0.5**2]]*5,2.0**2,True,0.5
 def giveup(B,A,C):#c=len(B)/A, cc=len(B)/C  #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
@@ -26,6 +24,7 @@ class bnch():
         return self.exp + np.random.randn(self.exp.shape[-1])*(self.dev**(0.5))/5#np.array([5,1,5,5,1,5,5])
 
     def diff(self,obj): #self.diff(obj)
+        from ..Basic.Obje import angleNorm
         a = obj.flat()-self.exp
         return np.concatenate([a[:-1],[angleNorm(a[-1])]])
 
@@ -33,9 +32,10 @@ class bnch():
         return ((self.diff(obj))**2).sum() if type(hint)==int else (((self.diff(obj))**2/self.dev).sum() if hint is None else (hint*(self.diff(obj))**2/self.dev).sum())#/self.dev 
 
     def optimize(self,obj):
-        return obje.fromFlat((self.diff(obj))*OPTRATE+self.exp,j=obj.class_index)
+        return None #obje.fromFlat((self.diff(obj))*OPTRATE+self.exp,j=obj.class_index)
 
     def add(self,obj,f=False):
+        from ..Basic.Obje import angleNorm
         if self.accept(obj) or f:
             self.exp = (self.exp * (len(self.obs) + 1) + self.diff(obj)) / (len(self.obs)+1)
             self.exp[-1] = angleNorm(self.exp[-1])
@@ -64,6 +64,8 @@ class bnch():
             o.scne.OBJES[o.idx].nid = nid
 
     def draw(self,basic,dir,idx,J,scaled,all,lim,path,offset=[4.0,0.0]):
+        from matplotlib import pyplot as plt
+        from ..Basic.Obje import obje, object_types
         plt.axis('equal')
         plt.xlim(-lim,lim)
         plt.ylim(-lim,lim)

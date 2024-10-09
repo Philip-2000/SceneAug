@@ -1,5 +1,4 @@
-from SceneClasses.ExSy import *  #Execute the pattern synthesis the experiments
-def parse():
+def parse(): #Execute the pattern synthesis the experiments
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Experiment of the Pattern Manager\'s Application')
     parser.add_argument("-v","--version",required=True)#,default="merg")
@@ -13,6 +12,7 @@ def parse():
 if __name__ == "__main__": #load="testings",
     import os
     args,E = parse(),None
+    from SceneClasses.Experiment.ExSy import * 
     if args.expr == "rcg":
         pass#E = RecExpn(args.version,args.dataset if args.usage!="vis" else None,os.listdir(args.dataset)[:500],args.task)
     elif args.expr == "opt":

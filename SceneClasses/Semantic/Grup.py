@@ -1,8 +1,5 @@
 grupA=["white","lightblue","lightgreen","pink","lime","lightblue","lightgreen","pink","lime"]
 import numpy as np
-from matplotlib import pyplot as plt
-from copy import copy
-from shapely.geometry import Polygon
 
 def fTheta(theta):
     while theta > np.math.pi:
@@ -17,7 +14,7 @@ def matrix(ori):
 #WALLS=[]
 class grup():
     def __init__(self, objIdList, imgMeta, idx=0, scne=None):
-        self.objIdList = copy(objIdList)
+        self.objIdList = [i for i in objIdList]
         self.scne=scne
         for i in objIdList:#assert (self.scne.OBJES[i].gid == idx)
             self.scne.OBJES[i].gid = idx
@@ -52,6 +49,7 @@ class grup():
         return [np.min(cs,axis=0), np.max(cs,axis=0)]
     
     def shape(self):
+        from shapely.geometry import Polygon
         bbox = self.bbox2()
         return Polygon(np.array([[bbox[0][0],bbox[0][1]],[bbox[0][0],bbox[1][1]],[bbox[1][0],bbox[1][1]],[bbox[1][0],bbox[0][1]]])).convex_hull
 
@@ -67,6 +65,7 @@ class grup():
         self.update()
 
     def draw(self):
+        from matplotlib import pyplot as plt
         scl = [1.0,0.7,0.4,0.1]
         c,a = self.translation, matrix(self.orientation)@(self.scale*self.size),
         for s in scl:

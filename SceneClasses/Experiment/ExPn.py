@@ -2,10 +2,12 @@
 #The process is defined by methods in the object (representing the experiment), and the data structures are variables
 
 #but seting up the experiment by instantiating the object and calling its functions is the ../script/expn.py 's work.
-from .Patn import *
-from .Plan import plans
+from ..Operation.Patn import patternManager as PM
+from ..Basic.Scne import scneDs as SDS
+from ..Operation.Plan import plans
 from itertools import chain
-import tqdm
+import tqdm,os
+import numpy as np
 EXP_IMG_BASE_DIR = "./experiment/"
 class ma():
     def __getitem__(self,a):
@@ -13,9 +15,9 @@ class ma():
     
 class expn():
     def __init__(self,pmVersion,dataset,UIDS,expName,num,mt,task,roomMapping={}):
-        self.pm = patternManager(pmVersion)
+        self.pm = PM(pmVersion)
         if dataset is not None:
-            self.sDs = scneDs(dataset,lst=UIDS,num=num,grp=False,cen=True,wl=False,keepEmptyWL=True)
+            self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False,cen=True,wl=False,keepEmptyWL=True)
         self.devs = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
         self.ld = len(self.devs)
         self.roomMapping = ma()#roomMapping #{"Bedroom":"Bedroom", "MasterBedroom":"Bedroom", "SecondBedroom":"Bedroom", "KidsRoom":"Bedroom", "ElderlyRoom":"Bedroom",
@@ -32,6 +34,7 @@ class expn():
         self.mtl = len(self.mt)
 
     def randomize(self, s, dev, hint=None):
+        from copy import deepcopy
         t = deepcopy(s)
         diff = []
         for o in t.OBJES:
@@ -61,7 +64,7 @@ class expn():
         for i in pbar:
             pbar.set_description("%s experiment %s "%(self.__class__.__name__,self.sDs[i].scene_uid[:20]))
             s=self.sDs[i]
-            res = self.execute(s, **kwargs)#[fit,n]
+            res = self.execute(s, None, **kwargs)#[fit,n]
             self.store(0,s.roomType,res)
             for dev in self.devs[1:]:
                 rands,diff = self.randomize(s,dev)
@@ -75,22 +78,24 @@ class expn():
 
     def visualSingle(self,data,figName=""):
         #data.shape = len(self.dev) = 10? : len(self.roomTypes) = 4 and num = ??? : len(xTitle) = 2/1
+        from matplotlib import pyplot as plt
         fig, ax1 = plt.subplots()
 
         metricsExp = np.average(data.reshape((-1,self.mtl)),axis=0)
         metricsDev = (np.average((data.reshape((-1,self.mtl)) - metricsExp.reshape((1,-1)))**2,axis=0))**0.5
+        
         metricsStandard = np.array([[metricsExp[j],metricsDev[j]] for j in range(self.mtl)])
 
-        colors = ["khaki","paleturquoise","plum","tomato", "springgreen"]
+        colors = ["khaki","paleturquoise","plum","tomato", "springgreen"]#print(metricsStandard)
         scl=1
         for i in range(len(self.devs)):
             for j in range(len(self.mt)):
                 st = metricsStandard[j]
                 A = ax1.boxplot((data[i,:,j]-st[0].reshape((-1)))/st[1].reshape((-1)), positions=[(i*(self.mtl+2)+j)*scl], labels = [self.mt[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]})
                 B = {"medians":A["medians"][0].get_data()[1][0],"means":A["means"][0].get_data()[1][0],"capsUp":A["caps"][0].get_data()[1][0],"capsDown":A["caps"][1].get_data()[1][0],"x":A["means"][0].get_data()[0][0]}
-                ax1.text(B["x"]+0.1,B["means"],"%.2f"%((B["means"]-st[0])*st[1]+st[0]),fontsize='xx-small')
-                ax1.text(B["x"]+0.1,B["capsUp"]-0.05,"%.2f"%((B["capsUp"]-st[0])*st[1]+st[0]),fontsize='xx-small')
-                ax1.text(B["x"]+0.1,B["capsDown"]+0.05,"%.2f"%((B["capsDown"]-st[0])*st[1]+st[0]),fontsize='xx-small')
+                ax1.text(B["x"]+0.1,B["means"],"%.2f"%((B["means"])*st[1]+st[0]),fontsize='xx-small')
+                ax1.text(B["x"]+0.1,B["capsUp"]-0.05,"%.2f"%((B["capsUp"])*st[1]+st[0]),fontsize='xx-small')
+                ax1.text(B["x"]+0.1,B["capsDown"]+0.05,"%.2f"%((B["capsDown"])*st[1]+st[0]),fontsize='xx-small')
         
         ax1.set_xticks([(i*(self.mtl+2)+(self.mtl-1)/2.0)*scl for i in range(len(self.devs))], ["%.3f"%(d) for d in self.devs])
         ax1.set_ylabel("")
@@ -117,10 +122,12 @@ class RecExpn(expn):
         super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,num,["fitness","assigned"],task)
 
     def execute(self, s, diff, **kwargs):
-        return plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
-        
+        a,b,c = plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
+        return a,b
+
     def show(self):
         from moviepy.editor import ImageSequenceClip
+        from copy import deepcopy
         pbar = tqdm.tqdm(range(len(self.sDs)))
 
         B=3
@@ -172,6 +179,7 @@ class GenExpn(expn):
     def __init__(self,pmVersion,task):
         super(GenExpn,self).__init__(pmVersion,None,None,self.__class__.__name__,["result"],task)
         from evaClasses.manipulator import manipulator, defaultInfo
+        from copy import deepcopy
         info = deepcopy(defaultInfo)
         #edit config to call the evaClasses.manipulator 
         tasks = None#[{"method":["pm"]}, ......]

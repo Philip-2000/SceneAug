@@ -1,5 +1,4 @@
 import numpy as np
-from shapely.geometry import Polygon
 grupC=["black","red","gray","purple","yellow","red","gray","purple","yellow"]
 object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Round End Table", "Dining Table", "Sideboard / Side Cabinet / Console table", "Corner/Side Table", "Desk", "Coffee Table", "Dressing Table", \
@@ -14,9 +13,6 @@ def angleNorm(ori):
     ori = ori % (2*np.math.pi)
     return ori-2*np.math.pi if 2*np.math.pi-ori < ori else ori
 
-
-from matplotlib import pyplot as plt
-#OBJES=[]
 class obje():
     def __init__(self,t=np.array([0,0,0]),s=np.array([1,1,1]),o=np.array([0]),c=None,i=None,n=None,idx=None,modelId=None,gid=0,scne=None,v=True):
         self.translation = t
@@ -67,9 +63,11 @@ class obje():
         return np.array([[realX[i],realZ[i]] for i in range(4)])
     
     def shape(self):
+        from shapely.geometry import Polygon
         return Polygon(self.corners2()).convex_hull
 
     def draw(self,g=False,d=False,color="",alpha=1.0,cr="",text=False):
+        from matplotlib import pyplot as plt
         corners = self.corners2()
         if g:
             plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker="." if len(object_types)-self.class_index>2 else "*", color=grupC[self.gid])

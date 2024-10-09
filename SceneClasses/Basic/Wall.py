@@ -1,20 +1,13 @@
 import numpy as np
-from matplotlib import pyplot as plt 
-from .Logg import *
-from .Obje import *
-import json
-WALLSTATUS = True
-EPS = 0.001
+EPS = 0.001#WALLSTATUS = True
 class wall():
     def __init__(self, p, q, n, w1, w2, idx, v=True, spaceIn=False, sig=-1, scene=None, array=None):
-        global WALLSTATUS
+        #global WALLSTATUS
         if v and abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) > 0.01: #assert abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) < 0.01
-            WALLSTATUS = False
-            print("not straight " + str(sig))
-        if (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]
-            WALLSTATUS = False
+            print("not straight " + str(sig)) #WALLSTATUS = False
+        if (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]-
             #print(traceback.format_stack())
-            print("not right-hand " + str(sig))
+            print("not right-hand " + str(sig)) #WALLSTATUS = False
             raise NotImplementedError
         self.linkIndex=[]
         self.idx=idx
@@ -124,11 +117,14 @@ class walls():
 
     @classmethod
     def fromLog(cls,f,name="",drawFolder=""):
+        from .Logg import distribute
+        import json
         a = cls(name=name,drawFolder=drawFolder)
         a.LOGS = [distribute(a,l) for l in open(f,"r").readlines()]
         a.centerize()
         [print(l) for l in a.LOGS if a.printLog]
         
+        from .Obje import obje, object_types
         wf = f.replace(".txt",".json")
         try:
             #assert False
@@ -286,6 +282,7 @@ class walls():
         self.deleteWall(I,EPS)
 
     def squeezeWalls(self):
+        from .Logg import dllg
         i=0
         while i<len(self.WALLS):
             if self.WALLS[i].v and self.WALLS[i].length < 0.7:
@@ -294,6 +291,7 @@ class walls():
             i+=1
 
     def randomWalls(self):
+        from .Logg import rtlg, mvlg
         a,b = 5,3
         while np.random.rand() < 0.8 and a > 0 and b > 0:
             a -= 1
@@ -445,8 +443,8 @@ class walls():
 
         pass
 
-    def draw(self,end=False,suffix=".png",color="black"):
-        #print(self)
+    def draw(self,end=False,suffix=".png",color="black"):#print(self)
+        from matplotlib import pyplot as plt
         if len([w.idx for w in self.WALLS if w.v]):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
             contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2

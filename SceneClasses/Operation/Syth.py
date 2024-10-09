@@ -1,22 +1,21 @@
 #from .Scne import scne
-from .Patn import patternManager
-from .Plan import plans
-from .Obje import object_types, obje
-from .Link import objLink
+#from ..Basic.Obje import object_types, obje
 import os
 SYN_IMG_BASE_DIR = "./pattern/syth/"
 
 class agmt():
     def __init__(self,pmVersion,scene,nm="test",v=0):
+        from .Patn import patternManager as PM
         self.verb=v
         self.scene = scene
         self.scene.imgDir = os.path.join(SYN_IMG_BASE_DIR,pmVersion,"agmt")
         os.makedirs(self.scene.imgDir,exist_ok=True)
-        self.pm = patternManager(pmVersion)
+        self.pm = PM(pmVersion)
         self.name = nm
 
     def augment(self,sdev=0.2,cdev=2.,cnt=8,draw=False):
         if not self.scene.grp:
+            from .Plan import plans
             plans(self.scene,self.pm,v=0).recognize(use=True,draw=False,opt=False,show=False)
         from numpy.random import rand as R
         from numpy.random import randint as Ri 
@@ -65,11 +64,12 @@ class agmt():
 
 class syth():
     def __init__(self,pmVersion,scene,appli,nm,v):
+        from .Patn import patternManager as PM
         self.verb=v
         self.scene = scene
         self.scene.imgDir = os.path.join(SYN_IMG_BASE_DIR,pmVersion,appli)
         os.makedirs(self.scene.imgDir,exist_ok=True)
-        self.pm = patternManager(pmVersion)
+        self.pm = PM(pmVersion)
         self.name = nm
     
     def uncond(self):
@@ -90,6 +90,8 @@ class gnrt(syth):
 
     def uncond(self,draw=False,uid=""):
         import numpy as np
+        from ..Semantic.Link import objLink
+        from ..Basic.Obje import obje,object_types
         N = self.pm.nods[0]
         while len(N.edges)>0:
             cs = 0
@@ -120,6 +122,8 @@ class gnrt(syth):
         return self.scene
 
     def tempDebugger(self,theScene,cObjectList,o,spc,imgName):
+        from ..Basic.Scne import scne
+        from copy import copy
         tmpScene = scne.empty()
         wa = copy(theScene.WALLS)
         cObjectLis = copy(cObjectList)
@@ -138,6 +142,7 @@ class gnrt(syth):
 
     def roomcond(self):
         raise NotImplementedError
+        from ..Basic.Obje import obje, object_types
         if useWalls:
             assert theScene.WALLS is not None
             #f = open("./spce_generate/log.txt",'w')#sys.stdout#

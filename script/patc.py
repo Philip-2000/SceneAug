@@ -1,6 +1,4 @@
-from SceneClasses.Patn import patternManager #construting pattern
-from SceneClasses.Scne import scneDs
-def parse():
+def parse(): #construting pattern
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Pattern Manager Construction')
     parser.add_argument("-v","--version", required=True)#,   default="brot"
@@ -12,5 +10,8 @@ def parse():
 
 if __name__ == "__main__": #load="testings",
     args = parse()
-    T,S = patternManager(args.version,verb=args.verbose,new = True), scneDs(args.dataset, grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
+    import os
+    from SceneClasses.Operation.Patn import patternManager as PM
+    from SceneClasses.Basic.Scne import scneDs as SDS
+    T,S = PM(args.version,verb=args.verbose,new = True), SDS(args.dataset,lst=os.listdir(args.dataset),grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
     T.construct(args.maxDepth,args.scaled,S)

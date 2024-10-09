@@ -1,5 +1,4 @@
-from SceneClasses.ExPn import RecExpn,OptExpn,GenExpn  #Execute the pattern application experiments
-def parse():
+def parse():  #Execute the pattern application experiments
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Experiment of the Pattern Manager\'s Application')
     showList = ["2b3662b2-7d0c-40eb-aa31-640ed8c7e7d4_ElderlyRoom-908","0bae68bc-b465-4f11-9d52-ebf5b44b0100_LivingDiningRoom-18864",
@@ -16,6 +15,7 @@ def parse():
 if __name__ == "__main__": #load="testings",
     import os
     args,E = parse(),None
+    from SceneClasses.Experiment.ExPn import RecExpn,OptExpn,GenExpn
     if args.expr == "rcg":
         E = RecExpn(args.version,args.dataset if args.usage!="vis" else None,os.listdir(args.dataset)[:500] if args.usage!="shw" else args.list, args.task, args.cnt)
     elif args.expr == "opt":

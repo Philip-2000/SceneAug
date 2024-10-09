@@ -1,12 +1,4 @@
-import os
-import numpy as np
-from .Obje import *
-from .Scne import *
-import json
-import yaml
-from .Bnch import *
-from matplotlib import pyplot as plt
-import inspect
+import os, numpy as np
 
 class edge():
     def __init__(self,n,nn,c,cc):
@@ -29,6 +21,7 @@ class merging():
     def __init__(self,d):
         self.d=d
     def __getitem__(self,a):
+        from ..Basic.Obje import object_types
         try:
             a = object_types[int(a)]
             return object_types.index(self.d[a] if (a in self.d) else a)
@@ -40,7 +33,7 @@ class merging():
 class patternManager():
     def __init__(self,vers,verb=0,new=False):
         self.version = vers
-        self.workDir = os.path.join(os.path.dirname(os.path.dirname(__file__)),"pattern")#"./pattern/"
+        self.workDir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),"pattern")#"./pattern/"
         self.fieldDir = os.path.join(self.workDir,"fields/")
         self.imgDir = os.path.join(self.workDir,"imgs/")
         self.treesDir = os.path.join(self.workDir,"trees/") #self.cnt = len(os.listdir(self.sceneDir))
@@ -59,6 +52,7 @@ class patternManager():
         self.objectViewBd = 6
         self.scaled=True
         if not new:
+            import json,yaml
             assert os.path.exists(os.path.join(self.treesDir,self.version+".js"))
             self.loadTre(json.loads(open(os.path.join(self.treesDir,self.version+".js")).read()[8:-1]))#self.loadTre(json.load(open(os.path.join(self.treesDir,self.version+".js"))))
             config = yaml.load(open(os.path.join(self.treesDir,self.version+".yaml")), Loader=yaml.FullLoader)
@@ -93,12 +87,20 @@ class patternManager():
                 e = n.edges[0]
         return resStr
 
+    def mid(self,nid):
+        m = self.nods[nid].source.startNode
+        while not(nid in m.bunches):
+            m = m.source.startNode
+        return m.idx
 
     def createNode(self,fat,s,c=0.0,cc=0.0):
         self.nods.append(node(s,fat.suffix if len(fat.suffix)>0 else s.replace('/','.'),len(self.nods)))#nod(nn))
         fat.edges.append(edge(fat,self.nods[-1],c,cc))
+        return len(self.nods)-1
 
     def freqInit(self,n):
+        from .Bnch import bnch
+        from ..Basic.Obje import obje
         for s in self.rootNames:
             for ss in self.merging.reversed(s):
                 if not os.path.exists(os.path.join(self.fieldDir,ss+".txt")):
@@ -118,6 +120,8 @@ class patternManager():
             self.freq(e.endNode)#,[e.endNode.idx]
 
     def freq(self,n,ex=True,lev=0): #,path
+        from .Bnch import bnches,giveup
+        from ..Basic.Obje import object_types,noOriType
         path,m = [],n
         while m.idx != 0:
             path,m = (path if (m.type in noOriType) else [m.idx] + path), m.source.startNode
@@ -168,6 +172,7 @@ class patternManager():
         self.Q = self.Q + [e for e in n.edges] if self.maxDepth == -1 else self.Q
 
     def loadTre(self,dct,id=0):
+        from .Bnch import bnch
         if id == 0:
             self.nods += [None for _ in dct[1:]] #nod(None)
         suf = "" if id == 0 else self.nods[id].suffix+"+"
@@ -183,6 +188,8 @@ class patternManager():
 
     def storeTree(self):
         #if len(name) > 0:
+        import yaml,json,inspect
+        from .Bnch import giveup,DEN,SIGMA2
         lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
                 "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
         open(os.path.join(self.treesDir,self.version+".js"),"w").write("var dat="+json.dumps(lst)+";")#open(os.path.join(self.treesDir,self.version+".json"),"w").write(json.dumps(lst))
@@ -194,24 +201,9 @@ class patternManager():
         self.storeTree()
         self.draw(self.version)
 
-    def treeConstruction(self,load="",name="",draw=True):#print(self.treesDir+load+".json")
-        raise NotImplementedError
-        self.version = name if load == "" else load
-        if load != "":
-            self.loadTre(json.loads(open(os.path.join(self.treesDir,self.version+".js")).read()[8:-1]))#self.loadTre(json.load(open(os.path.join(self.treesDir,self.version+".js"))))
-            config = yaml.load(open(os.path.join(self.treesDir,self.version+".yaml")), Loader=yaml.FullLoader)
-            self.rootNames = config["rootNames"]
-            self.maxDepth = config["maxDepth"] if "maxDepth" in config else self.maxDepth
-            global DEN
-            global SIGMA2
-            DEN,SIGMA2 = config["DEN"], config["SIGMA2"]
-        else:
-            self.freqInit(self.nods[0])
-            self.storeTree()
-        #if draw:
-            self.draw(load if len(load) > 0 else name)
-
     def draw(self,name,all=False,lim=5):
+        import json
+        from ..Basic.Obje import obje,object_types
         if not os.path.exists(self.imgDir+name+"/"):
             os.makedirs(self.imgDir+name+"/")
         info = {}#open(self.imgDir+name+"/info.json")

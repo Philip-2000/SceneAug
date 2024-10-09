@@ -1,20 +1,13 @@
-#Design all the experiments about scene recognization, modification and generation
-#The process is defined by methods in the object (representing the experiment), and the data structures are variables
-
-#but seting up the experiment by instantiating the object and calling its functions is the ../script/expn.py 's work.
-from ..Operation.Patn import patternManager as PM
-from ..Basic.Scne import scneDs as SDS
-from ..Operation.Plan import plans
-from itertools import chain
-import tqdm,os
-import numpy as np
-EXP_IMG_BASE_DIR = "./experiment/"
-class ma():
+import tqdm,os,numpy as np                      #Design all the experiments about scene recognization, modification and generation
+EXP_IMG_BASE_DIR = "./experiment/"              #The process is defined by methods in the object (representing the experiment), and the data structures are variables
+class ma():                                     #but seting up the experiment by instantiating the object and calling its functions is the ../script/expn.py 's work.
     def __getitem__(self,a):
         return "Room"
     
 class expn():
     def __init__(self,pmVersion,dataset,UIDS,expName,num,mt,task,roomMapping={}):
+        from ..Operation.Patn import patternManager as PM
+        from ..Basic.Scne import scneDs as SDS
         self.pm = PM(pmVersion)
         if dataset is not None:
             self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False,cen=True,wl=False,keepEmptyWL=True)
@@ -48,6 +41,7 @@ class expn():
         return t, diff
 
     def save(self):#roomSum = sum(roomCnt)
+        from itertools import chain
         lens = [len(j) for j in self.result[0]]
         locs = [sum(lens[:r+1]) for r in range(-1,len(self.rooms))]
         data = np.array([list(chain(*(self.result[l]))) for l in range(self.ld) ])
@@ -122,6 +116,7 @@ class RecExpn(expn):
         super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,num,["fitness","assigned"],task)
 
     def execute(self, s, diff, **kwargs):
+        from ..Operation.Plan import plans
         a,b,c = plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
         return a,b
 
@@ -169,6 +164,7 @@ class OptExpn(expn):
         return ope-noise
 
     def execute(self, s, diff, **kwargs):
+        from ..Operation.Plan import plans
         return plans(s,self.pm).recognize(draw=False,opt=True,**kwargs)#rands.recognize(self.pm)
 
     def show(self):

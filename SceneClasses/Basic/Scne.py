@@ -26,7 +26,7 @@ class scne():
 
         self.OBJES=[obje(tr[i]+ce,si[i],oi[i],np.concatenate([cl[i],[0,0]])if windoor else cl[i],idx=i,scne=self) for i in range(len(tr))]
 
-        self.roomMask = scene["room_layout"][0] if rmm else None
+        self.roomMask = scene["room_layout"][0] if rmm else np.zeros((64,64))
         self.rmm=rmm
         self.GRUPS=[]
         if grp:
@@ -122,13 +122,12 @@ class scne():
         if drawRoomMask:
             self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
-    def renderables(self,objects_dataset,scene_render,no_texture=True):     #class top2down():
+    def renderables(self,objects_dataset,scene_render,no_texture=True,height=0):     #class top2down():
         import seaborn as sns                                               #   def __init__(self): self.renderables=[]
         for o in self.OBJES:                                                #   def add(self,a): self.renderables.append(a)
             scene_render.add(o.renderable(objects_dataset, np.array(sns.color_palette('hls', len(object_types)-2)), no_texture))
-        scene_render.add(self.WALLS.renderable_floor())
-        for w in self.WALLS:
-            scene_render.add(w.renderable())
+        scene_render.add(self.WALLS.renderable_floor(depth=height))
+        [scene_render.add(w.renderable(height=height)) for w in self.WALLS]
         return scene_render.renderables
 
     def breakWall(self,id,rate):
@@ -239,7 +238,7 @@ class scne():
             if False:
                 scene.OBJES.append(obje.fromObjectJson(oj))
 
-        scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"])
+        scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"],scene)
         return scene
 
     @classmethod
@@ -275,7 +274,7 @@ class scne():
 
     def outOfBoundaries(self): #intersect area,  object occupied area in total,  room area
         contour = self.WALLS.shape()
-        return sum([o.area-contour.intersection(o.shape()).area for o in self.OBJES]), sum([o.area for o in self.OBJES]), contour.area
+        return sum([o.shape().area-contour.intersection(o.shape()).area for o in self.OBJES]), sum([o.shape().area for o in self.OBJES]), contour.area
 
 import tqdm
 class scneDs():
@@ -310,7 +309,7 @@ class scneDs():
                 try:
                     scene = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
                 except:
-                    scene = scne.fromSceneJson(json.load(os.path.join(dir,LST[i])))
+                    scene = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i]))))
             else:
                 pbar.set_description("empty scene %s "%(i))
                 scene = scne.empty(str(i))
@@ -325,7 +324,7 @@ class scneDs():
                 try:
                     template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
                 except:
-                    template = scne.fromSceneJson(json.load(os.path.join(dir,LST[i])))
+                    template = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i]))))
                 scene = scne.empty(template.scene_uid)
                 scene.text = template.text
             else:
@@ -343,7 +342,7 @@ class scneDs():
                 try:
                     template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
                 except:
-                    template = scne.fromSceneJson(json.load(os.path.join(dir,LST[i])))
+                    template = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i]))))
                 scene = scne.empty(template.scene_uid)
                 scene.registerWalls = template.WALLS
             else:

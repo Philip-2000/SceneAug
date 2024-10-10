@@ -187,7 +187,11 @@ class obje():
         from simple_3dviz import Mesh
         from simple_3dviz.renderables.textured_mesh import TexturedMesh
         furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
-        raw_mesh = Mesh.from_file(furniture.raw_model_path, color=color_palette[self.class_index, :]) if no_texture else TexturedMesh.from_file(furniture.raw_model_path)
+        try:
+            raw_mesh = Mesh.from_file(furniture.raw_model_path, color=color_palette[self.class_index, :]) if no_texture else TexturedMesh.from_file(furniture.raw_model_path)
+        except:
+            print(furniture.raw_model_path)
+            assert 1==0
         raw_mesh.scale(furniture.scale)
         raw_mesh.affine_transform(t=-(raw_mesh.bbox[0] + raw_mesh.bbox[1])/2)
         raw_mesh.affine_transform(R=self.matrix(-1), t=self.translation)

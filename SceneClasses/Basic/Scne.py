@@ -278,18 +278,22 @@ class scne():
 
 import tqdm
 class scneDs():
-    def __init__(self,name="../novel3DFront",lst=[],prepare="uncond",num=8,**kwargs):#print(kwargs)
+    def __init__(self,name="../novel3DFront",lst=[],prepare="uncond",num=8,_dataset=[],**kwargs):#print(kwargs)
         from numpy.random import choice
         self.name,self._dataset = name, []
         if prepare=="uncond":
-            LST = [choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst
+            LST = os.listdir(name) if (os.path.exists(name) and len(lst)==0 and num==0) else ([choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst)
             self.load(LST,name,num,**kwargs)
         elif prepare=="textcond":
-            LST = [choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst
+            LST = os.listdir(name) if (os.path.exists(name) and len(lst)==0 and num==0) else ([choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst)
             self.prepareTextCond(LST,name,num,**kwargs)
         elif prepare=="roomcond":
-            LST = [choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst
+            LST = os.listdir(name) if (os.path.exists(name) and len(lst)==0 and num==0) else ([choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst)
             self.prepareRoomCond(LST,name,num,**kwargs)
+        elif prepare=="empty":
+            self._dataset = _dataset
+        else:
+            raise NotImplementedError
 
     def __len__(self):
         return len(self._dataset)
@@ -315,6 +319,12 @@ class scneDs():
                 scene = scne.empty(str(i))
             self._dataset.append(scene)
     
+    def save(self,dir):
+        import json
+        for s in self._dataset:
+            os.makedirs(os.path.join(dir,s.scene_uid),exist_ok=True)
+            open(os.path.join(dir,s.scene_uid,'scene.json'),"w").write(json.dumps(s.toSceneJson())) #raise NotImplementedError#break
+
     def prepareTextCond(self,LST,name="",num=8,**kwargs):
         import json
         pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))

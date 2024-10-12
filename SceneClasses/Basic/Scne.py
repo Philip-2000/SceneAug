@@ -290,7 +290,7 @@ class scneDs():
         elif prepare=="roomcond":
             LST = os.listdir(name) if (os.path.exists(name) and len(lst)==0 and num==0) else ([choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst)
             self.prepareRoomCond(LST,name,num,**kwargs)
-        elif prepare=="empty":
+        elif prepare=="assigned":
             self._dataset = _dataset
         else:
             raise NotImplementedError
@@ -313,7 +313,7 @@ class scneDs():
                 try:
                     scene = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
                 except:
-                    scene = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i]))))
+                    scene = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i],"scene.json"))))
             else:
                 pbar.set_description("empty scene %s "%(i))
                 scene = scne.empty(str(i))
@@ -334,7 +334,7 @@ class scneDs():
                 try:
                     template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
                 except:
-                    template = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i]))))
+                    template = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i],"scene.json"))))
                 scene = scne.empty(template.scene_uid)
                 scene.text = template.text
             else:
@@ -352,7 +352,7 @@ class scneDs():
                 try:
                     template = scne.fromNpzs(dir=name,name=LST[i],**kwargs)
                 except:
-                    template = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i]))))
+                    template = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i],"scene.json"))))
                 scene = scne.empty(template.scene_uid)
                 scene.registerWalls = template.WALLS
             else:

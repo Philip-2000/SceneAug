@@ -57,7 +57,7 @@ class plas(): #it's a recognize plan
                 pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,O.rela(o,self.pm.scaled).flat(),np.abs(O.rela(o,self.pm.scaled).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
         return pm
 
-    def diff(self,scene,ref,v=0):
+    def diff(self,scene,ref=None,v=0):
         if self.myPM is None:
             self.myPM = self.formPM()
             if v>0:
@@ -65,8 +65,8 @@ class plas(): #it's a recognize plan
         fit,ass,_ = plans(scene,self.myPM,v=v).recognize(use=False,opt=False,draw=False,show=False)#assert fit < ref
         if v>0:
             print(fit)
-            print(ref)
-        return abs(ref - fit)
+            print(self.fit)
+        return abs(self.fit - fit)
 
     def printIds(self):
         return
@@ -159,6 +159,7 @@ class plas(): #it's a recognize plan
                 self.scene.LINKS.append(objLink(oid,p.searchOid(m.idx)[0],len(self.scene.LINKS),self.scene,"pink"))
 
             self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene))
+        self.scene.plan=self
 
     def optimize(self,iRate):
         #handly search the father and son relation among objects,

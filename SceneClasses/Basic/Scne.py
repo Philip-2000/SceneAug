@@ -45,14 +45,9 @@ class scne():
         #obje(t,s,o,c,i)
         #wall(p,q,n,w1,w2)
         self.WALLS = walls(scene["walls"] if wl else [], c_e, self, keepEmptyWL=keepEmptyWL)
-            
-        
-        # if wl:
-        #     walls = scene["walls"]
-        #     self.WALLS = [wall(two23(walls[j][:2])-c_e,two23(walls[(j+1)%len(walls)][:2])-c_e,np.array([walls[j][3],0,walls[j][2]]),(j-1)%len(walls),(j+1)%len(walls),j,scne=self) for j in range(len(walls))]
         self.text = scene["text"] if "text" in scene else ""
         self.SPCES = spces(self)#[]
-        self.plans = []
+        self.plan = None # a object: self.plan = ..Operation.Plan.plan(scene=self,pm=???)
 
     @classmethod
     def empty(cls,nm="",keepEmptyWL=False):
@@ -148,12 +143,8 @@ class scne():
 
         cutP = rate*self.WALLS[id].q + (1-rate)*self.WALLS[id].p
         A = len(self.WALLS)
-        self.WALLS.append(
-            wall(cutP,cutP,np.cross(self.WALLS[id].n,np.array([0,1,0])),id,A+1,A,scne=self)
-        )
-        self.WALLS.append(
-            wall(cutP,self.WALLS[id].q,self.WALLS[id].n,A,self.WALLS[id].w2,A+1,scne=self)
-        )
+        self.WALLS.append(wall(cutP,cutP,np.cross(self.WALLS[id].n,np.array([0,1,0])),id,A+1,A,scne=self))
+        self.WALLS.append(wall(cutP,self.WALLS[id].q,self.WALLS[id].n,A,self.WALLS[id].w2,A+1,scne=self))
         for l in delList:
             self.WALLS[A+1].linkIndex.append(l)
         self.WALLS[self.WALLS[id].w2].w1= A+1
@@ -400,11 +391,60 @@ class scneDs():
             pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
             plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
 
-    def evaluate(self,T):
-        pbar = tqdm.tqdm(range(len(self)))
-        for i in pbar:
-            pbar.set_description("evaluating %s "%(self._dataset[i].scene_uid[:20]))
-            P = plans(self._dataset[i],T,v=0)
-            fit,ass,_ = P.recognize(use=True,draw=False)
-            pl = P.currentPlas
-            #self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas]), None
+    def evaluate(self, metrics=[], cons=None, pmVersion="losy"):
+        from ..Operation.Patn import patternManager as PM
+        import numpy as np
+        T = PM(pmVersion)
+
+        if "OA" in metrics:
+            outside_area = 0
+            for s in self:
+                outArea,objArea,area = s.outOfBoundaries()
+                outside_area += outArea/len(self)
+
+        if "FIT" in metrics or "CONDVAR" in metrics:            #1, semantic recognization
+            fitness=0
+            from SceneClasses.Operation.Plan import plans
+            for s in self:
+                P = plans(s,T,v=0)
+                fit,ass,_ = P.recognize(use=True,draw=False)
+                fitness += fit/len(self)
+
+        if "CONDVAR" in metrics:                                 #2, difference synthesizing and calculation (lazy version)        
+            disMatrix,setFlag,varLevel = np.zeros((len(self),len(self))),np.zeros((len(self),len(self))),min(1,len(cons)) #memorized
+            from evaClasses.Titles import conditions, titles, indexes
+            assert cons is not None and len(cons) < 3 
+            condVars = [0 for _ in range(varLevel)]
+            for vl in range(1,varLevel+1):# which level
+                childCons = cons.child(vl)
+                condVarses = [0 for cc in childCons]
+                for ci in range(len(childCons)):
+                    childcon = conditions(childCons[ci])
+                    Titles = titles("condition",*(childcon.cons))
+            
+                    indx = indexes.next(None,Titles)
+                    while indx:        
+                        lst,N = cons( **(indx.dict()) ),0
+                        for i in lst:
+                            for j in lst:
+                                disMatrix[i][j],setFlag[i][j] = (self[i].plan.diff(self[j]) if setFlag[i][j]<0.5 else disMatrix[i][j]),1
+                                condVarses[ci],N = condVarses[ci]+disMatrix[i][j],N+1
+                        condVarses[ci] /= N
+                        indx = indexes.next(indx)
+
+                condVars[vl-1] = sum(condVarses)/len(condVarses) #is there any better ways to synthesis the conditional variety of different condition elements? rather than just the average value?
+
+        if "CKL" in metrics:
+            category = None#self.__compute_category_kl_divergence(raw_dataset_fake, raw_dataset_real, None)
+        
+        res = []
+        for t in metrics:
+            if t == "CKL":
+                res.append(category)
+            elif t == "OA":
+                res.append(outside_area)
+            elif t == "FIT":
+                res.append(fitness)
+            elif t == "CONDVAR":
+                res.append(condVars[0]) #should we output the variety of two level conditions? or more level? and how?
+        return res

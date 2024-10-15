@@ -416,15 +416,15 @@ class scneDs():
             assert cons is not None and len(cons) < 3 
             condVars = [0 for _ in range(varLevel)]
             for vl in range(1,varLevel+1):# which level
-                childCons = cons.child(vl)
+                childCons = cons.childs(vl)
                 condVarses = [0 for cc in childCons]
                 for ci in range(len(childCons)):
-                    childcon = conditions(childCons[ci])
-                    Titles = titles("condition",*(childcon.cons))
+                    #childcon = conditions(childCons[ci])
+                    Titles = titles("condition",*(childCons[ci]))#childcon.cons))
             
                     indx = indexes.next(None,Titles)
                     while indx:        
-                        lst,N = cons( **(indx.dict()) ),0
+                        lst,N = cons( **(indx.dict) ),0
                         for i in lst:
                             for j in lst:
                                 disMatrix[i][j],setFlag[i][j] = (self[i].plan.diff(self[j]) if setFlag[i][j]<0.5 else disMatrix[i][j]),1

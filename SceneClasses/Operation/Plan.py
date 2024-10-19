@@ -246,6 +246,8 @@ class plans():
         if show:
             self.show()
             return None,None,None
+        if self.segments > 4:
+            return 0,0,None
         import math
         if self.verb > 1:
             print("start recognize, fit is %.5f"%(self.currentPlas.fit))

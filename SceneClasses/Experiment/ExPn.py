@@ -70,6 +70,85 @@ class expn():
     def store(self,id,roomType,res):
         self.result[id][self.rooms.index(self.roomMapping[roomType])].append(res)
 
+    def visualSingles(self,data,figName=""):
+        xTitles = self.devs
+        metricsTitles = self.mt
+        
+        from matplotlib import pyplot as plt
+        import os, numpy as np
+        N = (len(xTitles)-1) + len(xTitles)*len(metricsTitles)
+        fig, (box,bar) = plt.subplots(1,2,figsize=((N/7)*4, 16)) #  2:1 
+        fig.suptitle(os.path.basename(os.path.splitext(figName)[0]),fontsize=18)
+
+
+        fontCap, fontBar, fontCnt = "x-small", "large", "xx-large"
+        mO = metricsTitles
+        mT = len(mO)
+        mI = [ metricsTitles.index( mO[mi] ) for mi in range(mT) ]
+        bar.set_position([0.02,0.05,0.95,0.40])
+        box.set_position([0.02,0.50,0.95,0.40])
+        scl,gap,colors,dolors,dNames = 0.18, 0.9, ["#BF9A6D","#578279","#B29D94","#BB7967","#81875A"], ["darkblue","#513E1B","yellow"], ["medians","means"]
+        barsArea = 0.9
+        barArea = 0.8
+        dMeans = dNames.index("means")
+        ds = len(dNames)
+        barL = scl*barsArea/ds
+        
+        exps = np.average(data.reshape((-1,mT)),axis=0)
+        devs = (np.average((data.reshape((-1,mT)) - exps.reshape((1,-1)))**2,axis=0))**0.5
+
+
+        #-----------initialization----------
+        #-----------box plot----------------
+
+        bars,Xs = [],[]
+        for i in range(len(xTitles)):
+            for j in range(mT):
+                X,exp,dev = (i*(mT+gap)+j)*scl, exps[mI[j]], devs[mI[j]]
+                A = box.boxplot((data[i,:,mI[j]]-exp)/dev, positions=[X], labels = [mO[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]}, medianprops={"color":dolors[dNames.index("medians")]}, meanprops={'marker':"*","markeredgecolor":dolors[dMeans],"markerfacecolor":dolors[dMeans]})
+                capsUp, capsDn,x= A["caps"][0].get_data()[1][0], A["caps"][1].get_data()[1][0], A["means"][0].get_data()[0][0]
+                VcapsUp,VcapsDn = capsUp*dev+exp, capsDn*dev+exp
+                box.annotate("%.2f"%(VcapsUp), xy=(x-(0.04 if abs(VcapsUp)/10 < 1 else 0.08),capsUp-0.2 ),fontsize=fontCap, bbox={"facecolor":'white', "edgecolor":'white', "boxstyle":'round'})
+                box.annotate("%.2f"%(VcapsDn), xy=(x-(0.04 if abs(VcapsDn)/10 < 1 else 0.08),capsDn+0.05),fontsize=fontCap, bbox={"facecolor":'white', "edgecolor":'white', "boxstyle":'round'})
+                Xs = Xs + [X-(ds-1)*(barL/2)+k*barL  for k in range(ds)] #[X-0.2*scl,X+0.2*scl]
+                bars = bars + [A[dNames[k]][0].get_data()[1][0] for k in range(ds)]     
+
+        box.set_xticks([(i*(mT+gap)+(mT-1)/2.0)*scl for i in range(len(xTitles))], xTitles)
+        box.set_ylabel("")
+        box.set_yticklabels("")
+        box.legend(handles=[plt.Line2D([0],[0],color=colors[i],lw=5,label=mO[i]) for i in range(mT)], labels=["%s(%.3f)"%(mO[j], np.var( [ bars[(i*mT+j)*ds+dMeans] for i in range(len(xTitles))]  ) ) for j in range(mT)], ncol=mT) #, labelcolor=colors, loc='lower left'
+        box.set_title("overall",fontsize=15)
+
+
+        #-----------box plot----------------
+        #-----------bar plot----------------
+
+        y_min, y_max = box.get_ylim()
+
+        from itertools import chain
+        bar.bar(Xs, np.array(bars)-y_min, bottom=y_min, width=barArea*barL, color=(list(chain(*[[c]*ds for c in colors[:mT]])))*(int(len(Xs)/ (ds*mT) )), edgecolor=dolors[:ds]*(int(len(Xs)/ds)))
+
+        for i in range(len(xTitles)):
+            for j in range(mT):
+                I0,exp,dev = (i*mT+j)*ds, exps[mI[j]], devs[mI[j]]
+                ord = sorted([ (k,bars[I0+k],bars[I0+k]*dev+exp) for k in range(ds)],key= lambda x:-x[1])
+                for o in ord:
+                    y = 2.0+(len(ord)-1)*0.1-ord.index(o)*0.2
+                    bar.annotate("%.2f"%(o[2]), xy=(Xs[I0]-(0.02 if abs(o[2])/10 < 1 else 0.04),y),fontsize=fontBar , color=dolors[o[0]], bbox={"facecolor":'white', "edgecolor":'white', "boxstyle":'round'})
+
+        bar.set_xticks([(i*(mT+gap)+(mT-1)/2.0)*scl for i in range(len(xTitles))], xTitles)
+        bar.set_ylim(y_min,y_max)
+        bar.set_ylabel("")
+        bar.set_yticklabels("")
+        bar.legend(handles=[plt.Rectangle((0,0),width=1.0, height=0.8,facecolor="white",edgecolor=dolors[k],linewidth=0.4,label=dNames[k]) for k in range(ds)], labels=dNames, ncol=ds) #, labelcolor=colors, loc='lower left'
+        bar.set_title( " & ".join(dNames),fontsize=15)
+
+
+        #os.makedirs(os.path.dirname(figName),exist_ok=True)
+        plt.savefig(os.path.join(self.visualDir,figName+".png"))
+        plt.clf()
+        return
+
     def visualSingle(self,data,figName=""):
         #data.shape = len(self.dev) = 10? : len(self.roomTypes) = 4 and num = ??? : len(xTitle) = 2/1
         from matplotlib import pyplot as plt
@@ -103,7 +182,7 @@ class expn():
 
     def visualize(self):
         locs, data = self.load()
-        self.visualSingle(data,figName="Overall")
+        self.visualSingles(data,figName="Overall")
         for r in range(len(locs)-1):
             if len(locs)>2:
                 self.visualSingle(data[:,locs[r]:locs[r+1],:],figName=self.rooms[r])

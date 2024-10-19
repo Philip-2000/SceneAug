@@ -392,6 +392,48 @@ class scneDs():
             plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
 
     def evaluate(self, metrics=[], cons=None, pmVersion="losy"):
+
+        #我觉得其实说的有道理，
+        #将条件引入了之后，条件稳定性可能就能算了？
+        #也不是，因为像图片评估这样的评估形式，并不能简单地由子集的评估结果简单叠加来获得母集的评估结果
+        #但其实我们设计场景评估指标的时候可以预留这样的机制。
+        #这样不但可以评估场景生成结果的条件多样性，还可以逐条件来评估场景的其他各项指标，从而获得场景的条件稳定性。
+
+        #所以有必要直接以“条件作为线索和思路，去逐项计算获得我们的评估结果”
+
+
+        #就是说
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         from ..Operation.Patn import patternManager as PM
         import numpy as np
         T = PM(pmVersion)
@@ -412,7 +454,7 @@ class scneDs():
 
         if "CONDVAR" in metrics:                                 #2, difference synthesizing and calculation (lazy version)        
             disMatrix,setFlag,varLevel = np.zeros((len(self),len(self))),np.zeros((len(self),len(self))),min(1,len(cons)) #memorized
-            from evaClasses.Titles import conditions, titles, indexes
+            from evaClasses.Titles import titles, indexes
             assert cons is not None and len(cons) < 3 
             condVars = [0 for _ in range(varLevel)]
             for vl in range(1,varLevel+1):# which level
@@ -424,12 +466,18 @@ class scneDs():
             
                     indx = indexes.next(None,Titles)
                     while indx:        
-                        lst,N = cons( **(indx.dict) ),0
+                        lst = cons( **(indx.dict) )
+                        #print(lst)
                         for i in lst:
                             for j in lst:
-                                disMatrix[i][j],setFlag[i][j] = (self[i].plan.diff(self[j]) if setFlag[i][j]<0.5 else disMatrix[i][j]),1
-                                condVarses[ci],N = condVarses[ci]+disMatrix[i][j],N+1
-                        condVarses[ci] /= N
+                                #print(i)
+                                #print(j)
+                                # if setFlag[i][j] < 0.5:
+                                #     disMatrix[i][j] = self[i].plan.diff(self[j])
+                                #     setFlag[i][j] = 1
+                                disMatrix[i][j],setFlag[i][j] = ((self[i].plan.diff(self[j]) if self[i].plan else 0 )if setFlag[i][j]<0.5 else disMatrix[i][j]),1
+                                condVarses[ci] = condVarses[ci]+disMatrix[i][j]
+                        condVarses[ci] /= len(lst)*len(lst)
                         indx = indexes.next(indx)
 
                 condVars[vl-1] = sum(condVarses)/len(condVarses) #is there any better ways to synthesis the conditional variety of different condition elements? rather than just the average value?

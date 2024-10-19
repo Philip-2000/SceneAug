@@ -391,52 +391,73 @@ class scneDs():
             pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
             plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
 
-    def evaluate(self, metrics=[], cons=None, pmVersion="losy"):
-
-        #我觉得其实说的有道理，
-        #将条件引入了之后，条件稳定性可能就能算了？
-        #也不是，因为像图片评估这样的评估形式，并不能简单地由子集的评估结果简单叠加来获得母集的评估结果
-        #但其实我们设计场景评估指标的时候可以预留这样的机制。
-        #这样不但可以评估场景生成结果的条件多样性，还可以逐条件来评估场景的其他各项指标，从而获得场景的条件稳定性。
-
-        #所以有必要直接以“条件作为线索和思路，去逐项计算获得我们的评估结果”
-
-
-        #就是说
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        
         from ..Operation.Patn import patternManager as PM
         import numpy as np
         T = PM(pmVersion)
+        from SceneClasses.Operation.Plan import plans
+        from evaClasses.Titles import titles, indexes
+        
+        #----------------------------------------original data
+        OSA = [-1 for _ in range(len(self))]
+        FIT = [-1 for _ in range(len(self))]
+        DIS = [ [-1 for _ in range(len(self))] for __ in range(len(self)) ]
+        varLevel = min(1,len(cons))
+        #----------------------------------------original data
+        
+        #----------------------------------------statistics over condition
+        osa = [[] for _ in range(varLevel+1)]
+        fit = [[] for _ in range(varLevel+1)]
+        if varLevel == 0:
+            raise NotImplementedError("Currently, the unconditional variety calculation is not supported.")
+        var = [[] for _ in range(varLevel+1)]
+        nms = [[] for _ in range(varLevel+1)]
+        #----------------------------------------statistics over condition
+        
+        #----------------------------------------condition level enumerate
+        for vl in range(varLevel+1):
+            childCons = cons.childs(vl) if len(cons) else []
+            for ci in range(max(1,len(childCons))): #--combinatorial enumerating the conditions of this level
+                #childcon = conditions(childCons[ci])
+                
+                Titles = titles("condition",*(childCons[ci])) if vl > 0 else titles("condition",*([{"fake":"c"}]) )
+                indx = indexes.next(None,Titles)
+                while indx:
+                    lst = cons( **(indx.dict) ) if vl > 0 else [i for i in range(len(self))] #--enumerating the scenes of this condition
+                    if "OSA" in metrics:
+                        for i in lst:
+                            OSA[i] = OSA[i] if OSA[i]>0 else self[i].outOfBoundaries()[0]
+                        osa[vl].append( sum([OSA[i] for i in lst])/len(lst) )
+                            
+                    if "FIT" in metrics:
+                        for i in lst:
+                            FIT[i] = FIT[i] if FIT[i]>0 else plans(self[i],T,v=0).recognize(use=True,draw=False)[0]
+                        fit[vl].append( sum([FIT[i] for i in lst])/len(lst) )
+
+                    if "VAR" in metrics and vl > 0:
+                        for i in lst:
+                            for j in lst:
+                                DIS[i][j] = DIS[i][j] if DIS[i][j] > -0.001 else ((self[i].plan.diff(self[j]) if self[i].plan else 0 ))
+                        
+                        var[vl].append( sum([sum([DIS[i][j] for j in lst]) for i in lst])/(len(lst)*len(lst)) )#[(indx.dict)] = 
+                    nms[vl].append(indx.dict)
+                    indx = indexes.next(indx)
+
+        res,full = [],[]
+        for t in metrics:
+            if t == "CKL":
+                res.append(None)
+                full.append(None)
+            elif t == "OSA":
+                res.append(osa[0][0]) #??????
+                full.append(osa)
+            elif t == "FIT":
+                res.append(fit[0][0]) #?????
+                full.append(fit)
+            elif t == "VAR":
+                res.append(sum(var[1])/len(var[1])) #should we output the variety of two level conditions? or more level? and how?
+                full.append(var)                                    #full is the answer of this question
+        return res, full, nms
 
         if "OA" in metrics:
             outside_area = 0
@@ -446,7 +467,6 @@ class scneDs():
 
         if "FIT" in metrics or "CONDVAR" in metrics:            #1, semantic recognization
             fitness=0
-            from SceneClasses.Operation.Plan import plans
             for s in self:
                 P = plans(s,T,v=0)
                 fit,ass,_ = P.recognize(use=True,draw=False)

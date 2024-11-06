@@ -183,7 +183,7 @@ class obje():
     def bpt(self):
         return np.concatenate([self.class_label,self.translation,self.size,self.orientation]).reshape((1,-1))
 
-    def renderable(self,objects_dataset,color_palette,no_texture=True):
+    def renderable(self,objects_dataset,color_palette,no_texture=True,depth=0):
         from simple_3dviz import Mesh
         from simple_3dviz.renderables.textured_mesh import TexturedMesh
         furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
@@ -193,6 +193,8 @@ class obje():
             print(furniture.raw_model_path)
             assert 1==0
         raw_mesh.scale(furniture.scale)
+        if not ("Lamp" in self.class_name()):
+            self.translation[1] = -depth + self.size[1]
         raw_mesh.affine_transform(t=-(raw_mesh.bbox[0] + raw_mesh.bbox[1])/2)
         raw_mesh.affine_transform(R=self.matrix(-1), t=self.translation)
         return raw_mesh

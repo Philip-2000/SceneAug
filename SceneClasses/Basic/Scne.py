@@ -117,11 +117,11 @@ class scne():
         if drawRoomMask:
             self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
-    def renderables(self,objects_dataset,scene_render,no_texture=True,height=0):     #class top2down():
+    def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0):     #class top2down():
         import seaborn as sns                                               #   def __init__(self): self.renderables=[]
         for o in self.OBJES:                                                #   def add(self,a): self.renderables.append(a)
-            scene_render.add(o.renderable(objects_dataset, np.array(sns.color_palette('hls', len(object_types)-2)), no_texture))
-        scene_render.add(self.WALLS.renderable_floor(depth=height))
+            scene_render.add(o.renderable(objects_dataset, np.array(sns.color_palette('hls', len(object_types)-2)), no_texture,depth))
+        scene_render.add(self.WALLS.renderable_floor(depth=depth)) #depth is positive
         [scene_render.add(w.renderable(height=height)) for w in self.WALLS]
         return scene_render.renderables
 
@@ -244,8 +244,8 @@ class scne():
             "translations":boxes["translations"],"sizes":boxes["sizes"],"angles":boxes["angles"],"class_labels":boxes["class_labels"],
             "floor_plan_centroid":boxes["floor_plan_centroid"],"scene_uid":boxes["scene_uid"]}
         kwargs["grp"] = (grops is not None) and ("grp" in kwargs and kwargs["grp"])
-        kwargs["wl"] = (grops is not None) and ("wl" in kwargs and kwargs["wl"])
-        kwargs["windoor"] = (grops is not None) and ("windoor" in kwargs and kwargs["windoor"])#print(kwargs)
+        kwargs["wl"] = (contours is not None) and ("wl" in kwargs and kwargs["wl"])
+        kwargs["windoor"] = (conts is not None) and ("windoor" in kwargs and kwargs["windoor"])#print(kwargs)
 
         return cls(sceneDict,**kwargs)
 

@@ -49,6 +49,9 @@ class scne():
         self.SPCES = spces(self)#[]
         self.plan = None # a object: self.plan = ..Operation.Plan.plan(scene=self,pm=???)
 
+    def __getitem__(self,cl):
+        return self.OBJES[cl] if type(cl) == int else [o for o in self.OBJES if o.class_name() == cl]
+
     @classmethod
     def empty(cls,nm="",keepEmptyWL=False):
         return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":nm},rmm=False,keepEmptyWL=keepEmptyWL)
@@ -119,7 +122,7 @@ class scne():
 
     def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0):     #class top2down():
         import seaborn as sns                                               #   def __init__(self): self.renderables=[]
-        for o in self.OBJES:                                                #   def add(self,a): self.renderables.append(a)
+        for o in [_ for _ in self.OBJES if _.v]:                            #   def add(self,a): self.renderables.append(a)
             scene_render.add(o.renderable(objects_dataset, np.array(sns.color_palette('hls', len(object_types)-2)), no_texture,depth))
         scene_render.add(self.WALLS.renderable_floor(depth=depth)) #depth is positive
         [scene_render.add(w.renderable(height=height)) for w in self.WALLS]
@@ -201,9 +204,10 @@ class scne():
             }
         
         for o in self.OBJES:
-            rsj["objList"].append(o.toObjectJson())
-            if o.class_name().lower() in ["window", "door"]:
-                rsj["blockList"].append(o.toObjectJson())
+            if o.v:
+                rsj["objList"].append(o.toObjectJson())
+                if o.class_name().lower() in ["window", "door"]:
+                    rsj["blockList"].append(o.toObjectJson())
         
         #for o in self.OBJES:
 

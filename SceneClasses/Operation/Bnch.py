@@ -60,8 +60,8 @@ class bnch():
         return len(self.obs) > 0
 
     def enable(self,nid):
-        for o in self.obs:#if o.scne.OBJES[o.idx].nid != -1: print(o.scne.scene_uid+" "+str(o.idx)+" "+o.scne.OBJES[o.idx].class_name()) #assert 1 == 0
-            o.scne.OBJES[o.idx].nid = nid
+        for o in self.obs:#if o.scne[o.idx].nid != -1: print(o.scne.scene_uid+" "+str(o.idx)+" "+o.scne[o.idx].class_name()) #assert 1 == 0
+            o.scne[o.idx].nid = nid
 
     def draw(self,basic,dir,idx,J,scaled,all,lim,path,offset=[4.0,0.0]):
         from matplotlib import pyplot as plt

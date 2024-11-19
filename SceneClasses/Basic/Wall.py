@@ -1,4 +1,5 @@
 import numpy as np
+from numpy.linalg import norm
 EPS = 0.001#WALLSTATUS = True
 class wall():
     def __init__(self, p, q, n, w1, w2, idx, v=True, spaceIn=False, sig=-1, scene=None, array=None):
@@ -72,11 +73,17 @@ class wall():
     def distance(self,P):
         return (P-self.p)@(self.n), (P-self.p)@(self.n)*self.n
 
+    def minVec(self,P):
+        return sorted([P-self.p,P-self.q,self.distance(P)[1]],key=lambda x:norm(x))[0]
+
     def over(self,P):
         return (P-self.q)@(self.p-self.q) > -EPS and (P-self.p)@(self.q-self.p) > -EPS
 
+    def on(self,P,eps=EPS):
+        return self.over(P) and abs(self.distance(P)[0]) < eps
+
     def resetN(self):
-        self.n = np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/np.linalg.norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
+        self.n = np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
 
     def rate(self,p,checkOn=False):
         r = ((p-self.p)@(self.q-self.p)) / ((self.q-self.p)@(self.q-self.p))
@@ -87,11 +94,17 @@ class wall():
         from simple_3dviz import Lines
         return Lines( [ self.p+np.array([0,height,0]), self.q+np.array([0,height,0]) ], colors=colors, width=width )
 
+    def modulateField(self,minVec,config): #field, out
+        return minVec, (minVec@self.n > 0)
+
+    def field(self,sp,config): #field, out
+        return self.modulateField(self.minVec(sp.transl),config)
+
 def two23(a):
     return np.array([a[0],0,a[1]])
 
 class walls(): #Walls[j][2] is z, Walls[j][3] is x
-    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False):
+    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False, cont=None):
         #print(keepEmptyWL)
         if len(Walls)>0: #Walls[j][2] is z, Walls[j][3] is x
             self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scene=scne,array=self) for j in range(len(Walls))]
@@ -103,8 +116,8 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         self.name = name
         self.flex = flex
         self.drawFolder = drawFolder
-
-        self.windoors = {}
+        from .Wndr import wndrs
+        self.windoors = wndrs(self,cont)
 
     def __getitem__(self, idx):
         return self.WALLS[idx]
@@ -177,8 +190,8 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         return sha, nor, ori #nor[:][0] is x, nor[:][1] is z
     
     @classmethod
-    def fromWallsJson(cls,sha,nor,scne): #nor[:][0] is x, nor[:][1] is z
-        return walls(np.array([[sha[i][0],sha[i][1],nor[i][1],nor[i][0]] for i in range(len(sha))]),scne=scne) #Walls[j][2] should be z, Walls[j][3] should be x
+    def fromWallsJson(cls,sha,nor,scne,jsn=None): #nor[:][0] is x, nor[:][1] is z
+        return walls(np.array([[sha[i][0],sha[i][1],nor[i][1],nor[i][0]] for i in range(len(sha))]),scne=scne,cont=cont) #Walls[j][2] should be z, Walls[j][3] should be x
 
     def shape(self):
         from shapely.geometry import Polygon
@@ -189,6 +202,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         return np.concatenate([np.array(sha), np.array(nor)[:,1:], np.array(nor)[:,:1]],axis=0)
 
     def processWithWindoor(self):
+        raise NotImplementedError
         for a in self.windoors:
             o = self.windoors[a]
             if o.class_name() == "door":
@@ -355,17 +369,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         self.WALLS[w1].w2 = ID
         q=self.WALLS[w2].p
         self.WALLS[w2].w1 = ID
-        # print(p)
-        # print(q)
-        # print(p-q)
-        # print((p-q)@(p-q))
-        n = np.cross(self.WALLS[w1].n,np.array([0,1,0])) if (p-q)@(p-q)<0.01 else np.array([p[2]-q[2],0,q[0]-p[0]])/np.linalg.norm(np.array([p[2]-q[2],0,q[0]-p[0]]))
-        # if (p-q)@(p-q)>0.01:
-        #     n = np.array([p[2]-q[2],0,q[0]-p[0]])/np.linalg.norm(np.array([p[2]-q[2],0,q[0]-p[0]]))
-        #     #print(n)
-        # else:
-        #     n = np.cross(self.WALLS[w1].n,np.array([0,1,0]))
-        # print(n)
+        n = np.cross(self.WALLS[w1].n,np.array([0,1,0])) if (p-q)@(p-q)<0.01 else np.array([p[2]-q[2],0,q[0]-p[0]])/norm(np.array([p[2]-q[2],0,q[0]-p[0]]))
         self.WALLS.append(wall(p,q,n,w1,w2,ID,scne=self.scne,array=self))
         return ID
 
@@ -443,12 +447,6 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         return np.array([[min([w.p[0] for w in self.WALLS if w.v]),0,min([w.p[2] for w in self.WALLS if w.v])],
                        [max([w.p[0] for w in self.WALLS if w.v]),3,max([w.p[2] for w in self.WALLS if w.v])]])
 
-    def field():
-        #what about those serial version of Scene Fields?
-        #we can debug with ourself.
-
-        pass
-
     def draw(self,end=False,suffix=".png",color="black"):#print(self)
         from matplotlib import pyplot as plt
         if len([w.idx for w in self.WALLS if w.v]):
@@ -500,3 +498,10 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     def renderable(self):
         return [self.renderable_floor()] + [w.renderable() for w in self.WALLS]
         
+    def optFields(self,sp,config):
+        wo, wi, dr = np.array([0,0,0]), np.array([0,0,0]), self.windoors.optFields(sp,config["door"])
+        for w in self:
+            field, out = w.field(sp,config["wall"])
+            wo,wi = min(field,wo,key=lambda x:norm(x)) if out else wo, min(field,wi,key=lambda x:norm(x)) if not out else wi
+        from shapely.geometry import Point
+        return (np.array([0,0,0]),wi,dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([0,0,0]),dr)

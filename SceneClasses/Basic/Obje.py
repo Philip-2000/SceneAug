@@ -6,7 +6,6 @@ object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
 "Lounge Chair / Cafe Chair / Office Chair", "Classic Chinese Chair", "Dressing Chair", "Dining Chair", "armchair", "Barstool", "Footstool / Sofastool / Bed End Stool / Stool", \
 "Three-seat / Multi-seat Sofa", "Loveseat Sofa", "L-shaped Sofa", "Lazy Sofa", "Chaise Longue Sofa", "Wardrobe", "TV Stand", "Nightstand", \
 "King-size Bed", "Kids Bed", "Bunk Bed", "Single bed", "Bed Frame", "window", "door"]
-
 noOriType = ["Pendant Lamp", "Ceiling Lamp", "Round End Table", "Corner/Side Table", "Barstool", "Footstool / Sofastool / Bed End Stool / Stool", "Nightstand"]
         
 def angleNorm(ori):
@@ -84,7 +83,6 @@ class obje():
         if text:
             plt.text(self.translation[0]-0.15, -self.translation[2]-0.15, ("%d "%(self.nid) if self.nid>-1 else "")+self.class_name()[:min(len(self.class_name()),10)],fontdict={"fontsize":8})
 
-
     def bbox3(self):
         cs = self.corners2()
         return np.array([[cs[:,0].min(),self.translation[1]-self.size[1],cs[:,1].min()],[cs[:,0].max(),self.translation[1]+self.size[1],cs[:,1].max()]])
@@ -109,7 +107,7 @@ class obje():
         self.size = np.array([abs(cnr[0]),(bbox[1][1]-bbox[0][1])/2.0,abs(cnr[2])])
         
     @classmethod
-    def fromObjectJson(cls,oj,idx):
+    def fromObjectJson(cls,oj,idx,scne=None):
         o = cls.fromFlat([0,0,0,0,0,0,0],0)
         o.idx = idx
         #print(oj)
@@ -121,7 +119,7 @@ class obje():
         o.class_label = np.zeros((len(object_types)))
         o.class_label[o.class_index] = 1
         o.modelId = oj["modelId"]
-        
+        o.scne=scne
         return o
 
     def project(self,wid):
@@ -199,12 +197,35 @@ class obje():
         raw_mesh.affine_transform(R=self.matrix(-1), t=self.translation)
         return raw_mesh
 
+    def optimizePhy(self,ss,config,debug=False,ut=True):
+        from .Samp import samps
+        return samps(self,ss,debug)(config,ut)
+        
+    def __add__(self,s):
+        return self.translation+(self.matrix()*(s*self.size)[None,:]).sum(axis=-1)
+
+    def __sub__(self,s):
+        return (self.matrix(-1)*(s-self.translation)[None,:])/self.size
+
+    def optField(self, sp):
+        #啥玩意，这个就是我们那个什么，我昨天费劲巴拉算的那个，行吧
+
+
+        pass
+
 class objes():
     def __init__(self,scene,ce,windoor,scne=None):
-        
+        assert windoor is False
         tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
         self.OBJES=[obje(tr[i]+ce,si[i],oi[i],np.concatenate([cl[i],[0,0]])if windoor else cl[i],idx=i,scne=scne) for i in range(len(tr))]
         self.scne=scne
+    
+    @classmethod
+    def empty(cls,ce=np.array([0,0,0]),windoor=False,scne=None):
+        return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":""},ce,windoor,scne=None)
+
+    def __getitem__(self,cl):
+        return self.OBJES[cl] if type(cl) == int else [o for o in self.OBJES if o.class_name() == cl]
 
     def __len__(self):
         return len(self.OBJES)
@@ -212,13 +233,46 @@ class objes():
     def __str__(self):
         return '\n'.join([str(o) for o in self.OBJES])
     
-    def draw(self):
-        pass
-
+    def draw(self,grp,drawUngroups,d,classText):
+        for i in range(len(self.OBJES)):
+            if (not grp) or drawUngroups or (self[i].gid):
+                self[i].draw(grp,d,text=classText)#corners = OBJES[i].corners2()
+    
+    def renderables(self,scene_render,objects_dataset,no_texture,depth):
+        import seaborn
+        [scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
+        
     def addObject(self,objec):
-        objec.idx = len(self.OBJES)
-        objec.scne = self.scne
+        objec.idx,objec.scne = len(self.OBJES), self.scne
         self.OBJES.append(objec)
+        return objec.idx
+    
+    def exportAsSampleParams(self,c):
+        c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
+        c["sizes"] = np.array([o.size for o in self.OBJES])
+        c["angles"] = np.array([[np.cos(o.orientation),np.sin(o.orientation)] if c["angles"].shape[-1] == 2 else o.orientation for o in self.OBJES])
+        return c
+    
+    def bpt(self):
+        return np.concatenate([o.bpt() for o in self.OBJES],axis=0)
+
+    def toSceneJson(self,rsj):
+        for o in [_ for _ in self.OBJES if _.v]:
+            rsj["objList"].append(o.toObjectJson())
+            if o.class_name().lower() in ["window", "door"]:
+                raise NotImplementedError
+                rsj["blockList"].append(o.toObjectJson())
+        return rsj
+    
+    @classmethod
+    def fromSceneJson(cls,rsj,scene):
+        objects = cls.empty(scne=scene)
+        for oi in range(len(rsj["objList"])):
+            objects.addObject(obje.fromObjectJson(rsj["objList"][oi],oi,scene))
+        for oj in rsj["blockList"]:
+            raise NotImplementedError
+            objects.addObject(obje.fromObjectJson(oj))
+        return objects
 
     def nids(self):
         return set([o.nid for o in self.OBJES])
@@ -230,7 +284,8 @@ class objes():
     def __iter__(self):
         return iter(self.OBJES)
 
-# sc = {"translations":np.array([[0,0,0]]),"sizes":np.array([[0,0,0]]),"angles":np.array([[0]]),"class_labels":np.array([[1,0,0]])}
-# a = objes(sc,np.array([0,0,0]),False)
-# for A in a:
-#     print(A.class_name())
+    def optFields(self,sp,o):
+        return np.array([oo.field(sp) for oo in [_ for _ in self.OBJES if _.idx != o.idx]] ).sum(axis=0)
+
+    def optimizePhy(self,ss,config,debug=False,ut=True):
+        return [o.optimizePhy(ss,config,debug,ut) for o in self.OBJES]

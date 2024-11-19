@@ -1,4 +1,4 @@
-from .Obje import obje, object_types
+from .Obje import obje, object_types,objes
 from ..Semantic.Link import objLink,walLink
 from .Wall import wall,walls
 from ..Semantic.Grup import grup
@@ -17,23 +17,22 @@ class scne():
         self.scene_uid = str(scene["scene_uid"]) if "scene_uid" in scene else ""
         rs = [r for r in ["Bedroom","KidsRoom", "ElderlyRoom", "LivingDiningRoom", "LivingRoom", "DiningRoom", "Library"] if self.scene_uid.find(r) > -1]
         self.roomType = "Room" if len(rs)==0 else rs[0]
-        tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
-        #firstly, store those objects and walls into the WALLS and OBJES
         ce = scene["floor_plan_centroid"] if cen else np.array([0,0,0])
         c_e= np.array([0,0,0]) if (cen) or (not (wl or windoor)) else scene["floor_plan_centroid"]
         self.grp = grp
         self.imgDir = imgDir
 
-        self.OBJES=[obje(tr[i]+ce,si[i],oi[i],np.concatenate([cl[i],[0,0]])if windoor else cl[i],idx=i,scne=self) for i in range(len(tr))]
-
+        self.OBJES=objes(scene,ce,windoor,self)
+        
         self.roomMask = scene["room_layout"][0] if rmm else np.zeros((64,64))
         self.rmm=rmm
         self.GRUPS=[]
         if grp:
-            grops = np.ones(tr.shape[0]) if scene["grops"] is None else scene["grops"]
+            grops = np.ones(len(self.OBJES)) if scene["grops"] is None else scene["grops"]
             self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":irt},j+1,scne=self) for j in range(int(max(grops)))]
         
         if windoor:
+            raise NotImplementedError
             widos = scene["widos"]
             for k in range(len(widos)):
                 oii = np.array([np.math.atan2(widos[k][-1],widos[k][-2])])
@@ -50,8 +49,8 @@ class scne():
         self.plan = None # a object: self.plan = ..Operation.Plan.plan(scene=self,pm=???)
 
     def __getitem__(self,cl):
-        return self.OBJES[cl] if type(cl) == int else [o for o in self.OBJES if o.class_name() == cl]
-
+        return self.OBJES[cl]
+        
     @classmethod
     def empty(cls,nm="",keepEmptyWL=False):
         return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":nm},rmm=False,keepEmptyWL=keepEmptyWL)
@@ -63,9 +62,7 @@ class scne():
         return a
 
     def addObject(self,objec):
-        objec.idx = len(self.OBJES)
-        objec.scne = self
-        self.OBJES.append(objec)
+        return self.OBJES.addObject(objec)
 
     def registerWalls(self,wls):
         for w in wls.WALLS:
@@ -82,27 +79,16 @@ class scne():
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=False):
         plt.figure(figsize=(10, 8))
         self.SPCES.draw(dr=False)
-        # for i in range(len(self.SPCES)):
-        #     self.SPCES[i].draw()
 
         if self.grp:
             for i in range(len(self.GRUPS)):
                 self.GRUPS[i].draw()
-                
-        for i in range(len(self.OBJES)):
-            if (not self.grp) or drawUngroups or (self.OBJES[i].gid):
-                self.OBJES[i].draw(self.grp,d,text=classText)#corners = OBJES[i].corners2()
-    
+
+        self.OBJES.draw(self.grp, drawUngroups,d,classText)        
+        
         if drawWall and len(self.WALLS):
             self.WALLS.draw()
-            # J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
-            # contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2
-            # while w != 0:
-            #     contour.append([self.WALLS[w].p[0],self.WALLS[w].p[2]])
-            #     w = self.WALLS[w].w2
-            # contour = np.array(contour)
-            # plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color="black")
-        plt.axis('equal')
+            plt.axis('equal')
 
         for li in self.LINKS:
             li.draw()
@@ -121,9 +107,7 @@ class scne():
             self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
     def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0):     #class top2down():
-        import seaborn as sns                                               #   def __init__(self): self.renderables=[]
-        for o in [_ for _ in self.OBJES if _.v]:                            #   def add(self,a): self.renderables.append(a)
-            scene_render.add(o.renderable(objects_dataset, np.array(sns.color_palette('hls', len(object_types)-2)), no_texture,depth))
+        self.OBJES.renderables(scene_render,objects_dataset,no_texture,depth)
         scene_render.add(self.WALLS.renderable_floor(depth=depth)) #depth is positive
         [scene_render.add(w.renderable(height=height)) for w in self.WALLS]
         return scene_render.renderables
@@ -168,9 +152,7 @@ class scne():
         
     def exportAsSampleParams(self):
         c = copy(self.copy)
-        c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
-        c["sizes"] = np.array([o.size for o in self.OBJES])
-        c["angles"] = np.array([[np.cos(o.orientation),np.sin(o.orientation)] for o in self.OBJES]) if c["angles"].shape[-1] == 2 else np.array([o.orientation for o in self.OBJES])
+        c = self.OBJES.exportAsSampleParams(c)
         c["room_layout"] = self.roomMask[None,:]
         if len(self.WALLS)>0:
             c["walls"] = []
@@ -191,8 +173,8 @@ class scne():
         pass
     
     def bpt(self):
-        return np.concatenate([o.bpt() for o in self.OBJES],axis=0)
-
+        return self.OBJES.bpt()
+    
     def toSceneJson(self, roomType=None):
         sj = {"origin": self.scene_uid, "id": self.scene_uid,"bbox": {"min": [0,0,0], "max": [0,0,0]},"up": [0,1,0], "front": [0,0,1], "rooms":[]}
         #load the room
@@ -203,14 +185,7 @@ class scne():
             "objList":[],"blockList":[],"roomShape":[],"roomNorm":[],"roomOrient":[]
             }
         
-        for o in self.OBJES:
-            if o.v:
-                rsj["objList"].append(o.toObjectJson())
-                if o.class_name().lower() in ["window", "door"]:
-                    rsj["blockList"].append(o.toObjectJson())
-        
-        #for o in self.OBJES:
-
+        rsj = self.OBJES.toSceneJson(rsj)
         rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = self.WALLS.toWallsJson()
         if len([w for w in self.WALLS if w.v]) > 0:
             bb = self.WALLS.bbox()
@@ -225,14 +200,7 @@ class scne():
         scene = cls.empty(keepEmptyWL=True)
         scene.scene_uid = sj["id"]
         rsj = sj["rooms"][0]
-
-        for oi in range(len(rsj["objList"])):
-            scene.OBJES.append(obje.fromObjectJson(rsj["objList"][oi],oi))
-        
-        for oj in rsj["blockList"]:
-            if False:
-                scene.OBJES.append(obje.fromObjectJson(oj))
-
+        scene.OBJES = objes.fromSceneJson(rsj,scene)
         scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"],scene)
         return scene
 
@@ -254,26 +222,22 @@ class scne():
         return cls(sceneDict,**kwargs)
 
     def objectView(self,id,bd=100000,scl=False,maxDis=100000):
-        newOBJES = [self.OBJES[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
+        newOBJES = [self[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
         return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
-        newOBJES = [self.OBJES[id].rela(o) for o in self.OBJES if (o.idx != id)] # and not(o.class_name() in noPatternType)
-        newOBJES = sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
-        return [o for o in newOBJES if (o.nid == -1 and (o.translation**2).sum() < maxDis)]
 
     def nids(self):
-        return set([o.nid for o in self.OBJES])
-
+        return self.OBJES.nids()
+    
     def searchNid(self, nid, sig=True):
-        s = [o for o in self.OBJES if o.nid == nid]
-        return (s[0] if sig else s) if len(s)>0 else None
-
+        return self.OBJES.searchNid(nid,sig)
+        
     def outOfBoundaries(self): #intersect area,  object occupied area in total,  room area
         contour = self.WALLS.shape()
         return sum([o.shape().area-contour.intersection(o.shape()).area for o in self.OBJES]), sum([o.shape().area for o in self.OBJES]), contour.area
 
 import tqdm
 class scneDs():
-    def __init__(self,name="../novel3DFront",lst=[],prepare="uncond",num=8,_dataset=[],**kwargs):#print(kwargs)
+    def __init__(self,name="../novel3DFront/",lst=[],prepare="uncond",num=8,_dataset=[],**kwargs):#print(kwargs)
         from numpy.random import choice
         self.name,self._dataset = name, []
         if prepare=="uncond":
@@ -357,7 +321,7 @@ class scneDs():
             self._dataset.append(scene)
 
     def synthesis(self,syth,cond,T):
-        from .Syth import agmt,gnrt,copl,rarg
+        from ..Operation.Syth import agmt,gnrt,copl,rarg
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("%s-%s, %s "%(syth,cond,self._dataset[i].scene_uid[:20]))

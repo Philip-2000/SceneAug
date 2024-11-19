@@ -25,9 +25,8 @@ class agmt():
     
         result,logs = [],[]
         for _ in range(cnt):
-            if cnt > 1:
-                scene = copy(self.scene)
-                scene.scene_uid = scene.scene_uid+str(_)
+            scene = copy(self.scene)
+            scene.scene_uid = scene.scene_uid+str(_)
             os.makedirs(scene.imgDir,exist_ok=True)
             if len(scene.GRUPS) == 1:
                 l  = (R(3,)-0.5)*cdev

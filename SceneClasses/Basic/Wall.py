@@ -23,12 +23,48 @@ class wall():
         self.scne=scene
         self.array=array#scne.WALLS if scne is not None else array#return WALLSTATUS
         
+    #region: in/outputs---------#
+
+        #region: presentation---#
     def __str__(self):
         return (" " if self.v else "              ")+str(self.w1)+"<-"+str(self.idx)+"->"+str(self.w2)+"\t"+str(self.p)+"\t"+str(self.q)+"\t"+str(self.n)
 
+    def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5):
+        from simple_3dviz import Lines
+        return Lines( [ self.p+np.array([0,height,0]), self.q+np.array([0,height,0]) ], colors=colors, width=width )
+        
+        #endregion: presentation#
+    
+    #endregion: in/outputs------#
+
+    #region: properties---------#
+    def distance(self,P):
+        return (P-self.p)@(self.n), (P-self.p)@(self.n)*self.n
+
+    def minVec(self,P):
+        return sorted([P-self.p,P-self.q,self.distance(P)[1]],key=lambda x:norm(x))[0]
+
+    def over(self,P):
+        return (P-self.q)@(self.p-self.q) > -EPS and (P-self.p)@(self.q-self.p) > -EPS
+
+    def on(self,P,eps=EPS):
+        return self.over(P) and abs(self.distance(P)[0]) < eps
+
+    def resetN(self):
+        self.n = np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
+
+    def rate(self,p,checkOn=False):
+        r = ((p-self.p)@(self.q-self.p)) / ((self.q-self.p)@(self.q-self.p))
+        assert (not checkOn) or (abs((p-self.p)@self.n)<EPS and 0<=r and r<=1)
+        return r
+
     def lengthh(self):
         self.length=(((self.p-self.q)**2).sum())**0.5
+    #endregion: properties------#
 
+    #region: operations---------#
+
+        #region: movement-------#
     def mWall(self,L): 
         oldp = np.copy(self.p)
         self.p += self.n*L
@@ -69,40 +105,21 @@ class wall():
 
         for i in self.linkIndex:
             self.scne.LINKS[i].modify(oldp, oldq, oldn)
-    
-    def distance(self,P):
-        return (P-self.p)@(self.n), (P-self.p)@(self.n)*self.n
+        #endregion: movement----#
 
-    def minVec(self,P):
-        return sorted([P-self.p,P-self.q,self.distance(P)[1]],key=lambda x:norm(x))[0]
-
-    def over(self,P):
-        return (P-self.q)@(self.p-self.q) > -EPS and (P-self.p)@(self.q-self.p) > -EPS
-
-    def on(self,P,eps=EPS):
-        return self.over(P) and abs(self.distance(P)[0]) < eps
-
-    def resetN(self):
-        self.n = np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
-
-    def rate(self,p,checkOn=False):
-        r = ((p-self.p)@(self.q-self.p)) / ((self.q-self.p)@(self.q-self.p))
-        assert (not checkOn) or (abs((p-self.p)@self.n)<EPS and 0<=r and r<=1)
-        return r
-
-    def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5):
-        from simple_3dviz import Lines
-        return Lines( [ self.p+np.array([0,height,0]), self.q+np.array([0,height,0]) ], colors=colors, width=width )
-
+        #region: optFields----------#
     def modulateField(self,minVec,config): #field, out
         return minVec, (minVec@self.n > 0)
 
     def field(self,sp,config): #field, out
         return self.modulateField(self.minVec(sp.transl),config)
+        #endregion: optFields-------#
+
+    #endregion: operations------#
+
 
 def two23(a):
     return np.array([a[0],0,a[1]])
-
 class walls(): #Walls[j][2] is z, Walls[j][3] is x
     def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False, cont=None):
         #print(keepEmptyWL)
@@ -119,17 +136,21 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         from .Wndr import wndrs
         self.windoors = wndrs(self,cont)
 
+    #region: magics--------------#
     def __getitem__(self, idx):
         return self.WALLS[idx]
 
     def __len__(self):
         return len(self.WALLS)
 
-    def __str__(self):
-        return '\n'.join([str(w) for w in self.WALLS])
-
     def __iter__(self):
         return iter(self.WALLS)
+    #endregion: magics-----------#
+    
+    #region：in/outputs----------#
+        #region: inputs----------#
+    def __str__(self):
+        return '\n'.join([str(w) for w in self.WALLS])
 
     @classmethod
     def fromLog(cls,f,name="",drawFolder=""):
@@ -177,6 +198,23 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         a.processWithWindoor()
         return a
     
+    @classmethod
+    def fromWallsJson(cls,sha,nor,scne,jsn=None): #nor[:][0] is x, nor[:][1] is z
+        return walls(np.array([[sha[i][0],sha[i][1],nor[i][1],nor[i][0]] for i in range(len(sha))]),scne=scne,cont=cont) #Walls[j][2] should be z, Walls[j][3] should be x
+        #endregion: inputs-------#
+
+        #region: presentation----#
+    def exportAsSampleParams(self):
+        c = []
+        if len(self.WALLS)>0:
+            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
+            I = self.WALLS[J].w2
+            while I != J:
+                I = self.WALLS[I].w2
+                assert self.WALLS[I].v
+                c.append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
+        return np.array(c)
+    
     def toWallsJson(self):#nor[:][0] is x, nor[:][1] is z
         sha,nor,ori = [],[],[]
         if len([w.idx for w in self.WALLS if w.v]):
@@ -189,10 +227,60 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 w = self.WALLS[w].w2
         return sha, nor, ori #nor[:][0] is x, nor[:][1] is z
     
-    @classmethod
-    def fromWallsJson(cls,sha,nor,scne,jsn=None): #nor[:][0] is x, nor[:][1] is z
-        return walls(np.array([[sha[i][0],sha[i][1],nor[i][1],nor[i][0]] for i in range(len(sha))]),scne=scne,cont=cont) #Walls[j][2] should be z, Walls[j][3] should be x
+    def draw(self,end=False,suffix=".png",color="black"):#print(self)
+        from matplotlib import pyplot as plt
+        if len([w.idx for w in self.WALLS if w.v]):
+            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
+            contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2
+            while w != J:
+                contour.append([self.WALLS[w].p[0],self.WALLS[w].p[2]])
+                w = self.WALLS[w].w2
+            contour = np.array(contour)
+            plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color=color)
+            [self.windoors[o].draw() for o in self.windoors]
+            if end and self.drawFolder:
+                plt.axis('equal')
+                L = max(self.LH())
+                plt.xlim(-self.flex*L,self.flex*L)
+                plt.ylim(-self.flex*L,self.flex*L)
+                plt.savefig(self.drawFolder+self.name+suffix)
+                plt.clf()
 
+    def writeLog(self):
+        with open(self.drawFolder+self.name+".txt","w") as f:
+            [f.write(str(l)) for l in self.LOGS]
+        
+    def output(self):
+        self.draw(True)
+        self.writeLog()
+
+    def draftRoomMask(self,sz=64,rt=25.):
+        from PIL import Image,ImageDraw
+        img = Image.new("L",(sz,sz)) 
+        img1 = ImageDraw.Draw(img)  
+        img1.polygon([ (w.p[0]*rt+(sz>>1), w.p[2]*rt+(sz>>1)) for w in self.WALLS], fill ="white")  
+        self.scne.roomMask = np.array(img).astype(np.float32)
+        return img.load() #self.scne.roomMask,
+
+    def renderable_floor(self,depth=0):
+        from simple_3dviz import Lines
+        sz,rt = 192, 25.
+        pixels,points = self.draftRoomMask(sz*2+1,rt),[]
+        for i in range(-sz,sz+1):
+            out = True #
+            for j in range(-sz,sz+1):
+                if (pixels[i+sz,j+sz] < 0.9) ^ out:
+                    points.append([i/rt, -depth, j/rt])#print("%.3f, %.3f"%(i/rt,j/rt))
+                    out = not out
+            assert out
+        return Lines(points,colors=(1,1,1,1),width=5/rt)
+    
+    def renderable(self):
+        return [self.renderable_floor()] + [w.renderable() for w in self.WALLS]
+        #endregion: presentation-#
+    #endregion: in/outputs-------#
+
+    #region: bullshits-----------#
     def shape(self):
         from shapely.geometry import Polygon
         return Polygon(self.toWallsJson()[0])
@@ -446,58 +534,9 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     def bbox(self):
         return np.array([[min([w.p[0] for w in self.WALLS if w.v]),0,min([w.p[2] for w in self.WALLS if w.v])],
                        [max([w.p[0] for w in self.WALLS if w.v]),3,max([w.p[2] for w in self.WALLS if w.v])]])
+    #endregion: bullshits--------#
 
-    def draw(self,end=False,suffix=".png",color="black"):#print(self)
-        from matplotlib import pyplot as plt
-        if len([w.idx for w in self.WALLS if w.v]):
-            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
-            contour,w =[[self.WALLS[J].p[0],self.WALLS[J].p[2]]], self.WALLS[J].w2
-            while w != J:
-                contour.append([self.WALLS[w].p[0],self.WALLS[w].p[2]])
-                w = self.WALLS[w].w2
-            contour = np.array(contour)
-            plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color=color)
-            [self.windoors[o].draw() for o in self.windoors]
-            if end and self.drawFolder:
-                plt.axis('equal')
-                L = max(self.LH())
-                plt.xlim(-self.flex*L,self.flex*L)
-                plt.ylim(-self.flex*L,self.flex*L)
-                plt.savefig(self.drawFolder+self.name+suffix)
-                plt.clf()
-
-    def writeLog(self,):
-        with open(self.drawFolder+self.name+".txt","w") as f:
-            [f.write(str(l)) for l in self.LOGS]
-        
-    def output(self):
-        self.draw(True)
-        self.writeLog()
-
-    def draftRoomMask(self,sz=64,rt=25.):
-        from PIL import Image,ImageDraw
-        img = Image.new("L",(sz,sz)) 
-        img1 = ImageDraw.Draw(img)  
-        img1.polygon([ (w.p[0]*rt+(sz>>1), w.p[2]*rt+(sz>>1)) for w in self.WALLS], fill ="white")  
-        self.scne.roomMask = np.array(img).astype(np.float32)
-        return img.load() #self.scne.roomMask,
-
-    def renderable_floor(self,depth=0):
-        from simple_3dviz import Lines
-        sz,rt = 192, 25.
-        pixels,points = self.draftRoomMask(sz*2+1,rt),[]
-        for i in range(-sz,sz+1):
-            out = True #
-            for j in range(-sz,sz+1):
-                if (pixels[i+sz,j+sz] < 0.9) ^ out:
-                    points.append([i/rt, -depth, j/rt])#print("%.3f, %.3f"%(i/rt,j/rt))
-                    out = not out
-            assert out
-        return Lines(points,colors=(1,1,1,1),width=5/rt)
-    
-    def renderable(self):
-        return [self.renderable_floor()] + [w.renderable() for w in self.WALLS]
-        
+    #region: optFields-----------#
     def optFields(self,sp,config):
         wo, wi, dr = np.array([0,0,0]), np.array([0,0,0]), self.windoors.optFields(sp,config["door"])
         for w in self:
@@ -505,3 +544,4 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
             wo,wi = min(field,wo,key=lambda x:norm(x)) if out else wo, min(field,wi,key=lambda x:norm(x)) if not out else wi
         from shapely.geometry import Point
         return (np.array([0,0,0]),wi,dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([0,0,0]),dr)
+    #endregion: optFields--------#

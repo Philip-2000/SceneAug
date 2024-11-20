@@ -209,6 +209,39 @@ class obje():
 
     def optField(self, sp):
         #啥玩意，这个就是我们那个什么，我昨天费劲巴拉算的那个，行吧
+        #而且这个和物体类别相关的包围盒需要我们这个物体本身去理解。根据self.class_name()来理解。
+        #对。你妈的。
+        #操，真他妈好玩卧槽
+        #而且还需要坐标变换，变换到自己坐标下
+        #哈哈哈，当时写个pytorch怎么不用想这么多费劲的事情呢
+
+        a =-sp.radial[0]
+        c =-sp.radial[2]
+        X = sp.transl[0]
+        Z = sp.transl[2]
+        
+
+        #what?
+        #transform the sp.transl into self's world
+        # as [X,0,Z]
+
+        #transform the -sp.radial into self's world
+        # as [A,0,C]
+
+        #calculate the field with formulation in self's world
+
+        #the result will be what?
+
+        # √(A²+C² - (AZ+CX)²) -AX -CZ
+        #----------------------------------- [A,0,C]
+        #            A²+C²
+
+        #as [F,0,H]
+
+        #transform this field back into the world
+        #as [f,0,h]
+        #field(sp.transl,sp.radial) = [f,0,h]
+
 
 
         pass

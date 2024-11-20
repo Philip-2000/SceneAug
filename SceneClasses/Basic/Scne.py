@@ -1,5 +1,4 @@
-from .Obje import obje, object_types,objes
-from ..Semantic.Link import objLink,walLink
+from .Obje import obje,objes
 from .Wall import wall,walls
 from ..Semantic.Grup import grup
 from ..Semantic.Spce import spces
@@ -48,18 +47,38 @@ class scne():
         self.SPCES = spces(self)#[]
         self.plan = None # a object: self.plan = ..Operation.Plan.plan(scene=self,pm=???)
 
-    def __getitem__(self,cl):
-        return self.OBJES[cl]
-        
+    #region：in/outputs----------#
+
+        #region: inputs----------#
     @classmethod
     def empty(cls,nm="",keepEmptyWL=False):
         return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":nm},rmm=False,keepEmptyWL=keepEmptyWL)
 
     @classmethod
-    def fromDict(cls, dct): #json.load(open(f,"r"))
-        a = cls.empty()
-        a.__dict__.update(dct)
-        return a
+    def fromSceneJson(cls,sj):
+        scene = cls.empty(keepEmptyWL=True)
+        scene.scene_uid = sj["id"]
+        rsj = sj["rooms"][0]
+        scene.OBJES = objes.fromSceneJson(rsj,scene)
+        scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"],scene)
+        return scene
+
+    @classmethod
+    def fromNpzs(cls,boxes=None,contours=None,conts=None,grops=None,load=True,name=None,dir="../novel3DFront/",**kwargs):
+        if load:
+            dn = dir+name
+            boxes = np.load(dn+"/boxes.npz")
+            contours = np.load(dn+"/contours.npz")["contour"] if os.path.exists(dn+"/contours.npz") else None
+            conts = np.load(dn+"/conts.npz")["cont"] if os.path.exists(dn+"/conts.npz") else None
+            grops = np.load(dn+"/group.npz")["group"] if os.path.exists(dn+"/group.npz") else None
+        sceneDict = {"room_layout":np.zeros((1,64,64)).astype(np.uint8),"walls":contours,"widos":conts,"grops":grops,
+            "translations":boxes["translations"],"sizes":boxes["sizes"],"angles":boxes["angles"],"class_labels":boxes["class_labels"],
+            "floor_plan_centroid":boxes["floor_plan_centroid"],"scene_uid":boxes["scene_uid"]}
+        kwargs["grp"] = (grops is not None) and ("grp" in kwargs and kwargs["grp"])
+        kwargs["wl"] = (contours is not None) and ("wl" in kwargs and kwargs["wl"])
+        kwargs["windoor"] = (conts is not None) and ("windoor" in kwargs and kwargs["windoor"])#print(kwargs)
+
+        return cls(sceneDict,**kwargs)
 
     def addObject(self,objec):
         return self.OBJES.addObject(objec)
@@ -75,6 +94,9 @@ class scne():
             s.scne=self
         sps.scne=self
         self.SPCES = sps
+        #endregion: inputs-------#
+
+        #region: presentation----#
 
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=False):
         plt.figure(figsize=(10, 8))
@@ -106,12 +128,76 @@ class scne():
         if drawRoomMask:
             self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
+    def drawRoomMask(self,maskTitle=""):
+        Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
+
     def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0):     #class top2down():
         self.OBJES.renderables(scene_render,objects_dataset,no_texture,depth)
         scene_render.add(self.WALLS.renderable_floor(depth=depth)) #depth is positive
         [scene_render.add(w.renderable(height=height)) for w in self.WALLS]
         return scene_render.renderables
 
+    def exportAsSampleParams(self):
+        c = copy(self.copy)
+        c = self.OBJES.exportAsSampleParams(c)
+        c["room_layout"] = self.roomMask[None,:]
+        c["walls"] = self.WALLS.exportAsSampleParams()
+        return c
+
+    def bpt(self):
+        return self.OBJES.bpt()
+    
+    def toSceneJson(self, roomType=None):
+        sj = {"origin": self.scene_uid, "id": self.scene_uid,"bbox": {"min": [0,0,0], "max": [0,0,0]},"up": [0,1,0], "front": [0,0,1], "rooms":[]}
+        #load the room
+
+        rsj = {"id": self.scene_uid+"_0" if self.scene_uid else "0",
+            "modelId": self.scene_uid,"roomTypes": [roomType],"origin": self.scene_uid,"roomId": 0,
+            "bbox": {"min":[1000,1000,1000],"max":[-1000,-1000,-1000]},
+            "objList":[],"blockList":[],"roomShape":[],"roomNorm":[],"roomOrient":[]
+            }
+        
+        rsj = self.OBJES.toSceneJson(rsj)
+        rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = self.WALLS.toWallsJson()
+        if len([w for w in self.WALLS if w.v]) > 0:
+            bb = self.WALLS.bbox()
+            rsj["bbox"] = {"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]}
+
+        sj["bbox"] = rsj["bbox"]
+        sj["rooms"].append(rsj)
+        return sj
+
+        #endregion: presentation-#
+
+    #endregion: in/outputs-------#
+
+    #region: interfaces----------#
+    def __getitem__(self,cl):
+        return self.OBJES[cl]
+       
+    def __call__(self,wi):
+        return self.WALLS[wi]
+
+    def nids(self):
+        return self.OBJES.nids()
+    
+    def searchNid(self, nid, sig=True):
+        return self.OBJES.searchNid(nid,sig)
+    #endregion: interfaces-------#
+
+    #region: others--------------#
+    def objectView(self,id,bd=100000,scl=False,maxDis=100000):
+        newOBJES = [self[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
+        return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
+    #endregion: others-----------#
+
+    #region: properties----------#
+    def outOfBoundaries(self): #intersect area,  object occupied area in total,  room area
+        contour = self.WALLS.shape()
+        return sum([o.shape().area-contour.intersection(o.shape()).area for o in self.OBJES]), sum([o.shape().area for o in self.OBJES]), contour.area
+    #endregion: properties-------#
+
+    #region: operations----------#
     def breakWall(self,id,rate):
         #load all the links of 
         
@@ -138,9 +224,6 @@ class scne():
         self.WALLS[id].q = np.copy(cutP)
         self.WALLS[id].w2= A
 
-    def drawRoomMask(self,maskTitle=""):
-        Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
-
     def draftRoomMask(self):
         L = self.roomMask.shape[-1]
         img = Image.new("L",(L,L))  
@@ -149,91 +232,7 @@ class scne():
             img1.rectangle(g.imgSpaceBbox(), fill ="white",outline="gray",width=2)
         img1.line([((L>>1,L>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()),self.GRUPS[0].imgSpaceCe()],fill ="white",width=15)
         self.roomMask = np.array(img).astype(np.float32)
-        
-    def exportAsSampleParams(self):
-        c = copy(self.copy)
-        c = self.OBJES.exportAsSampleParams(c)
-        c["room_layout"] = self.roomMask[None,:]
-        if len(self.WALLS)>0:
-            c["walls"] = []
-            J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
-            I = self.WALLS[J].w2
-            while I != J:
-                I = self.WALLS[I].w2
-                assert self.WALLS[I].v
-                c["walls"].append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
-            c["walls"] = np.array(c["walls"])
-        return c
-
-    def areaField():
-        pass
-
-    def recommendedWalls(self):
-        #we are going 
-        pass
-    
-    def bpt(self):
-        return self.OBJES.bpt()
-    
-    def toSceneJson(self, roomType=None):
-        sj = {"origin": self.scene_uid, "id": self.scene_uid,"bbox": {"min": [0,0,0], "max": [0,0,0]},"up": [0,1,0], "front": [0,0,1], "rooms":[]}
-        #load the room
-
-        rsj = {"id": self.scene_uid+"_0" if self.scene_uid else "0",
-            "modelId": self.scene_uid,"roomTypes": [roomType],"origin": self.scene_uid,"roomId": 0,
-            "bbox": {"min":[1000,1000,1000],"max":[-1000,-1000,-1000]},
-            "objList":[],"blockList":[],"roomShape":[],"roomNorm":[],"roomOrient":[]
-            }
-        
-        rsj = self.OBJES.toSceneJson(rsj)
-        rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = self.WALLS.toWallsJson()
-        if len([w for w in self.WALLS if w.v]) > 0:
-            bb = self.WALLS.bbox()
-            rsj["bbox"] = {"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]}
-
-        sj["bbox"] = rsj["bbox"]
-        sj["rooms"].append(rsj)
-        return sj
-
-    @classmethod
-    def fromSceneJson(cls,sj):
-        scene = cls.empty(keepEmptyWL=True)
-        scene.scene_uid = sj["id"]
-        rsj = sj["rooms"][0]
-        scene.OBJES = objes.fromSceneJson(rsj,scene)
-        scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"],scene)
-        return scene
-
-    @classmethod
-    def fromNpzs(cls,boxes=None,contours=None,conts=None,grops=None,load=True,name=None,dir="../novel3DFront/",**kwargs):
-        if load:
-            dn = dir+name
-            boxes = np.load(dn+"/boxes.npz")
-            contours = np.load(dn+"/contours.npz")["contour"] if os.path.exists(dn+"/contours.npz") else None
-            conts = np.load(dn+"/conts.npz")["cont"] if os.path.exists(dn+"/conts.npz") else None
-            grops = np.load(dn+"/group.npz")["group"] if os.path.exists(dn+"/group.npz") else None
-        sceneDict = {"room_layout":np.zeros((1,64,64)).astype(np.uint8),"walls":contours,"widos":conts,"grops":grops,
-            "translations":boxes["translations"],"sizes":boxes["sizes"],"angles":boxes["angles"],"class_labels":boxes["class_labels"],
-            "floor_plan_centroid":boxes["floor_plan_centroid"],"scene_uid":boxes["scene_uid"]}
-        kwargs["grp"] = (grops is not None) and ("grp" in kwargs and kwargs["grp"])
-        kwargs["wl"] = (contours is not None) and ("wl" in kwargs and kwargs["wl"])
-        kwargs["windoor"] = (conts is not None) and ("windoor" in kwargs and kwargs["windoor"])#print(kwargs)
-
-        return cls(sceneDict,**kwargs)
-
-    def objectView(self,id,bd=100000,scl=False,maxDis=100000):
-        newOBJES = [self[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
-        return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
-
-    def nids(self):
-        return self.OBJES.nids()
-    
-    def searchNid(self, nid, sig=True):
-        return self.OBJES.searchNid(nid,sig)
-        
-    def outOfBoundaries(self): #intersect area,  object occupied area in total,  room area
-        contour = self.WALLS.shape()
-        return sum([o.shape().area-contour.intersection(o.shape()).area for o in self.OBJES]), sum([o.shape().area for o in self.OBJES]), contour.area
+    #endregion: operations-------#
 
 import tqdm
 class scneDs():
@@ -253,7 +252,7 @@ class scneDs():
             self._dataset = _dataset
         else:
             raise NotImplementedError
-
+    #region: magics---------------#
     def __len__(self):
         return len(self._dataset)
 
@@ -262,7 +261,10 @@ class scneDs():
 
     def __getitem__(self, idx):
         return self._dataset[idx]
+    #endregion: magics------------#
     
+    #region: in/outputs-----------#
+        #region: inputs-----------#
     def load(self,LST,name="",num=8,**kwargs):
         import json
         pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
@@ -277,13 +279,19 @@ class scneDs():
                 pbar.set_description("empty scene %s "%(i))
                 scene = scne.empty(str(i))
             self._dataset.append(scene)
-    
+        #endregion: inputs--------#
+        
+        #region: outputs----------#
     def save(self,dir):
         import json
         for s in self._dataset:
             os.makedirs(os.path.join(dir,s.scene_uid),exist_ok=True)
             open(os.path.join(dir,s.scene_uid,'scene.json'),"w").write(json.dumps(s.toSceneJson())) #raise NotImplementedError#break
-
+        #endregion: outputs-------#
+        
+    #endregion: in/outputs--------#
+    
+    #region: preparing------------#
     def prepareTextCond(self,LST,name="",num=8,**kwargs):
         import json
         pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
@@ -319,7 +327,9 @@ class scneDs():
                 scene = scne.empty(str(i),keepEmptyWL=False)
                 scene.WALLS.randomWalls()
             self._dataset.append(scene)
+    #endregion: preparing---------#
 
+    #region: operation------------#
     def synthesis(self,syth,cond,T):
         from ..Operation.Syth import agmt,gnrt,copl,rarg
         pbar = tqdm.tqdm(range(len(self)))
@@ -484,3 +494,5 @@ class scneDs():
             elif t == "CONDVAR":
                 res.append(condVars[0]) #should we output the variety of two level conditions? or more level? and how?
         return res
+    
+    #endregion: operation---------#

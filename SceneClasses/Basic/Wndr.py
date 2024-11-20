@@ -19,7 +19,7 @@ class wndr():
             self.center= np.array([0,y,0])+rate*self.w.q+(1-rate)*self.w.p
             raise NotImplementedError
 
-    def field(self,sp):
+    def field(self,sp,config):
         return np.array([0,0,0])
 
 class widw(wndr): #暂时没啥用

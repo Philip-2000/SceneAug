@@ -121,7 +121,7 @@ class wall():
 def two23(a):
     return np.array([a[0],0,a[1]])
 class walls(): #Walls[j][2] is z, Walls[j][3] is x
-    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False, cont=None):
+    def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False, cont=[]):
         #print(keepEmptyWL)
         if len(Walls)>0: #Walls[j][2] is z, Walls[j][3] is x
             self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scene=scne,array=self) for j in range(len(Walls))]
@@ -199,8 +199,8 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         return a
     
     @classmethod
-    def fromWallsJson(cls,sha,nor,scne,jsn=None): #nor[:][0] is x, nor[:][1] is z
-        return walls(np.array([[sha[i][0],sha[i][1],nor[i][1],nor[i][0]] for i in range(len(sha))]),scne=scne,cont=cont) #Walls[j][2] should be z, Walls[j][3] should be x
+    def fromWallsJson(cls,sha,nor,scne,jsn=[]): #nor[:][0] is x, nor[:][1] is z
+        return walls(np.array([[sha[i][0],sha[i][1],nor[i][1],nor[i][0]] for i in range(len(sha))]),scne=scne,cont=jsn) #Walls[j][2] should be z, Walls[j][3] should be x
         #endregion: inputs-------#
 
         #region: presentation----#
@@ -215,7 +215,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 c.append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
         return np.array(c)
     
-    def toWallsJson(self):#nor[:][0] is x, nor[:][1] is z
+    def toWallsJson(self,rsj):#nor[:][0] is x, nor[:][1] is z
         sha,nor,ori = [],[],[]
         if len([w.idx for w in self.WALLS if w.v]):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
@@ -225,7 +225,9 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 nor.append([float(self.WALLS[w].n[0]),float(self.WALLS[w].n[2])])
                 ori.append(float(np.math.atan2(self.WALLS[J].n[0],self.WALLS[J].n[2])))
                 w = self.WALLS[w].w2
-        return sha, nor, ori #nor[:][0] is x, nor[:][1] is z
+        rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = sha, nor, ori
+        rsj["blockList"] = self.windoors.toBlocksJson()
+        return rsj #nor[:][0] is x, nor[:][1] is z
     
     def draw(self,end=False,suffix=".png",color="black"):#print(self)
         from matplotlib import pyplot as plt

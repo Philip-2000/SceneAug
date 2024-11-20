@@ -30,8 +30,7 @@ class scne():
             grops = np.ones(len(self.OBJES)) if scene["grops"] is None else scene["grops"]
             self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":irt},j+1,scne=self) for j in range(int(max(grops)))]
         
-        if windoor:
-            raise NotImplementedError
+        if windoor and False:
             widos = scene["widos"]
             for k in range(len(widos)):
                 oii = np.array([np.math.atan2(widos[k][-1],widos[k][-2])])
@@ -42,7 +41,7 @@ class scne():
 
         #obje(t,s,o,c,i)
         #wall(p,q,n,w1,w2)
-        self.WALLS = walls(scene["walls"] if wl else [], c_e, self, keepEmptyWL=keepEmptyWL)
+        self.WALLS = walls(scene["walls"] if wl else [], c_e, self, keepEmptyWL=keepEmptyWL, cont=scene["widos"] if windoor else [])
         self.text = scene["text"] if "text" in scene else ""
         self.SPCES = spces(self)#[]
         self.plan = None # a object: self.plan = ..Operation.Plan.plan(scene=self,pm=???)
@@ -60,7 +59,7 @@ class scne():
         scene.scene_uid = sj["id"]
         rsj = sj["rooms"][0]
         scene.OBJES = objes.fromSceneJson(rsj,scene)
-        scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"],scene)
+        scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"],scene, rsj["blockList"])
         return scene
 
     @classmethod
@@ -158,7 +157,7 @@ class scne():
             }
         
         rsj = self.OBJES.toSceneJson(rsj)
-        rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = self.WALLS.toWallsJson()
+        rsj = self.WALLS.toWallsJson(rsj)
         if len([w for w in self.WALLS if w.v]) > 0:
             bb = self.WALLS.bbox()
             rsj["bbox"] = {"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]}

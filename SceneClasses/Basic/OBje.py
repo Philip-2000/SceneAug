@@ -1,4 +1,5 @@
 import numpy as np
+from np.linalg import norm
 from copy import copy
 grupC=["black","red","gray","purple","yellow","red","gray","purple","yellow"]
 object_types = ["Pendant Lamp", "Ceiling Lamp", "Bookcase / jewelry Armoire", \
@@ -29,7 +30,7 @@ class bx2d(): #put those geometrical stuff into this base class
     def fromBoxJson(cls,bj):
         bbox = [bj["bbox"]["min"],bj["bbox"]["max"]]
         b = cls.fromFlat([(bbox[0][0]+bbox[1][0])/2.0,(bbox[0][1]+bbox[1][1])/2.0,(bbox[0][2]+bbox[1][2])/2.0,1,1,1,bj["orient"]])
-        b.size = b.matrix(-1) @ np.array([(bbox[1][0]-bbox[0][0])/2.0,(bbox[1][1]-bbox[0][1])/2.0,(bbox[1][2]-bbox[0][2])/2.0])
+        b.size = np.abs(b.matrix(-1) @ np.array([(bbox[1][0]-bbox[0][0])/2.0,(bbox[1][1]-bbox[0][1])/2.0,(bbox[1][2]-bbox[0][2])/2.0]))
         return b
         #endregion: inputs-------#
 
@@ -252,44 +253,16 @@ class obje(bx2d):
         from .Samp import samps
         return samps(self,ss,debug)(config,ut)
         
-    def optField(self, sp):
-        #啥玩意，这个就是我们那个什么，我昨天费劲巴拉算的那个，行吧
-        #而且这个和物体类别相关的包围盒需要我们这个物体本身去理解。根据self.class_name()来理解。
-        #对。你妈的。
-        #操，真他妈好玩卧槽
-        #而且还需要坐标变换，变换到自己坐标下
-        #哈哈哈，当时写个pytorch怎么不用想这么多费劲的事情呢
-
-        a =-sp.radial[0]
-        c =-sp.radial[2]
-        X = sp.transl[0]
-        Z = sp.transl[2]
-        
-
-        #what?
-        #transform the sp.transl into self's world
-        # as [X,0,Z]
-
-        #transform the -sp.radial into self's world
-        # as [A,0,C]
-
-        #calculate the field with formulation in self's world
-
-        #the result will be what?
-
-        # √(A²+C² - (AZ+CX)²) -AX -CZ
-        #----------------------------------- [A,0,C]
-        #            A²+C²
-
-        #as [F,0,H]
-
-        #transform this field back into the world
-        #as [f,0,h]
-        #field(sp.transl,sp.radial) = [f,0,h]
-
-
-
-        return
+    def optField(self, sp, c):
+        newSelf = bx2d(t=self.translation + self.matrix()@(np.array([c[0],0,0])), s=np.array([c[1],0,c[2]])*self.size, o=self.orientation)
+        #transform the sp.transl, -sp.radial into newSelf's world, as [X,0,C] and [A,0,C]
+        X0Z, A0C = newSelf-sp.transl, newSelf-(-sp.radial)
+        n2,A0C[1],X0Z[1] = A0C[0]**2+A0C[2]**2,0,0
+        #         √(A²+C²-(AZ+CX)²)-AX-CZ
+        #[F,0,H]=----------------------------- [A,0,C]
+        #                 A²+C²
+        F0H = (np.sqrt(n2 - (A0C[0]*X0Z[2]+A0C[2]*X0Z[0])**2) - A0C*X0Z)/n2 * A0C
+        return newSelf+F0H #transform this field back to the world
         #endregion: optField-----#
 
     #endregion: operations-------#
@@ -313,8 +286,7 @@ class objes():
         objects = cls.empty(scne=scene)
         for oi in range(len(rsj["objList"])):
             objects.addObject(obje.fromObjectJson(rsj["objList"][oi],oi,scene))
-        for oj in rsj["blockList"]:
-            raise NotImplementedError
+        for oj in []:#rsj["blockList"]:
             objects.addObject(obje.fromObjectJson(oj))
         return objects
         #endregion: inputs-------#
@@ -380,8 +352,8 @@ class objes():
     
         #region: optFields-------#
 
-    def optFields(self,sp,o):
-        return np.array([oo.field(sp) for oo in [_ for _ in self.OBJES if _.idx != o.idx]] ).sum(axis=0)
+    def optFields(self,sp,o,config):
+        return np.array([oo.field(sp,config[oo.class_name()]) for oo in [_ for _ in self.OBJES if _.idx != o.idx]] ).sum(axis=0)
 
     def optimizePhy(self,ss,config,debug=False,ut=True):
         return [o.optimizePhy(ss,config,debug,ut) for o in self.OBJES]

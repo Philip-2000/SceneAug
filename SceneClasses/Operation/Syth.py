@@ -102,7 +102,7 @@ class gnrt(syth):
                         m = m.source.startNode
                     r = m.bunches[N.idx].sample()
                     a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
-                    o = a[0].rely(obje.fromFlat(r,j=object_types.index(N.type)),self.pm.scaled)
+                    o = a[0] + obje.fromFlat(r,j=object_types.index(N.type))
                     self.scene.addObject(o)
                     o.nid = N.idx
                     if m.idx > 0:
@@ -189,7 +189,7 @@ class gnrt(syth):
                                 m = m.source.startNode
                             ro = m.bunches[N.idx].exp
                             a = [o for o in cObjectList if o.nid == m.idx]
-                            o = a[0].rely(obje.fromFlat(ro,j=object_types.index(N.type)),self.scaled)
+                            o = a[0] + obje.fromFlat(ro,j=object_types.index(N.type))
                             o.nid = N.idx
 
                             self.tempDebugger(theScene,cObjectList,o,spc,"%d os=%d %d's child = %s before viola"%(rots.index(r),len(cObjectList),ed.startNode.edges.index(ed),Ntype))

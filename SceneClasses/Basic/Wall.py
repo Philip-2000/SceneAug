@@ -150,7 +150,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     #region：in/outputs----------#
         #region: inputs----------#
     def __str__(self):
-        return '\n'.join([str(w) for w in self.WALLS])
+        return '\n'.join([str(w) for w in self.WALLS]) + "\n" + str(self.windoors)
 
     @classmethod
     def fromLog(cls,f,name="",drawFolder=""):
@@ -239,7 +239,6 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 w = self.WALLS[w].w2
             contour = np.array(contour)
             plt.plot(np.concatenate([contour[:,0],contour[:1,0]]),np.concatenate([-contour[:,1],-contour[:1,1]]), marker="o", color=color)
-            [self.windoors[o].draw() for o in self.windoors]
             if end and self.drawFolder:
                 plt.axis('equal')
                 L = max(self.LH())
@@ -247,6 +246,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 plt.ylim(-self.flex*L,self.flex*L)
                 plt.savefig(self.drawFolder+self.name+suffix)
                 plt.clf()
+        self.windoors.draw()
 
     def writeLog(self):
         with open(self.drawFolder+self.name+".txt","w") as f:

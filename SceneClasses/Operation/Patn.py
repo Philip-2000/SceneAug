@@ -125,18 +125,18 @@ class patternManager():
         path,m = [],n
         while m.idx != 0:
             path,m = (path if (m.type in noOriType) else [m.idx] + path), m.source.startNode
-        field= [self.sDs[int(f)] for f in open(self.fieldDir+n.suffix+".txt").readlines() if n.idx in self.sDs[int(f)].nids()]
+        field= [self.sDs[int(f)] for f in open(self.fieldDir+n.suffix+".txt").readlines() if n.idx in self.sDs[int(f)].OBJES.nids()]
         while 1:
             sheet = {id:{o:bnches() for o in object_types} for id in path}
             idset = set([e.endNode.idx for e in n.edges])
             cnt = 0
-            for scene in field:#for f in lstt: assert n.idx in scene.nids() #scene = self.sDs[int(f)]
+            for scene in field:#for f in lstt: assert n.idx in scene.OBJES.nids() #scene = self.sDs[int(f)]
                 blackLists = {id:{o:[] for o in object_types} for id in path}
-                if (not ex) or len(scene.nids() & idset) == 0:
+                if (not ex) or len(scene.OBJES.nids() & idset) == 0:
                     cnt += 1
                     for o in scene.OBJES:
                         if o.nid in sheet: #o.nid == n.idx:
-                            res = scene.objectView(o.idx,self.objectViewBd,self.scaled) #assert len(res) <= self.objectViewBd
+                            res = scene.OBJES.objectView(o.idx,self.objectViewBd,self.scaled) #assert len(res) <= self.objectViewBd
                             for r in res:#print(r.class_name())
                                 blackLists[o.nid][self.merging[r.class_name()]].append(sheet[o.nid][self.merging[r.class_name()]].accept(r,1,blackLists[o.nid][self.merging[r.class_name()]]))
             [[sheet[k][s].refresh() for s in sheet[k]] for k in sheet]
@@ -199,14 +199,14 @@ class patternManager():
         self.maxDepth,self.scaled,self.sDs = maxDepth,scaled,sDs
         self.freqInit(self.nods[0])
         self.storeTree()
-        self.draw(self.version)
+        self.draw()
 
-    def draw(self,name,all=False,lim=5):
+    def draw(self,all=False,lim=5):
         import json
         from ..Basic.Obje import obje,object_types
-        if not os.path.exists(self.imgDir+name+"/"):
-            os.makedirs(self.imgDir+name+"/")
-        info = {}#open(self.imgDir+name+"/info.json")
+        if not os.path.exists(self.imgDir+self.version+"/"):
+            os.makedirs(self.imgDir+self.version+"/")
+        info = {}#open(self.imgDir+self.version+"/info.json")
 
         for n in self.nods[1:]:
             nn,sr,path = n,n.source.startNode,[n]
@@ -220,9 +220,9 @@ class patternManager():
             B = sr.bunches[nn.idx]
             A = obje()#obje.fromFlat(B.exp,j=object_types.index(nn.type))
             for i in range(len(path)-1,0,-1):
-                A = A.rely(obje.fromFlat(B.exp,j=object_types.index(path[i-1].type)),self.scaled) #A.rely(obje(B.exp[:3],B.exp[3:6],B.exp[-1:]),self.scaled)
+                A = (A + obje.fromFlat(B.exp,j=object_types.index(path[i-1].type)))
                 B = path[i].bunches[path[i-1].idx]
-            B.draw(A,self.imgDir+name,str(n.idx),object_types.index(nn.type),self.scaled,all,lim,path)
+            B.draw(A,self.imgDir+self.version,str(n.idx),object_types.index(nn.type),self.scaled,all,lim,path)
             info[path[0].idx] = path[1].idx if len(path)>1 else 0
 
-        open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
+        open(self.imgDir+self.version+"/info.js","w").write("var info="+json.dumps(info)+";")

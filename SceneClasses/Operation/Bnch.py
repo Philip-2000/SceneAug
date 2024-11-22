@@ -71,12 +71,12 @@ class bnch():
         plt.ylim(-lim,lim)
 
         if len(path)>1:
-            basic.draw(d=True,color="black",cr="blue")
+            basic.draw(d=True,color="black",cr="blue",text=False)
         if all and len(self.obs)>0:
             for a in self.obs:
-                basic.rely(a).draw(color="red",alpha=1.0/len(self.obs))
+                (basic + a).draw(color="red",alpha=1.0/len(self.obs),text=False)
         else:
-            me = basic.rely(obje.fromFlat(self.exp,j=J),scaled)
+            me = basic + (obje.fromFlat(self.exp,j=J))
             if len(path)>1:
                 plt.Rectangle((me.translation[0],-me.translation[2]),width=self.dev[0],height=self.dev[2],color="yellow")
                 plt.plot([me.translation[0], me.translation[0]+0.5*np.math.sin(me.orientation+self.dev[-1])], [-me.translation[2],-me.translation[2]-0.5*np.math.cos(me.orientation+self.dev[-1])], color="lime")
@@ -84,17 +84,17 @@ class bnch():
                 fat = path[0].source.startNode
                 while fat.idx != path[1].idx:
                     if fat.idx in path[1].bunches:
-                        basic.rely(obje.fromFlat(path[1].bunches[fat.idx].exp,j=object_types.index(fat.type)),scaled).draw(color="gray",d=True,cr="gray")
+                        (basic + obje.fromFlat(path[1].bunches[fat.idx].exp,j=object_types.index(fat.type))).draw(color="gray",d=True,cr="gray",text=False)
                     fat = fat.source.startNode
 
-            me.draw(d=True,color="red",cr="green")
+            me.draw(d=True,color="red",cr="green",text=False)
             me.translation[0] = offset[0]
             me.size = me.size + self.dev[3:6]
-            me.draw(d=False,color="pink")
+            me.draw(d=False,color="pink",text=False)
             me.size = me.size - self.dev[3:6]
-            me.draw(d=False,color="red")
+            me.draw(d=False,color="red",text=False)
             me.size = me.size - self.dev[3:6]
-            me.draw(d=False,color="pink")
+            me.draw(d=False,color="pink",text=False)
 
         plt.savefig(dir+"/"+idx+".png")
         plt.clf()

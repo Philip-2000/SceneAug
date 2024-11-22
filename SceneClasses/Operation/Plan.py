@@ -183,7 +183,7 @@ class plas(): #it's a recognize plan
                 fat = self.scene[fid]
                 fat_son = fat.rela(son,self.pm.scaled)
                 fat_son = m.bunches[nid].optimize(fat_son)
-                new_son = fat.rely(fat_son,self.pm.scaled)
+                new_son = fat + fat_son
                 son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
 
         pass

@@ -21,7 +21,7 @@ class scne():
         self.grp = grp
         self.imgDir = imgDir
 
-        self.OBJES=objes(scene,ce,windoor,self)
+        self.OBJES=objes(scene,ce,self)
         
         self.roomMask = scene["room_layout"][0] if rmm else np.zeros((64,64))
         self.rmm=rmm
@@ -30,14 +30,14 @@ class scne():
             grops = np.ones(len(self.OBJES)) if scene["grops"] is None else scene["grops"]
             self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":irt},j+1,scne=self) for j in range(int(max(grops)))]
         
-        if windoor and False:
-            widos = scene["widos"]
-            for k in range(len(widos)):
-                oii = np.array([np.math.atan2(widos[k][-1],widos[k][-2])])
-                sii = np.array([max(widos[k][3],widos[k][5]),widos[k][4],min(widos[k][3],widos[k][5])]) #?
-                tri = widos[k][:3]
-                c = len(object_types)-1 if tri[1]-sii[1] < 0.1 else len(object_types)-2
-                self.OBJES.append(obje(tri-c_e,sii,oii,i=c,idx=len(self.OBJES),scne=self))
+        # if windoor and False:
+        #     widos = scene["widos"]
+        #     for k in range(len(widos)):
+        #         oii = np.array([np.math.atan2(widos[k][-1],widos[k][-2])])
+        #         sii = np.array([max(widos[k][3],widos[k][5]),widos[k][4],min(widos[k][3],widos[k][5])]) #?
+        #         tri = widos[k][:3]
+        #         c = len(object_types)-1 if tri[1]-sii[1] < 0.1 else len(object_types)-2
+        #         self.OBJES.append(obje(tri-c_e,sii,oii,i=c,idx=len(self.OBJES),scne=self))
 
         #obje(t,s,o,c,i)
         #wall(p,q,n,w1,w2)
@@ -97,7 +97,7 @@ class scne():
 
         #region: presentation----#
 
-    def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=False):
+    def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=True):
         plt.figure(figsize=(10, 8))
         self.SPCES.draw(dr=False)
 
@@ -176,19 +176,7 @@ class scne():
        
     def __call__(self,wi):
         return self.WALLS[wi]
-
-    def nids(self):
-        return self.OBJES.nids()
-    
-    def searchNid(self, nid, sig=True):
-        return self.OBJES.searchNid(nid,sig)
     #endregion: interfaces-------#
-
-    #region: others--------------#
-    def objectView(self,id,bd=100000,scl=False,maxDis=100000):
-        newOBJES = [self[id].rela(o,scl) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
-        return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
-    #endregion: others-----------#
 
     #region: properties----------#
     def outOfBoundaries(self): #intersect area,  object occupied area in total,  room area
@@ -329,6 +317,7 @@ class scneDs():
     #endregion: preparing---------#
 
     #region: operation------------#
+
     def synthesis(self,syth,cond,T):
         from ..Operation.Syth import agmt,gnrt,copl,rarg
         pbar = tqdm.tqdm(range(len(self)))
@@ -355,6 +344,12 @@ class scneDs():
                 S.roomcond(draw=True)
             #plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
         pass
+
+    def draw(self,**kwargs):
+        pbar = tqdm.tqdm(range(len(self)))
+        for i in pbar:
+            pbar.set_description("drawing %s "%(self._dataset[i].scene_uid[:20]))
+            self._dataset[i].draw(**kwargs)
 
     def recognize(self,T,show=False,**kwargs):
         pbar = tqdm.tqdm(range(len(self)))

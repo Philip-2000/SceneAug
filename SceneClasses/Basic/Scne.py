@@ -357,7 +357,7 @@ class scneDs():
             self._dataset.append(scene)
 
     def synthesis(self,syth,cond,T):
-        from .Syth import agmt,gnrt,copl,rarg
+        from ..Operation.Syth import agmt,gnrt,copl,rarg
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("%s-%s, %s "%(syth,cond,self._dataset[i].scene_uid[:20]))

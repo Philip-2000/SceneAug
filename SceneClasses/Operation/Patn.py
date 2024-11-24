@@ -5,6 +5,8 @@ class edge():
         self.startNode = n
         self.endNode = nn
         self.confidence = c
+        self.times = 0
+        self.choose_times = 0
         self.confidenceIn = cc
         nn.source = self
 
@@ -39,9 +41,13 @@ class patternManager():
         self.treesDir = os.path.join(self.workDir,"trees/") #self.cnt = len(os.listdir(self.sceneDir))
         self.rootNames=["Dining Table","Coffee Table","King-size Bed","Desk","Dressing Table"]#,"Single bed","Kids Bed"]#
         self.merging = merging(
-            {"Single bed":"King-size Bed", "Kids Bed":"King-size Bed",
+            {"Single bed":"King-size Bed", 
+             "Kids Bed":"King-size Bed",
              "Loveseat Sofa":"Three-seat / Multi-seat Sofa",
-             "Lounge Chair / Cafe Chair / Office Chair":"Dining Chair", "Classic Chinese Chair":"Dining Chair", "Dressing Chair":"Dining Chair", "armchair":"Dining Chair",
+             "Lounge Chair / Cafe Chair / Office Chair":"Dining Chair", 
+             "Classic Chinese Chair":"Dining Chair", 
+             "Dressing Chair":"Dining Chair", 
+             "armchair":"Dining Chair",
              "Corner/Side Table": "Nightstand",
              "Ceiling Lamp":"Pendant Lamp"})
         self.nods = [node("","",0)]#[nod(node("","",0))]
@@ -98,7 +104,7 @@ class patternManager():
         fat.edges.append(edge(fat,self.nods[-1],c,cc))
         return len(self.nods)-1
 
-    def freqInit(self,n):
+    def freqInit(self,n):#筛选出里面有的物体，组成bunch 然后进行分析，每一次向下个分析都有相应的可信度
         from .Bnch import bnch
         from ..Basic.Obje import obje
         for s in self.rootNames:
@@ -128,11 +134,11 @@ class patternManager():
         field= [self.sDs[int(f)] for f in open(self.fieldDir+n.suffix+".txt").readlines() if n.idx in self.sDs[int(f)].nids()]
         while 1:
             sheet = {id:{o:bnches() for o in object_types} for id in path}
-            idset = set([e.endNode.idx for e in n.edges])
+            idset = set([e.endNode.idx for e in n.edges])#下一层树的节点的种类
             cnt = 0
             for scene in field:#for f in lstt: assert n.idx in scene.nids() #scene = self.sDs[int(f)]
                 blackLists = {id:{o:[] for o in object_types} for id in path}
-                if (not ex) or len(scene.nids() & idset) == 0:
+                if (not ex) or len(scene.nids() & idset) == 0:#含之前子节点家具的东西进行排除，留下不含之前子节点家具的东西
                     cnt += 1
                     for o in scene.OBJES:
                         if o.nid in sheet: #o.nid == n.idx:
@@ -226,3 +232,39 @@ class patternManager():
             info[path[0].idx] = path[1].idx if len(path)>1 else 0
 
         open(self.imgDir+name+"/info.js","w").write("var info="+json.dumps(info)+";")
+
+    def random_choose0(self,node):
+        cs = 0
+        for ed in node.edges:
+            cs += ed.confidence
+            if np.random.rand() < ed.confidenceIn:
+                return ed
+            if np.random.rand() < cs:
+                return None
+    def random_choose1(self,node):
+        while True:
+            ran = np.random.randint(0,len(node.edges))
+            if np.random.random() < node.edges[ran].confidence:
+                return node.edges[ran]
+
+    def random_choose2(self,node):
+        value = 0
+        for i in node.edges: value += i.times/i.confidence
+        while True:
+            ran = np.random.randint(0,len(node.edges))
+            if np.random.random() < node.edges[ran].confidence and np.random.random()> node.edges[ran].times/node.edges[ran].confidence/(5+value):
+                node.edges[ran].times += 1
+                return node.edges[ran]
+
+    def random_choose3(self,node):
+        a = 0
+        times = 0
+        for i in node.edges: times += i.times
+        while True:
+            ran = np.random.randint(0,len(node.edges))
+            if np.random.random() < node.edges[ran].confidence and np.random.random()> node.edges[ran].times/(1+times):
+                node.edges[ran].times += 1
+                return node.edges[ran]
+            elif np.random.random()  < a:
+                return None
+            a += node.edges[ran].confidence

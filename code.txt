@@ -1,7 +1,7 @@
 Basic
-	Obje.py
-	Logg.py
-	Wall.py
+	Obje.py //The object in the scene,for example chair,bed,desk.  Objes:many Objects
+	Logg.py //The operation for wall,for example cut wall,drag wall,delete wall.
+	Wall.py //The wall in the scene. Walls:many wall with wall operations.
 	Scne.py
 Semantic
 	Link.py
@@ -16,3 +16,8 @@ Operation
 Experiment
 	ExPn.py
 	ExSy.py
+
+todo:
+基于模式的室内场景构建算法的完善：
+Operation/Syth.py  gnrt(syth).uncond(...)
+10

@@ -94,25 +94,18 @@ class gnrt(syth):
         from ..Basic.Obje import obje,object_types
         N = self.pm.nods[0]
         while len(N.edges)>0:
-            cs = 0
-            for ed in N.edges:
-                cs += ed.confidence
-                if np.random.rand() < ed.confidenceIn:
-                    N,m = ed.endNode,ed.startNode
-                    while not (N.idx in m.bunches):
-                        m = m.source.startNode
-                    r = m.bunches[N.idx].sample()
-                    a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
-                    o = a[0].rely(obje.fromFlat(r,j=object_types.index(N.type)),self.pm.scaled)
-                    self.scene.addObject(o)
-                    o.nid = N.idx
-                    if m.idx > 0:
-                        self.scene.LINKS.append(objLink(a[0].idx,o.idx,len(self.scene.LINKS),self.scene))
-                    cs = 0
-                    break
-            
-                if np.random.rand() < cs:
-                    break
+            ed = self.pm.random_choose2(N)
+            if ed :
+                N,m = ed.endNode,ed.startNode
+                while not (N.idx in m.bunches):
+                    m = m.source.startNode
+                r = m.bunches[N.idx].sample()
+                a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
+                o = a[0].rely(obje.fromFlat(r,j=object_types.index(N.type)),self.pm.scaled)
+                self.scene.addObject(o)
+                o.nid = N.idx
+                if m.idx > 0:
+                    self.scene.LINKS.append(objLink(a[0].idx,o.idx,len(self.scene.LINKS),self.scene))
         if draw:
             self.scene.draw()
         return self.scene
@@ -277,7 +270,7 @@ class copl(syth):
         super(copl,self).__init__(pmVersion,scene,self.__class__.__name__,nm,v)
         raise NotImplementedError
 
-    def uncond(self):
+    def uncond(self):#可以类似于rearrange
         return self.scene
 
     def textcond(self):
@@ -291,7 +284,7 @@ class rarg(syth):
         super(rarg,self).__init__(pmVersion,scene,self.__class__.__name__,nm,v)
         raise NotImplementedError
 
-    def uncond(self):
+    def uncond(self):#先初始化，再蒙特卡洛树 A10 n + node_num   加 模拟次数*10
         return self.scene
 
     def textcond(self):

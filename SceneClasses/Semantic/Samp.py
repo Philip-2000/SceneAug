@@ -1,7 +1,7 @@
 import numpy as np
 class samp():
     def __init__(self,o,s,debug=True):
-        assert abs(s[0])==1 or abs(s[2])==1
+        assert np.abs(s[0])==1 or np.abs(s[2])==1
         self.TRANSL = s
         self.transl = o + s
         self.radial = self.transl - o.translation
@@ -9,8 +9,11 @@ class samp():
         self.tangen = np.cross(self.radian,[0,1,0])
         self.debug  = debug
         if debug:
-            self.F, self.WO, self.WI, self.DR, self.OB = np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0]),np.array([0,0,0])
+            self.F, self.component = np.array([0,0,0]), {}
         self.t, self.s, self.r = np.array([0,0,0]), np.array([0,0,0]), np.array([0,0,0])
+
+
+
 
     def __call__(self, o, config):
         wo, wi, dr = o.scne.WALLS.optFields(self,config)
@@ -19,19 +22,33 @@ class samp():
         self.s = np.dot(self.F,self.radian)*self.TRANSL
         self.r = np.cross(self.F,self.tangen)[1]/np.linalg.norm(self.radial)
         if self.debug:
-            self.F, self.WO, self.WI, self.DR, self.OB = self.t, wo, wi, dr, ob
+            self.component["al"], self.component["wo"], self.component["wi"], self.component["dr"], self.component["ob"] = self.t, wo, wi, dr, ob
+
+    def draw(self,colors={}):
+        assert self.debug
+        from matplotlib import pyplot as plt
+        st = [self.transl[0], self.transl[2]]
+        for k in colors:
+            ed = [st[0]+self.component[k][0], st[1]+self.component[k][2]]
+            plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], marker=".", color=colors[k])
+            st = [ed[0],ed[1]]
 
 class samps():
     def __init__(self,o,ss,debug=True):
         assert ss.sum() < 0.000001
-        self.o, self.samps = o, [samp(o,s,debug) for s in ss]
+        self.o, self.samps, self.debug = o, [samp(o,s,debug) for s in ss], debug
 
-    def __call__(self, config, ut=False):
+    def __call__(self, config, ut=-1):
         [s(self.o,config) for s in self.samps]
         T = np.average([_.t for _ in self.samps],axis=0)
         S = np.average([_.s for _ in self.samps],axis=0)
         R = np.average([_.r for _ in self.samps],axis=0)
-        if ut:
-            self.o.translation, self.o.size, self.o.orientation += T, S, R
+        if ut>0:
+            if self.debug:
+                self.o.adjust["T"], self.o.adjust["S"], self.o.adjust["R"] = T*ut,S*ut,R*ut
+            self.o.translation, self.o.size, self.o.orientation += T*ut, S*ut, R*ut
         return T, S, R
     
+    def draw(self,way="pnt",colors={"al":(0,0,0)}):
+        assert self.debug
+        [s.draw(way,colors) for s in self.samps]

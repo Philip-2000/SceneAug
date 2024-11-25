@@ -1,8 +1,7 @@
-from .Obje import obje,objes
+from .Obje import objes
 from .Wall import wall,walls
 from ..Semantic.Grup import grup
 from ..Semantic.Spce import spces
-from ..Operation.Plan import plans
 import numpy as np
 from matplotlib import pyplot as plt
 from copy import copy
@@ -44,6 +43,7 @@ class scne():
         self.WALLS = walls(scene["walls"] if wl else [], c_e, self, keepEmptyWL=keepEmptyWL, cont=scene["widos"] if windoor else [])
         self.text = scene["text"] if "text" in scene else ""
         self.SPCES = spces(self)#[]
+        self.fild = None
         self.plan = None # a object: self.plan = ..Operation.Plan.plan(scene=self,pm=???)
 
     #region：in/outputs----------#
@@ -97,7 +97,7 @@ class scne():
 
         #region: presentation----#
 
-    def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=True):
+    def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=True,suffix="_Layout"):
         plt.figure(figsize=(10, 8))
         self.SPCES.draw(dr=False)
 
@@ -120,7 +120,7 @@ class scne():
         else:
             plt.axis('off')
         
-        plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_Layout.png") if imageTitle=="" else imageTitle)
+        plt.savefig(os.path.join(self.imgDir,self.scene_uid+suffix+".png") if imageTitle=="" else imageTitle)
         plt.clf()
         plt.close()
 
@@ -239,6 +239,7 @@ class scneDs():
             self._dataset = _dataset
         else:
             raise NotImplementedError
+    
     #region: magics---------------#
     def __len__(self):
         return len(self._dataset)
@@ -342,8 +343,6 @@ class scneDs():
                 S.textcond(draw=True)
             elif cond == "roomcond":
                 S.roomcond(draw=True)
-            #plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(**kwargs)
-        pass
 
     def draw(self,**kwargs):
         pbar = tqdm.tqdm(range(len(self)))
@@ -355,13 +354,17 @@ class scneDs():
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("recognizing %s "%(self._dataset[i].scene_uid[:20]))
+            from ..Operation.Plan import plans
             plans(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
 
-    def optimize(self,T,**kwargs):
+    def optimize(self,T,PatFlag,PhyFlag,steps,iRate,jRate,config,**kwargs):
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
-            plans(self._dataset[i],T,v=3 if len(self._dataset)==1 else 0).recognize(opt=True,**kwargs)
+            from ..Operation.Optm import optm
+            O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,rec=True,config=config,**kwargs)
+            O(steps,iRate,jRate)
+        
 
     def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        
         from ..Operation.Patn import patternManager as PM

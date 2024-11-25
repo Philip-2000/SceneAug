@@ -545,5 +545,8 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
             field, out = w.field(sp,config["wall"])
             wo,wi = min(field,wo,key=lambda x:norm(x)) if out else wo, min(field,wi,key=lambda x:norm(x)) if not out else wi
         from shapely.geometry import Point
-        return (np.array([0,0,0]),wi,dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([0,0,0]),dr)
+        try:
+            return (np.array([0,0,0]),wi if sp.TRANSL[2]==-1 else np.array([0,0,0]),dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([0,0,0]),dr)
+        except:
+            return (np.array([0,0,0]),wi,dr)
     #endregion: optFields--------#

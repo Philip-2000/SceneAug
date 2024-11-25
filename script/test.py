@@ -11,7 +11,7 @@ res = [[0 for __ in cans] for _ in cans]
 for i in range(len(cans)):
         for j in range(len(cans)):
                 PLS = plans(scne.fromNpzs(name=cans[i]),T)
-                fit,ass,_ = PLS.recognize(use=False,opt=False,draw=False,show=False)
+                fit,ass,_ = PLS.recognize(use=False,draw=False,show=False)
                 res[i][j] = PLS.currentPlas.diff(scne.fromNpzs(name=cans[j]),fit)
                 
 import numpy as np

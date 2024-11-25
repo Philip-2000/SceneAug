@@ -16,7 +16,7 @@ class agmt():
     def augment(self,sdev=0.2,cdev=2.,cnt=8,draw=False):
         if not self.scene.grp:
             from .Plan import plans
-            plans(self.scene,self.pm,v=0).recognize(use=True,draw=False,opt=False,show=False)
+            plans(self.scene,self.pm,v=0).recognize(use=True,draw=False,show=False)
         from numpy.random import rand as R
         from numpy.random import randint as Ri 
         import numpy as np

@@ -62,7 +62,7 @@ class plas(): #it's a recognize plan
             self.myPM = self.formPM()
             if v>0:
                 print(self.myPM)
-        fit,ass,_ = plans(scene,self.myPM,v=v).recognize(use=False,opt=False,draw=False,show=False)#assert fit < ref
+        fit,ass,_ = plans(scene,self.myPM,v=v).recognize(use=False,draw=False,show=False)#assert fit < ref
         if v>0:
             print(fit)
             print(self.fit)
@@ -161,32 +161,32 @@ class plas(): #it's a recognize plan
             self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene))
         self.scene.plan=self
 
-    def optimize(self,iRate):
-        #handly search the father and son relation among objects,
+    # def optimize(self,iRate):
+    #     #handly search the father and son relation among objects,
 
-        self.scene.grp=True
-        j = -1
-        for p in self.plas:
-            if len(p)<=1:
-                continue
-            j += 1
-            for oid,nid in p.nids[1:]:
-                assert self.scene[oid].nid == nid
-                assert self.scene[oid].gid == j
-                son = self.scene[oid]
+    #     self.scene.grp=True
+    #     j = -1
+    #     for p in self.plas:
+    #         if len(p)<=1:
+    #             continue
+    #         j += 1
+    #         for oid,nid in p.nids[1:]:
+    #             assert self.scene[oid].nid == nid
+    #             assert self.scene[oid].gid == j
+    #             son = self.scene[oid]
 
 
-                m = self.pm.nods[self.pm.mid(nid)]
+    #             m = self.pm.nods[self.pm.mid(nid)]
 
-                fid = p.searchOid(m.idx)[0]
-                assert self.scene[fid].nid == m.idx
-                fat = self.scene[fid]
-                fat_son = fat.rela(son,self.pm.scaled)
-                fat_son = m.bunches[nid].optimize(fat_son)
-                new_son = fat + fat_son
-                son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
+    #             fid = p.searchOid(m.idx)[0]
+    #             assert self.scene[fid].nid == m.idx
+    #             fat = self.scene[fid]
+    #             fat_son = fat.rela(son,self.pm.scaled)
+    #             fat_son = m.bunches[nid].optimize(fat_son)
+    #             new_son = fat + fat_son
+    #             son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
 
-        pass
+    #     pass
 
 
 class plans():
@@ -242,7 +242,7 @@ class plans():
         #a more aggresive version of spatially recorrection will drag the not orphans in other segments, but not done yet
         pass
 
-    def recognize(self,use=True,opt=False,draw=True,show=False):        
+    def recognize(self,use=True,draw=True,show=False):        
         if show:
             self.show()
             return None,None,None
@@ -344,19 +344,19 @@ class plans():
             print("recorrect over, fit is %.5f"%(self.currentPlas.fit))
             print(self.currentPlas)
         
-        if use or opt:
+        if use:# or opt:
             self.currentPlas.utilize()
         if draw:
             self.scene.draw(drawUngroups=True,classText=True,d=True)
-        if opt:
-            opts = self.currentPlas.optimize()
-            if draw:
-                self.scene.draw(drawUngroups=True,classText=True,d=True)
+        # if opt:
+        #     opts = self.currentPlas.optimize()
+        #     if draw:
+        #         self.scene.draw(drawUngroups=True,classText=True,d=True)
         return self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas]), opts if opt else None
     
-    def optimize(self,draw=True):
-        self.recognize(use=True,draw=True,opt=False)
-        #self.currentPlas.singleExtend(0)
+    # def optimize(self,draw=True):
+    #     self.recognize(use=True,draw=True,opt=False)
+    #     #self.currentPlas.singleExtend(0)
 
     def addFrame(self,plas,name,dir,idx=-1,stay=1):#for show
         import os

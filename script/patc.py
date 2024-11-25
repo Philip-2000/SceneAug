@@ -9,12 +9,11 @@ def parse(): #construting pattern
     return parser.parse_args(sys.argv[1:])
 
 if __name__ == "__main__":
-    from SceneClasses.Operation.Patn import patternManager as PM
-    PM("losy").draw()
-else:
     args = parse()
     import os
     from SceneClasses.Operation.Patn import patternManager as PM
+    if args.dataset == "":
+        PM(args.version).draw()
     from SceneClasses.Basic.Scne import scneDs as SDS
     T,S = PM(args.version,verb=args.verbose,new = True), SDS(args.dataset,lst=os.listdir(args.dataset),grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
     T.construct(args.maxDepth,args.scaled,S)

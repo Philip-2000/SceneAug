@@ -35,7 +35,7 @@ class plas(): #it's a recognize plan
         self.myPM = None
 
     def __str__(self):
-        return "\n".join([ "%d\t"%(pp) + "→".join(["(%s,%d,%d)"%(self.scene.OBJES[p[0]].class_name(),p[0],p[1]) for p in self.plas[pp].nids]) for pp in range(len(self.plas))])
+        return "\n".join([ "%d\t"%(pp) + "→".join(["(%s,%d,%d)"%(self.scene[p[0]].class_name(),p[0],p[1]) for p in self.plas[pp].nids]) for pp in range(len(self.plas))])
 
     def __iter__(self):
         return iter(self.plas)
@@ -47,12 +47,12 @@ class plas(): #it's a recognize plan
         from ..Basic.Obje import obje
         
         pm = PM(vers="tmp",new=True)
-        pm.rootNames = [ pm.merging[self.scene.OBJES[p.nids[0][0]].class_name()] for p in self.plas ]
+        pm.rootNames = [ pm.merging[self.scene[p.nids[0][0]].class_name()] for p in self.plas ]
         for p in self.plas:
             newNids, fid = {0:0},0
             for oid,nid in p.nids:
-                o,mid = self.scene.OBJES[oid], self.pm.mid(nid)#m.idx
-                O = obje(o.translation,np.array([1,1,1]),o.orientation,i=0) if p.nids.index((oid,nid))==0 else self.scene.OBJES[p.searchOid(mid)[0]]
+                o,mid = self.scene[oid], self.pm.mid(nid)#m.idx
+                O = obje(o.translation,np.array([1,1,1]),o.orientation,i=0) if p.nids.index((oid,nid))==0 else self.scene[p.searchOid(mid)[0]]
                 fid = pm.createNode(pm.nods[fid],self.pm.merging[o.class_name()],1,1)
                 pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,O.rela(o,self.pm.scaled).flat(),np.abs(O.rela(o,self.pm.scaled).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
         return pm
@@ -70,7 +70,7 @@ class plas(): #it's a recognize plan
 
     def printIds(self):
         return
-        print("occupied" +"+".join(["(%s,%d)"%(self.scene.OBJES[id].class_name(),id) for id in self.occupied]) )
+        print("occupied" +"+".join(["(%s,%d)"%(self.scene[id].class_name(),id) for id in self.occupied]) )
 
     def __len__(self):
         return len(self.plas)
@@ -81,7 +81,7 @@ class plas(): #it's a recognize plan
         cs=0
         for ed in self.pm.nods[p.nids[-1][1]].edges:
             m = self.pm.nods[self.pm.mid(ed.endNode.idx)]
-            a = self.scene.OBJES[p.searchOid(m.idx)[0]]
+            a = self.scene[p.searchOid(m.idx)[0]]
             self.printIds()
             losses = [(oo,m.bunches[ed.endNode.idx].loss(a.rela(oo,self.pm.scaled))) for oo in [o for o in self.scene.OBJES if (self.pm.merging[o.class_name()]==ed.endNode.type and (o.idx not in self.occupied and o.idx not in [on[0] for on in p.nids] ))]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
             if m.idx==1 and ed.endNode.idx == 254 and False:#
@@ -151,8 +151,8 @@ class plas(): #it's a recognize plan
                 continue
             j += 1
             for oid,nid in p.nids[1:]:
-                self.scene.OBJES[oid].nid = nid
-                self.scene.OBJES[oid].gid = j
+                self.scene[oid].nid = nid
+                self.scene[oid].gid = j
                 self.scene.LINKS.append(objLink(oid,p.nids[p.nids.index((oid,nid))-1][0],len(self.scene.LINKS),self.scene,"lightblue"))
                 
                 m = self.pm.nods[self.pm.mid(nid)]#print(m.idx)#print(p.searchOid(m.idx)[0])
@@ -171,19 +171,19 @@ class plas(): #it's a recognize plan
                 continue
             j += 1
             for oid,nid in p.nids[1:]:
-                assert self.scene.OBJES[oid].nid == nid
-                assert self.scene.OBJES[oid].gid == j
-                son = self.scene.OBJES[oid]
+                assert self.scene[oid].nid == nid
+                assert self.scene[oid].gid == j
+                son = self.scene[oid]
 
 
                 m = self.pm.nods[self.pm.mid(nid)]
 
                 fid = p.searchOid(m.idx)[0]
-                assert self.scene.OBJES[fid].nid == m.idx
-                fat = self.scene.OBJES[fid]
+                assert self.scene[fid].nid == m.idx
+                fat = self.scene[fid]
                 fat_son = fat.rela(son,self.pm.scaled)
                 fat_son = m.bunches[nid].optimize(fat_son)
-                new_son = fat.rely(fat_son,self.pm.scaled)
+                new_son = fat + fat_son
                 son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
 
         pass
@@ -226,7 +226,7 @@ class plans():
             tmpGrups[ip] = grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene)
 
         for oid in orphans:
-            o = self.scene.OBJES[oid]
+            o = self.scene[oid]
             oPolygon = o.shape()
             oArea = oPolygon.area
             vs = []

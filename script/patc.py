@@ -8,7 +8,10 @@ def parse(): #construting pattern
     parser.add_argument('-d','--maxDepth',  default=-1, type=int)
     return parser.parse_args(sys.argv[1:])
 
-if __name__ == "__main__": #load="testings",
+if __name__ == "__main__":
+    from SceneClasses.Operation.Patn import patternManager as PM
+    PM("losy").draw()
+else:
     args = parse()
     import os
     from SceneClasses.Operation.Patn import patternManager as PM

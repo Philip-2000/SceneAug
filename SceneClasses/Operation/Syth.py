@@ -25,9 +25,8 @@ class agmt():
     
         result,logs = [],[]
         for _ in range(cnt):
-            if cnt > 1:
-                scene = copy(self.scene)
-                scene.scene_uid = scene.scene_uid+str(_)
+            scene = copy(self.scene)
+            scene.scene_uid = scene.scene_uid+str(_)
             os.makedirs(scene.imgDir,exist_ok=True)
             if len(scene.GRUPS) == 1:
                 l  = (R(3,)-0.5)*cdev
@@ -94,18 +93,25 @@ class gnrt(syth):
         from ..Basic.Obje import obje,object_types
         N = self.pm.nods[0]
         while len(N.edges)>0:
-            ed = self.pm.random_choose2(N)
-            if ed :
-                N,m = ed.endNode,ed.startNode
-                while not (N.idx in m.bunches):
-                    m = m.source.startNode
-                r = m.bunches[N.idx].sample()
-                a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
-                o = a[0].rely(obje.fromFlat(r,j=object_types.index(N.type)),self.pm.scaled)
-                self.scene.addObject(o)
-                o.nid = N.idx
-                if m.idx > 0:
-                    self.scene.LINKS.append(objLink(a[0].idx,o.idx,len(self.scene.LINKS),self.scene))
+            cs = 0
+            for ed in N.edges:
+                cs += ed.confidence
+                if np.random.rand() < ed.confidenceIn:
+                    N,m = ed.endNode,ed.startNode
+                    while not (N.idx in m.bunches):
+                        m = m.source.startNode
+                    r = m.bunches[N.idx].sample()
+                    a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
+                    o = a[0] + obje.fromFlat(r,j=object_types.index(N.type))
+                    self.scene.addObject(o)
+                    o.nid = N.idx
+                    if m.idx > 0:
+                        self.scene.LINKS.append(objLink(a[0].idx,o.idx,len(self.scene.LINKS),self.scene))
+                    cs = 0
+                    break
+            
+                if np.random.rand() < cs:
+                    break
         if draw:
             self.scene.draw()
         return self.scene
@@ -183,7 +189,7 @@ class gnrt(syth):
                                 m = m.source.startNode
                             ro = m.bunches[N.idx].exp
                             a = [o for o in cObjectList if o.nid == m.idx]
-                            o = a[0].rely(obje.fromFlat(ro,j=object_types.index(N.type)),self.scaled)
+                            o = a[0] + obje.fromFlat(ro,j=object_types.index(N.type))
                             o.nid = N.idx
 
                             self.tempDebugger(theScene,cObjectList,o,spc,"%d os=%d %d's child = %s before viola"%(rots.index(r),len(cObjectList),ed.startNode.edges.index(ed),Ntype))

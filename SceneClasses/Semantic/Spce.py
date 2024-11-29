@@ -369,10 +369,10 @@ class spce():
         self.relA = np.array([self.a[0],self.a[1],self.a[2]]) if self.J%2==0 else np.array([self.a[2],self.a[1],self.a[0]])
 
     def transformInward(self, objes):
-        return [self.refObj.rela(o) for o in objes]
+        return [(self.refObj - o) for o in objes]
 
     def transformOutward(self, objes):
-        return [self.refObj.rely(o) for o in objes]
+        return [(self.refObj + o) for o in objes]
         
     def recycle(self,BD,WALLS):
         print(BD)

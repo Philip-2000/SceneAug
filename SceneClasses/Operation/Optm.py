@@ -1,14 +1,15 @@
 class optm():
     def __init__(self,pm=None,scene=None,PatFlag=False,PhyFlag=True,rand=False,rec=True,config={}):
-        self.scene = scene #assert PhyFlag or PatFlag
+        self.scene = scene
+        assert PhyFlag 
+        assert not PatFlag
         self.PatOpt = None if not PatFlag else PatOpt(pm,scene,rec=rec,config=config["pat"]) 
         self.PhyOpt = None if not PhyFlag else PhyOpt(scene,config=config["phy"])
-        if rand:
-            self.random()
+        _           = None if not rand    else self.__random()
 
-    def random(self):
+    def __random(self):
         for o in self.scene.OBJES:
-            if o.idx % 3 == 0:
+            if o.idx % 2 == 0:
                 o.translation -= 1.0*o.direction()
     
     def __call__(self, steps=100, iRate=0.01, jRate=0.01):
@@ -18,30 +19,20 @@ class PhyOpt():
     def __init__(self,scene,config={}):
         self.scene = scene
         from ..Semantic.Fild import fild
-        self.scene.fild = fild(scene,config["grids"],config)
-        
-        from ..Semantic.Fild import fild
-        self.config = config #config for operations on optimization
-
-        self.configVis = config if config["vis"] else None
+        self.scene.fild = fild(scene,config["grid"],config)
+        self.config = config
+        self.configVis = config["vis"] if config["vis"] else None
         
         #要给这PhyOpt和PatOpt配置可视化方案
 
     def draw(self):
-
-        self.scene.OBJES.drao("res", self.configVis["res"])
-        self.scene.OBJES.drao("syn", self.configVis["syn"])
-        self.scene.OBJES.drao("pnt", self.configVis["pnt"])
-        self.scene.OBJES.drao("pns", self.configVis["pns"])
-
-        self.scene.fild.draw("fild", self.configVis["fild"])
-        self.scene.fild.draw("pot", self.configVis["pot"])
-        #res中需要把各个成分场都给出来吗？
-        #采样点是物体的语义？有点道理？
-        #物体位移是物体的语义？
-        #场是场景的语义？
-        #在哪里？在self.vis中操作这些对象的对应可视化操作，将他们操作出来。
-        pass
+        _ = self.scene.drao("res", self.configVis["res"]) if self.configVis["res"] else None
+        _ = self.scene.drao("syn", self.configVis["syn"]) if self.configVis["syn"] else None
+        _ = self.scene.drao("pnt", self.configVis["pnt"]) if self.configVis["pnt"] else None
+        _ = self.scene.drao("pns", self.configVis["pns"]) if self.configVis["pns"] else None
+        _ = self.scene.drao("filv",self.configVis["filv"])if self.configVis["filv"]else None
+        #_ = self.scene.fild.draw("filv", self.configVis["filv"]) if self.configVis["filv"] else None
+        #_ = self.scene.fild.draw("pot", self.configVis["pot"]) if self.configVis["pot"] else None
 
     #region: -hyper-parameter--------#
     
@@ -49,8 +40,12 @@ class PhyOpt():
 
 
     def __call__(self,iRate,s):
-        self.scene.OBJES.optimizePhy(self,self.config,debug=(self.ObjectVis or self.FieldsVis),ut=iRate)
-        r = self.scene.fild() if self.scene.fild else None            
+        self.scene.OBJES.optimizePhy(
+            self.config,
+            debug=bool(self.configVis),
+            ut=iRate
+        )
+        #r = self.scene.fild() if self.scene.fild else None            
         self.draw()
 
 class PatOpt():

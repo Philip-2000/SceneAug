@@ -42,7 +42,7 @@ class wall():
         return (P-self.p)@(self.n), (P-self.p)@(self.n)*self.n
 
     def minVec(self,P):
-        return sorted([P-self.p,P-self.q,self.distance(P)[1]],key=lambda x:norm(x))[0]
+        return self.distance(P)[1] if self.over(P) else min(P-self.p,P-self.q,key=lambda x:norm(x))
 
     def over(self,P):
         return (P-self.q)@(self.p-self.q) > -EPS and (P-self.p)@(self.q-self.p) > -EPS
@@ -110,9 +110,10 @@ class wall():
         #region: optFields----------#
     def modulateField(self,minVec,config): #field, out
         return minVec, (minVec@self.n > 0)
+        #return (minVec, True) if (minVec@self.n > 0) else (minVec * np.clip(2.0-norm(minVec),0.0,2.0), False)
 
     def field(self,sp,config): #field, out
-        return self.modulateField(self.minVec(sp.transl),config)
+        return self.modulateField(-self.minVec(sp.transl),config)
         #endregion: optFields-------#
 
     #endregion: operations------#
@@ -134,7 +135,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         self.flex = flex
         self.drawFolder = drawFolder
         from .Wndr import wndrs
-        self.windoors = wndrs(self,cont)
+        self.windoors = wndrs(self,cont,c_e)
 
     #region: magics--------------#
     def __getitem__(self, idx):
@@ -215,7 +216,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 c.append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
         return np.array(c)
     
-    def toWallsJson(self,rsj):#nor[:][0] is x, nor[:][1] is z
+    def toWallsJson(self,rsj={}):#nor[:][0] is x, nor[:][1] is z
         sha,nor,ori = [],[],[]
         if len([w.idx for w in self.WALLS if w.v]):
             J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
@@ -285,10 +286,11 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     #region: bullshits-----------#
     def shape(self):
         from shapely.geometry import Polygon
-        return Polygon(self.toWallsJson()[0])
+        return Polygon(self.toWallsJson()["roomShape"])
     
     def npArray(self):
-        sha,nor,_ = self.toWallsJson()
+        rsj = self.toWallsJson()
+        sha,nor = rsj["roomShape"], rsj["roomNorm"]
         return np.concatenate([np.array(sha), np.array(nor)[:,1:], np.array(nor)[:,:1]],axis=0)
 
     def processWithWindoor(self):
@@ -540,13 +542,35 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
 
     #region: optFields-----------#
     def optFields(self,sp,config):
-        wo, wi, dr = np.array([0,0,0]), np.array([0,0,0]), self.windoors.optFields(sp,config["door"])
+        wo, wi, dr = np.array([9.,9.,9.]), np.array([9.,9.,9.]), self.windoors.optFields(sp,config["door"])
         for w in self:
             field, out = w.field(sp,config["wall"])
             wo,wi = min(field,wo,key=lambda x:norm(x)) if out else wo, min(field,wi,key=lambda x:norm(x)) if not out else wi
-        from shapely.geometry import Point
+
+        from shapely.geometry import Point        
+    #     if self.shape().contains(Point(sp.transl[0],sp.transl[2])):
+    #         if norm(wi)>0.1:
+
+
+    # # def modulateField(self,minVec,config): #field, out
+    # #     return (minVec, True) if (minVec@self.n > 0) else (minVec * np.clip(2.0-norm(minVec),0.0,2.0), False)
+
+    # # def field(self,sp,config): #field, out
+    # #     return self.modulateField(-self.minVec(sp.transl),config)
+    # #             #
+    #             print(wi)
+    #             for w in self:
+                    
+    #                 minVec = -self.minVec(sp.transl)
+                    
+
+    #                 field, out = w.field(sp,config["wall"])
+    #                 if not out:
+    #                     print(field)
+    #             assert False
+        wi = wi * np.clip(0.4-norm(wi),0.0,0.4)
         try:
-            return (np.array([0,0,0]),wi if sp.TRANSL[2]==-1 else np.array([0,0,0]),dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([0,0,0]),dr)
+            return (np.array([.0,.0,.0]),wi if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]),dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([.0,.0,.0]),dr)
         except:
-            return (np.array([0,0,0]),wi,dr)
+            return (np.array([.0,.0,.0]), wi, dr) #if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([.0,.0,.0]),dr)
     #endregion: optFields--------#

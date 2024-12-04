@@ -59,18 +59,18 @@ class bx2d(): #put those geometrical stuff into this base class
 
     def drao(self,way,colors):
         if way in ["pnt","pns"] :
-            self.samples.draw(colors)
+            self.samples.draw(way,colors)
         else:
+            self.draw(d=True,color=colors["res"],cr=(0.0,0.0,0.0),text=False)
             if way == "syn":
                 from matplotlib import pyplot as plt
-                plt.plot( [self.translation[0],self.translation[0]-self.adjust["T"][0]], [-self.translation[2],-self.translation[2]+self.adjust["T"][2]], marker=".", color=colors["t"])
                 a = bx2d(b=self)
                 a.size -= self.adjust["S"]
-                a.draw(colors=colors["s"])
+                a.draw(color=colors["s"])
                 a.orientation -= self.adjust["R"]
-                plt.plot( [self.translation[0],self.translation[0]+a.direction()[0]], [-self.translation[2],-self.translation[2]-a.direction()[2]], marker=".", color=colors["r"])
-            self.draw(d=True,colors=colors["res"],cr=(1.0,1.0,1.0),text=False)
-
+                plt.plot( [self.translation[0],self.translation[0]+a.direction()[0]*0.3], [-self.translation[2],-self.translation[2]-a.direction()[2]*0.3], marker=".", color=colors["r"])
+                plt.plot( [self.translation[0],self.translation[0]-self.adjust["T"][0]], [-self.translation[2],-self.translation[2]+self.adjust["T"][2]], marker=".", color=colors["t"])
+                
     def toBoxJson(self):
         bb = self.bbox3()
         bj = {"bbox":{"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]},
@@ -111,11 +111,11 @@ class bx2d(): #put those geometrical stuff into this base class
     def mat(cls,ori,size):
         return np.array([[np.math.cos(ori),0,np.math.sin(ori)],[0,1,0],[-np.math.sin(ori),0,np.math.cos(ori)]]) * size[None,:] # Sep.1st: from [:,None] to [None,:] test! test! test!
 
-    def samples(self, s = np.array([[1,0,0],[1,0,1],[0,0,1],[-1,0,1],[-1,0,0],[-1,0,-1],[0,0,-1],[1,0,-1]]).reshape((-1,1,3))):
+    def sampls(self, s = np.array([[1,0,0],[1,0,1],[0,0,1],[-1,0,1],[-1,0,0],[-1,0,-1],[0,0,-1],[1,0,-1]]).reshape((-1,1,3))):
         return self.translation+(self.matrix().reshape((1,3,3))*s*self.size.reshape((1,1,3))).sum(axis=-1)
 
     def samplesBound(self):
-        return [self.samples().min(axis=0), self.samples().max(axis=0)]
+        return [self.sampls().min(axis=0), self.sampls().max(axis=0)]
     #endregion: properties-------#
     
     #region: operations----------#
@@ -249,30 +249,27 @@ class obje(bx2d):
         #region: optField--------#
     def optimizePhy(self,config,debug=False,ut=-1):
         from ..Semantic.Samp import samps
-        return samps(self,config["ss"],debug)(config,ut)
+        self.samples = samps(self,config["ss"],debug)
+        return self.samples(config,ut)
     
-    def optP(self, sp, c):
-        newSelf = bx2d(t=self.translation + self.matrix()@(np.array([c[0],0,0])), s=np.array([c[1],0,c[2]])*self.size, o=self.orientation)
-        X0Z = newSelf-sp.transl
+    def optP(self, sp, c): #potential in optimize, only for field grid
+        X0Z = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])), s=np.array([c[1],1,c[2]])*self.size, o=self.orientation) -sp.transl
         return min(0,1-X0Z[0]**2-X0Z[2]**2)
 
     def optField(self, sp, c):
-        newSelf = bx2d(t=self.translation + self.matrix()@(np.array([c[0],0,0])), s=np.array([c[1],0,c[2]])*self.size, o=self.orientation)
-        try:
-            #transform the sp.transl, -sp.radial into newSelf's world, as [X,0,C] and [A,0,C]
-            X0Z, A0C = newSelf-sp.transl, newSelf-(-sp.radial)
+        newSelf = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])), s=np.array([c[1],1,c[2]])*self.size, o=self.orientation)
+        try: #for object samples
+            X0Z, A0C = newSelf-sp.transl, self.matrix(-1)@(-sp.radial) / self.size#newSelf-(-sp.radial)#transform the sp.transl, -sp.radial into newSelf's world, as [X,0,C] and [A,0,C]
+            if (X0Z[0]**2+X0Z[2]**2) > 1.0:
+                return np.array([.0,.0,.0])
             n2,A0C[1],X0Z[1] = A0C[0]**2+A0C[2]**2,0,0
-            #         √(A²+C²-(AZ+CX)²)-AX-CZ
-            #[F,0,H]=----------------------------- [A,0,C]
-            #                 A²+C²
+            #[F,0,H]= { √(A²+C²-(AZ+CX)²)-AX-CZ }/{ A²+C² }  [A,0,C]
             F0H = (np.sqrt(n2 - (A0C[0]*X0Z[2]+A0C[2]*X0Z[0])**2) - A0C*X0Z)/n2 * A0C
-            return newSelf+F0H #transform this field back to the world
-        except:
+            return newSelf+F0H#transform this field back to the world
+        except: #for points in field grid
             X0Z = newSelf-sp.transl
-            n2,X0Z[1] = X0Z[0]**2+X0Z[2]**2,0
-            if n2 < 0.00001:
-                return X0Z
-            return X0Z / np.min(n2,1)
+            n2,X0Z[1] = float(X0Z[0]**2+X0Z[2]**2),0
+            return X0Z / min(max(n2,0.000001),1.0)
         #endregion: optField-----#
 
     #endregion: operations-------#
@@ -371,10 +368,10 @@ class objes():
         #region: optFields-------#
 
     def optFields(self,sp,o,config):
-        if o:
+        if o: #for o's samples
             return np.array([oo.optField(sp,config[oo.class_name()]) for oo in [_ for _ in self.OBJES if (_.idx != o.idx)]] ).sum(axis=0)
-        else:
-            return np.array([oo.optField(sp,config[oo.class_name()]) for oo in self.OBJES] ).sum(axis=0), np.array([oo.optP(sp,config[oo.class_name()]) for oo in self.OBJES] ).sum(axis=0), 
+        else: #for field
+            return np.array([oo.optField(sp,config[oo.class_name()]) for oo in self.OBJES] ).sum(axis=0), np.array([oo.optP(sp,config[oo.class_name()]) for oo in self.OBJES] ).sum(axis=0)
         
 
     def optimizePhy(self,config,debug=False,ut=-1):

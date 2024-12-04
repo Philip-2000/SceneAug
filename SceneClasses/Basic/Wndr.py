@@ -1,8 +1,9 @@
 import numpy as np
 from numpy.linalg import norm
 class wndr():
-    def __init__(self, center=None, size=None, ori=None, wls=None, wid=None, rate=None, width=None, height=None, y=None, bbox=None):
+    def __init__(self, center=None, size=None, ori=None, c_e=None, wls=None, wid=None, rate=None, width=None, height=None, y=None, bbox=None):
         if center is not None: #from cont.npz
+            center = center-c_e
             ws = [w for w in wls if w.on(center,0.2)]
             assert len(ws)==1
             self.w = ws[0]
@@ -51,6 +52,9 @@ class wndr():
     
     def __str__(self):
         return "center:[%.3f,%.3f] with width=%.3f height=%.3f±%.3f on wall %d"%(self.center[0],self.center[2],self.width,self.center[1],self.height/2.0,self.w.idx) + (":[%.3f±%.3f,%.3f]"%(self.center[0],self.width/2.0,self.center[2]) if abs(self.w.n[2])<0.0001 else (":[%.3f,%.3f±%.3f]"%(self.center[0],self.center[2],self.width/2.0) if abs(self.w.n[0])<0.0001 else "") ) 
+
+    def optField(self,sp,config):
+        return np.array([0,0,0])
 
 class widw(wndr):
     def __init__(self, **kwargs):
@@ -104,17 +108,17 @@ class door(wndr):
         return min(self.LI - sp.transl, self.RI-sp.transl, key=lambda x:norm(x)) if self.optArea.contains(Point(sp.transl[0],sp.transl[2])) else np.array([0,0,0])
     
 class wndrs():
-    def __init__(self,wls,cont=None):
+    def __init__(self,wls,cont=None,c_e=0):
         try: #for numpy.npz, those ori is in [z,x] and arctan is 
-            self.WNDRS = [door(center=c[:3],size=c[3:6],ori=c[6:],wls=wls) if abs(c[1]-c[4])<0.1 else widw(center=c[:3],size=c[3:6],ori=c[6:],wls=wls) for c in cont]
+            self.WNDRS = [door(center=c[:3],size=c[3:6],ori=c[6:],c_e=c_e,wls=wls) if abs(c[1]-c[4])<0.1 else widw(center=c[:3],size=c[3:6],ori=c[6:],c_e=c_e,wls=wls) for c in cont]
         except:
             try:
                 self.WNDRS = [door(wls=wls,bbox=j["bbox"]) if j["coarseSemantic"].lower() == "door" else widw(wls=wls,bbox=j["bbox"]) for j in cont]#其实不应该这样的，应该去设那些bbox啥的#door(center=obj["translate"],size=obj["scale"],ori=obj["rotate"],wls=wls) if obj["coarseSemantic"].lower()=="door" else widw(center=c[:3],size=c[3:5],ori=c[6:],wls=wls) for obj in jsn]
             except:
                 self.WNDRS = [door(wls=wls,**h) if abs(h["y"]-h["height"]/2.0)<0.1 else widw(wls=wls,**h) for h in cont] #wid, rate, width, height, y
 
-    def toBlocksJson(self,rid):
-        return [wd.toBlockJson(rid,str(idx)) for idx,wd in enumerate(self.WNDRS)]
+    def toBlocksJson(self,rid=-1):
+        return []#[wd.toBlockJson(rid,str(idx)) for idx,wd in enumerate(self.WNDRS)]
 
     def optFields(self,sp,config):
         return np.array([wr.optField(sp,config) for wr in self.WNDRS]).sum(axis=0)

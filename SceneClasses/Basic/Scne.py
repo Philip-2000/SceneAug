@@ -96,29 +96,39 @@ class scne():
         #endregion: inputs-------#
 
         #region: presentation----#
+    def __str__(self):
+        return str(self.OBJES)+'\n'+str(self.WALLS)
+
+    def drao(self,suffix,config):#,lim=-1
+        plt.figure(figsize=(50, 40))
+        
+        if suffix[:3]=="fil":
+            self.fild.draw(suffix,config)
+        else:
+            self.OBJES.drao(suffix, config)
+        
+        self.WALLS.draw()
+        plt.axis('equal')
+        plt.axis('off')
+        
+        plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_"+suffix+".png"))
+        plt.clf()
+        plt.close()
 
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=True,suffix="_Layout"):
         plt.figure(figsize=(10, 8))
         self.SPCES.draw(dr=False)
 
-        if self.grp:
-            for i in range(len(self.GRUPS)):
-                self.GRUPS[i].draw()
-
+        [self.GRUPS[i].draw() for i in range(len(self.GRUPS)) if self.grp]
+                
         self.OBJES.draw(self.grp, drawUngroups,d,classText)        
         
-        if drawWall and len(self.WALLS):
-            self.WALLS.draw()
-            plt.axis('equal')
+        _ = self.WALLS.draw() if drawWall else None
+        plt.axis('equal')
 
-        for li in self.LINKS:
-            li.draw()
+        [li.draw() for li in self.LINKS]
 
-        if lim > 0:
-            plt.xlim(-lim,lim)
-            plt.ylim(-lim,lim)
-        else:
-            plt.axis('off')
+        _ = plt.axis('off') if lim < 0 else (plt.xlim(-lim,lim), plt.ylim(-lim,lim))
         
         plt.savefig(os.path.join(self.imgDir,self.scene_uid+suffix+".png") if imageTitle=="" else imageTitle)
         plt.clf()
@@ -358,10 +368,10 @@ class scneDs():
             plans(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
 
     def optimize(self,T,PatFlag,PhyFlag,steps,iRate,jRate,config,**kwargs):
-        pbar = tqdm.tqdm(range(len(self)))
-        for i in pbar:
-            pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
-            from ..Operation.Optm import optm
+        #pbar = tqdm.tqdm(range(len(self)))
+        for i in range(len(self)):#pbar:
+            #pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
+            from ..Operation.Optm import optm #print(self._dataset[i])
             O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,rec=True,config=config,**kwargs)
             O(steps,iRate,jRate)
         

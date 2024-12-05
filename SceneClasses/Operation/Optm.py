@@ -10,10 +10,12 @@ class optm():
     def __random(self):
         for o in self.scene.OBJES:
             if o.idx % 2 == 0:
-                o.translation -= 1.0*o.direction()
+                o.translation -= 0.8*o.direction()
     
     def __call__(self, steps=100, iRate=0.01, jRate=0.01):
         [(self.PhyOpt(iRate,s) if self.PhyOpt else None, self.PatOpt(jRate,s) if self.PatOpt else None) for s in range(steps)]
+        self.PhyOpt.show()
+        #well we shouldn't go this way? 
         
 class PhyOpt():
     def __init__(self,scene,config={}):
@@ -24,20 +26,41 @@ class PhyOpt():
         self.configVis = config["vis"] if config["vis"] else None
         
         #要给这PhyOpt和PatOpt配置可视化方案
+        self.shows = {"res":[],"syn":[],"pnt":[],"pns":[]}
 
-    def draw(self):
-        _ = self.scene.drao("res", self.configVis["res"]) if self.configVis["res"] else None
-        _ = self.scene.drao("syn", self.configVis["syn"]) if self.configVis["syn"] else None
-        _ = self.scene.drao("pnt", self.configVis["pnt"]) if self.configVis["pnt"] else None
-        _ = self.scene.drao("pns", self.configVis["pns"]) if self.configVis["pns"] else None
-        _ = self.scene.drao("filv",self.configVis["filv"])if self.configVis["filv"]else None
-        #_ = self.scene.fild.draw("filv", self.configVis["filv"]) if self.configVis["filv"] else None
-        #_ = self.scene.fild.draw("pot", self.configVis["pot"]) if self.configVis["pot"] else None
+    def draw(self,s):
+        _ = self.scene.drao("res", self.configVis["res"],s) if self.configVis["res"] else None
+        if _:
+            self.shows["res"].append(_)
+        _ = self.scene.drao("syn", self.configVis["syn"],s) if self.configVis["syn"] else None
+        if _:
+            self.shows["syn"].append(_)
+        _ = self.scene.drao("pnt", self.configVis["pnt"],s) if self.configVis["pnt"] else None
+        if _:
+            self.shows["pnt"].append(_)
+        _ = self.scene.drao("pns", self.configVis["pns"],s) if self.configVis["pns"] else None
+        if _:
+            self.shows["pns"].append(_)
+        _ = self.scene.drao("fiv", self.configVis["fiv"],s) if self.configVis["fiv"] else None
+        assert False
+        # _ = self.scene.drao("fih", self.configVis["fih"],s) if self.configVis["fih"] else None
+        # _ = self.scene.drao("fip", self.configVis["fip"],s) if self.configVis["fip"] else None
+        # _ = self.scene.drao("fiq", self.configVis["fiq"],s) if self.configVis["fiq"] else None
 
-    #region: -hyper-parameter--------#
-    
-    #endregion: -hyper-parameter-----#
-
+    def show(self):
+        from moviepy.editor import ImageSequenceClip
+        import os
+        if "res" in self.shows:
+            ImageSequenceClip(self.shows["res"], fps=2).write_videofile(os.path.join(".","res.mp4"),logger=None)
+        if "syn" in self.shows:
+            ImageSequenceClip(self.shows["syn"], fps=2).write_videofile(os.path.join(".","syn.mp4"),logger=None)
+        if "pnt" in self.shows:
+            ImageSequenceClip(self.shows["pnt"], fps=2).write_videofile(os.path.join(".","pnt.mp4"),logger=None)
+        if "pns" in self.shows:
+            ImageSequenceClip(self.shows["pns"], fps=2).write_videofile(os.path.join(".","pns.mp4"),logger=None)
+       
+        
+        pass
 
     def __call__(self,iRate,s):
         self.scene.OBJES.optimizePhy(
@@ -46,7 +69,7 @@ class PhyOpt():
             ut=iRate
         )
         #r = self.scene.fild() if self.scene.fild else None            
-        self.draw()
+        self.draw(s)
 
 class PatOpt():
     def __init__(self,pm,scene,rec=True,config={}):

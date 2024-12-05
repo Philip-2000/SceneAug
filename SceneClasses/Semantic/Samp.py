@@ -3,17 +3,24 @@ class samp():
     def __init__(self,o,s,debug=True):
         assert np.abs(s[0])==1 or np.abs(s[2])==1
         self.TRANSL = np.array(s)
-        self.transl = o + s
-        self.radial = self.transl - o.translation
-        self.radian = self.radial/np.linalg.norm(self.radial)
-        self.tangen = np.cross(self.radian,[0,1,0])
+        # self.transl = o + s
+        # self.radial = self.transl - o.translation
+        # self.radian = self.radial/np.linalg.norm(self.radial)
+        # self.tangen = np.cross(self.radian,[0,1,0])
         self.debug  = debug
         self.component = {}
         self.t, self.s, self.r = np.array([.0,.0,.0]), np.array([.0,.0,.0]), np.array([.0,.0,.0])
 
+    def upd(self,o):
+        self.transl = o + self.TRANSL
+        self.radial = self.transl - o.translation
+        self.radian = self.radial/np.linalg.norm(self.radial)
+        self.tangen = np.cross(self.radian,[0,1,0])
+
     def __call__(self, o, config):
+        self.upd(o)
         wo, wi, dr = o.scne.WALLS.optFields(self,config)
-        ob = o.scne.OBJES.optFields(self, o, config["object"]) #np.array([.0,.0,.0])#
+        ob = o.scne.OBJES.optFields(self, o, config["object"]) if o.class_name().find("Lamp") < 0 else np.array([.0,.0,.0])#
         self.t = wo+wi+dr+ob
         self.s = np.dot(self.t,self.radian)*self.TRANSL
         self.r = np.cross(self.t,self.tangen)[1]/np.linalg.norm(self.radial)
@@ -38,12 +45,13 @@ class samps():
     def __call__(self, config, ut=-1):
         [s(self.o,config) for s in self.samps]
         T = np.average([_.t for _ in self.samps],axis=0)
-        S = np.average([_.s for _ in self.samps],axis=0)
+        S = np.average([_.s for _ in self.samps],axis=0)*0.001
         R = np.average([_.r for _ in self.samps],axis=0)
         if ut>0:
             if self.debug:
                 self.o.adjust["T"], self.o.adjust["S"], self.o.adjust["R"] = T*ut,S*ut,R*ut
             self.o.translation, self.o.size, self.o.orientation = self.o.translation+T*ut, self.o.size+S*ut, self.o.orientation+R*ut
+            #[s.upd(self.o) for s in self.samps]
         return T, S, R
     
     def draw(self,way="pnt",colors={"al":(0,0,0)}):

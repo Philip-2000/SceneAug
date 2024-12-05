@@ -1,15 +1,13 @@
-from .Obje import objes
-from .Wall import wall,walls
-from ..Semantic.Grup import grup
-from ..Semantic.Spce import spces
 import numpy as np
-from matplotlib import pyplot as plt
-from copy import copy
-from PIL import Image, ImageDraw
-import os
 
 class scne():
     def __init__(self, scene, grp=False, windoor=False, wl=False, keepEmptyWL=False, cen=False, rmm=True, irt=16, imgDir="./"):#print(wl)print(keepEmptyWL)
+        from .Obje import objes
+        from .Wall import walls
+        from ..Semantic.Grup import grup
+        from ..Semantic.Spce import spces
+        from copy import copy
+        
         self.LINKS=[]
         self.copy = copy(scene)
         self.scene_uid = str(scene["scene_uid"]) if "scene_uid" in scene else ""
@@ -55,6 +53,8 @@ class scne():
 
     @classmethod
     def fromSceneJson(cls,sj):
+        from .Obje import objes
+        from .Wall import walls
         scene = cls.empty(keepEmptyWL=True)
         scene.scene_uid = sj["id"]
         rsj = sj["rooms"][0]
@@ -64,6 +64,7 @@ class scne():
 
     @classmethod
     def fromNpzs(cls,boxes=None,contours=None,conts=None,grops=None,load=True,name=None,dir="../novel3DFront/",**kwargs):
+        import os
         if load:
             dn = dir+name
             boxes = np.load(dn+"/boxes.npz")
@@ -99,23 +100,27 @@ class scne():
     def __str__(self):
         return str(self.OBJES)+'\n'+str(self.WALLS)
 
-    def drao(self,suffix,config):#,lim=-1
+    def drao(self,suffix,config,ts):#,lim=-1
+        from matplotlib import pyplot as plt
+        import os
         plt.figure(figsize=(50, 40))
         
-        if suffix[:3]=="fil":
-            self.fild.draw(suffix,config)
-        else:
-            self.OBJES.drao(suffix, config)
+        
+        _ = self.fild.draw(suffix,config) if suffix[:2]=="fi" else self.OBJES.drao(suffix, config)
         
         self.WALLS.draw()
         plt.axis('equal')
+        plt.xlim(-7,7), plt.ylim(-7,7)
         plt.axis('off')
         
-        plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_"+suffix+".png"))
+        plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png"))
         plt.clf()
         plt.close()
+        return os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png")
 
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=True,suffix="_Layout"):
+        from matplotlib import pyplot as plt
+        import os
         plt.figure(figsize=(10, 8))
         self.SPCES.draw(dr=False)
 
@@ -138,6 +143,7 @@ class scne():
             self.drawRoomMask(os.path.join(self.imgDir,self.scene_uid+"_Mask.png") if imageTitle=="" else imageTitle[:-4]+"_Mask.png")
 
     def drawRoomMask(self,maskTitle=""):
+        from PIL import Image, ImageDraw
         Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
 
     def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0):     #class top2down():
@@ -147,6 +153,7 @@ class scne():
         return scene_render.renderables
 
     def exportAsSampleParams(self):
+        from copy import copy
         c = copy(self.copy)
         c = self.OBJES.exportAsSampleParams(c)
         c["room_layout"] = self.roomMask[None,:]
@@ -195,33 +202,34 @@ class scne():
     #endregion: properties-------#
 
     #region: operations----------#
-    def breakWall(self,id,rate):
-        #load all the links of 
+    # def breakWall(self,id,rate):
+    #     #load all the links of 
         
-        delList = []
-        for l in self.WALLS[id].linkIndex:
-            r = self.LINKS[l].rate
-            if r < rate:
-                self.LINKS[l].rate = r / rate
-            else:
-                self.LINKS[l].src = len(self.WALLS)+1
-                self.LINKS[l].rate = (r-rate) / (1-rate)
-                delList.append(l)
-        for l in delList:
-            self.WALLS[id].linkIndex.remove(l)
-        #WALLS[id].linkIndex
+    #     delList = []
+    #     for l in self.WALLS[id].linkIndex:
+    #         r = self.LINKS[l].rate
+    #         if r < rate:
+    #             self.LINKS[l].rate = r / rate
+    #         else:
+    #             self.LINKS[l].src = len(self.WALLS)+1
+    #             self.LINKS[l].rate = (r-rate) / (1-rate)
+    #             delList.append(l)
+    #     for l in delList:
+    #         self.WALLS[id].linkIndex.remove(l)
+    #     #WALLS[id].linkIndex
 
-        cutP = rate*self.WALLS[id].q + (1-rate)*self.WALLS[id].p
-        A = len(self.WALLS)
-        self.WALLS.append(wall(cutP,cutP,np.cross(self.WALLS[id].n,np.array([0,1,0])),id,A+1,A,scne=self))
-        self.WALLS.append(wall(cutP,self.WALLS[id].q,self.WALLS[id].n,A,self.WALLS[id].w2,A+1,scne=self))
-        for l in delList:
-            self.WALLS[A+1].linkIndex.append(l)
-        self.WALLS[self.WALLS[id].w2].w1= A+1
-        self.WALLS[id].q = np.copy(cutP)
-        self.WALLS[id].w2= A
+    #     cutP = rate*self.WALLS[id].q + (1-rate)*self.WALLS[id].p
+    #     A = len(self.WALLS)
+    #     self.WALLS.append(wall(cutP,cutP,np.cross(self.WALLS[id].n,np.array([0,1,0])),id,A+1,A,scne=self))
+    #     self.WALLS.append(wall(cutP,self.WALLS[id].q,self.WALLS[id].n,A,self.WALLS[id].w2,A+1,scne=self))
+    #     for l in delList:
+    #         self.WALLS[A+1].linkIndex.append(l)
+    #     self.WALLS[self.WALLS[id].w2].w1= A+1
+    #     self.WALLS[id].q = np.copy(cutP)
+    #     self.WALLS[id].w2= A
 
     def draftRoomMask(self):
+        from PIL import Image, ImageDraw
         L = self.roomMask.shape[-1]
         img = Image.new("L",(L,L))  
         img1 = ImageDraw.Draw(img)  
@@ -235,6 +243,7 @@ import tqdm
 class scneDs():
     def __init__(self,name="../novel3DFront/",lst=[],prepare="uncond",num=8,_dataset=[],**kwargs):#print(kwargs)
         from numpy.random import choice
+        import os
         self.name,self._dataset = name, []
         if prepare=="uncond":
             LST = os.listdir(name) if (os.path.exists(name) and len(lst)==0 and num==0) else ([choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst)
@@ -264,7 +273,7 @@ class scneDs():
     #region: in/outputs-----------#
         #region: inputs-----------#
     def load(self,LST,name="",num=8,**kwargs):
-        import json
+        import json,os
         pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
         for i in pbar:
             if os.path.exists(name) and len(LST):
@@ -281,7 +290,7 @@ class scneDs():
         
         #region: outputs----------#
     def save(self,dir):
-        import json
+        import json,os
         for s in self._dataset:
             os.makedirs(os.path.join(dir,s.scene_uid),exist_ok=True)
             open(os.path.join(dir,s.scene_uid,'scene.json'),"w").write(json.dumps(s.toSceneJson())) #raise NotImplementedError#break
@@ -291,7 +300,7 @@ class scneDs():
     
     #region: preparing------------#
     def prepareTextCond(self,LST,name="",num=8,**kwargs):
-        import json
+        import json,os
         pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
         for i in pbar:
             if os.path.exists(name) and len(LST):
@@ -309,7 +318,7 @@ class scneDs():
             self._dataset.append(scene)
 
     def prepareRoomCond(self,LST,name="",num=8,**kwargs):
-        import json
+        import json,os
         pbar = tqdm.tqdm(range(len(LST))) if os.path.exists(name) and len(LST) else tqdm.tqdm(range(num))
         for i in pbar:
             if os.path.exists(name) and len(LST):

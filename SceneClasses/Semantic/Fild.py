@@ -21,7 +21,7 @@ class sam():
     
     def draw(self,way,colors):
         from matplotlib import pyplot as plt
-        if way == "filv":
+        if way == "fiv":
             A = 0.33#0.001
             st,ed = [self.transl[0], self.transl[2]], [self.transl[0], self.transl[2]]#,[self.transl[0]+self.ob[0]*A, self.transl[1]+self.ob[2]*A]
             #plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], marker=".", color=colors["ob"], linewidth=0.5)

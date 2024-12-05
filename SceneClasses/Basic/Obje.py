@@ -59,6 +59,7 @@ class bx2d(): #put those geometrical stuff into this base class
 
     def drao(self,way,colors):
         if way in ["pnt","pns"] :
+            self.draw(d=False,color=(0.6,0.6,0.6),text=False)
             self.samples.draw(way,colors)
         else:
             self.draw(d=True,color=colors["res"],cr=(0.0,0.0,0.0),text=False)

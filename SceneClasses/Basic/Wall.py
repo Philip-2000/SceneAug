@@ -568,9 +568,14 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     #                 if not out:
     #                     print(field)
     #             assert False
-        wi = wi * np.clip(1.0-norm(wi)/config["wall"]["bound"],0.0,1.0)
-        try:
+        WI, wi = wi, wi * np.clip(1.0-norm(wi)/config["wall"]["bound"],0.0,1.0)
+        try: #for object samples
+            a = sp.TRANSL[2]
             return (np.array([.0,.0,.0]),wi if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]),dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([.0,.0,.0]),dr)
-        except:
-            return (np.array([.0,.0,.0]), wi, dr) #if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([.0,.0,.0]),dr)
+        except: #for fields
+            #print("fuck")
+            if self.shape().contains(Point(sp.transl[0],sp.transl[2])):
+                return ((np.array([.0,.0,.0]),0), (wi,((min(norm(WI),config["wall"]["bound"]))**2)/2.0), dr)
+            else:
+                return ((wo,(norm(wo)**2)/2.0), (np.array([.0,.0,.0]),0),dr)
     #endregion: optFields--------#

@@ -1,6 +1,6 @@
 import numpy as np
 
-DEN,SIGMA2,MDE,OPTRATE = [[1.2**2,1.2**2,1.2**2,1.2**2,1.2**2,1.2**2,0.5**2]]*5,2.0**2,True,0.5
+DEN,SIGMA2,MDE = [[1.2**2,1.2**2,1.2**2,1.2**2,1.2**2,1.2**2,0.5**2]]*5,2.0**2,True
 def giveup(B,A,C):#c=len(B)/A, cc=len(B)/C  #or (len(B)/C < 0.3) or (len(B)/A < 0.1)
     return (B is None) or (len(B) < 30) 
 def singleMatch(l,c,cc,od,cs):
@@ -29,8 +29,9 @@ class bnch():
     def loss(self,obj,hint=1):#Nothing for /1       None for /self.dev       np.array for weight
         return ((self.diff(obj))**2).sum() if type(hint)==int else (((self.diff(obj))**2/self.dev).sum() if hint is None else (hint*(self.diff(obj))**2/self.dev).sum())#/self.dev 
 
-    def optimize(self,obj):
-        return None #obje.fromFlat((self.diff(obj))*OPTRATE+self.exp,j=obj.class_index)
+    def optimize(self,obj,iRate):
+        from ..Basic.Obje import obje
+        return obje.fromFlat((self.diff(obj))*iRate+self.exp,j=obj.class_index)
 
     def add(self,obj,f=False):
         from ..Basic.Obje import angleNorm

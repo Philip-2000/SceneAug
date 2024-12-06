@@ -27,17 +27,6 @@ class scne():
             grops = np.ones(len(self.OBJES)) if scene["grops"] is None else scene["grops"]
             self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":irt},j+1,scne=self) for j in range(int(max(grops)))]
         
-        # if windoor and False:
-        #     widos = scene["widos"]
-        #     for k in range(len(widos)):
-        #         oii = np.array([np.math.atan2(widos[k][-1],widos[k][-2])])
-        #         sii = np.array([max(widos[k][3],widos[k][5]),widos[k][4],min(widos[k][3],widos[k][5])]) #?
-        #         tri = widos[k][:3]
-        #         c = len(object_types)-1 if tri[1]-sii[1] < 0.1 else len(object_types)-2
-        #         self.OBJES.append(obje(tri-c_e,sii,oii,i=c,idx=len(self.OBJES),scne=self))
-
-        #obje(t,s,o,c,i)
-        #wall(p,q,n,w1,w2)
         self.WALLS = walls(scene["walls"] if wl else [], c_e, self, keepEmptyWL=keepEmptyWL, cont=scene["widos"] if windoor else [])
         self.text = scene["text"] if "text" in scene else ""
         self.SPCES = spces(self)#[]
@@ -104,8 +93,6 @@ class scne():
         from matplotlib import pyplot as plt
         import os
         plt.figure(figsize=(50, 40))
-        
-        
         _ = self.fild.draw(suffix,config) if suffix[:2]=="fi" else self.OBJES.drao(suffix, config)
         
         if suffix == "fiv":
@@ -203,32 +190,6 @@ class scne():
     #endregion: properties-------#
 
     #region: operations----------#
-    # def breakWall(self,id,rate):
-    #     #load all the links of 
-        
-    #     delList = []
-    #     for l in self.WALLS[id].linkIndex:
-    #         r = self.LINKS[l].rate
-    #         if r < rate:
-    #             self.LINKS[l].rate = r / rate
-    #         else:
-    #             self.LINKS[l].src = len(self.WALLS)+1
-    #             self.LINKS[l].rate = (r-rate) / (1-rate)
-    #             delList.append(l)
-    #     for l in delList:
-    #         self.WALLS[id].linkIndex.remove(l)
-    #     #WALLS[id].linkIndex
-
-    #     cutP = rate*self.WALLS[id].q + (1-rate)*self.WALLS[id].p
-    #     A = len(self.WALLS)
-    #     self.WALLS.append(wall(cutP,cutP,np.cross(self.WALLS[id].n,np.array([0,1,0])),id,A+1,A,scne=self))
-    #     self.WALLS.append(wall(cutP,self.WALLS[id].q,self.WALLS[id].n,A,self.WALLS[id].w2,A+1,scne=self))
-    #     for l in delList:
-    #         self.WALLS[A+1].linkIndex.append(l)
-    #     self.WALLS[self.WALLS[id].w2].w1= A+1
-    #     self.WALLS[id].q = np.copy(cutP)
-    #     self.WALLS[id].w2= A
-
     def draftRoomMask(self):
         from PIL import Image, ImageDraw
         L = self.roomMask.shape[-1]
@@ -385,7 +346,6 @@ class scneDs():
             O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,rec=True,config=config,**kwargs)
             O(steps,iRate,jRate)
         
-
     def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        
         from ..Operation.Patn import patternManager as PM
         import numpy as np

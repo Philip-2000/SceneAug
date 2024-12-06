@@ -1,28 +1,24 @@
 import numpy as np
+from numpy.linalg import norm
 class samp():
-    def __init__(self,o,s,debug=True):
+    def __init__(self,s,debug=True):
         assert np.abs(s[0])==1 or np.abs(s[2])==1
         self.TRANSL = np.array(s)
-        # self.transl = o + s
-        # self.radial = self.transl - o.translation
-        # self.radian = self.radial/np.linalg.norm(self.radial)
-        # self.tangen = np.cross(self.radian,[0,1,0])
         self.debug  = debug
         self.component = {}
         self.t, self.s, self.r = np.array([.0,.0,.0]), np.array([.0,.0,.0]), np.array([.0,.0,.0])
 
-    def upd(self,o):
+    def __update(self,o):
         self.transl = o + self.TRANSL
         self.radial = self.transl - o.translation
-        self.radian = self.radial/np.linalg.norm(self.radial)
-        self.tangen = np.cross(self.radian,[0,1,0])
+        self.tangen = np.cross(self.radial/norm(self.radial),[0,1,0])
 
     def __call__(self, o, config):
-        self.upd(o)
+        self.__update(o)
         wo, wi, dr = o.scne.WALLS.optFields(self,config)
         ob = o.scne.OBJES.optFields(self, o, config["object"]) if o.class_name().find("Lamp") < 0 else np.array([.0,.0,.0])#
         self.t = wo+wi+dr+ob
-        self.s = np.dot(self.t,self.radian)*self.TRANSL
+        self.s = np.dot(self.t,self.radial/norm(self.radial))*self.TRANSL
         self.r = np.cross(self.t,self.tangen)[1]/np.linalg.norm(self.radial)
         if self.debug:
             self.component["al"], self.component["wo"], self.component["wi"], self.component["dr"], self.component["ob"] = self.t, wo, wi, dr, ob
@@ -38,22 +34,25 @@ class samp():
         plt.plot( [self.transl[0],self.transl[0]], [-self.transl[2],-self.transl[2]], marker=".", color=(0.33,0.33,0.33))
 
 class samps():
-    def __init__(self,o,ss,debug=True):
-        assert np.max(np.abs(np.array(ss)[:,0].sum()),np.abs(np.array(ss)[:,2].sum())) < 0.000001
-        self.o, self.samps, self.debug = o, [samp(o,s,debug) for s in ss], debug
+    def __init__(self,o,s4,debug=True):#assert sr%4 == 0 np.max(np.abs(np.array(ss)[:,0].sum()),np.abs(np.array(ss)[:,2].sum())) < 0.000001
+        ss = [[1.,.0,1.-i*2.0/s4] for i in range(s4)] + [[1.-i*2.0/s4,.0,-1.] for i in range(s4)] + [[-1.,.0,-1.+i*2.0/s4] for i in range(s4)] + [[-1.+i*2.0/s4,.0,-1.] for i in range(s4)]
+        self.o, self.samps, self.debug = o, [samp(s,debug) for s in ss], debug
 
+    def __iter__(self):
+        return iter(self.samps)
+    
     def __call__(self, config, ut=-1):
-        [s(self.o,config) for s in self.samps]
-        T = np.average([_.t for _ in self.samps],axis=0)
-        S = np.average([_.s for _ in self.samps],axis=0)*0.001
-        R = np.average([_.r for _ in self.samps],axis=0)
+        [s(self.o,config) for s in self]
+        T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
         if ut>0:
             if self.debug:
                 self.o.adjust["T"], self.o.adjust["S"], self.o.adjust["R"] = T*ut,S*ut,R*ut
             self.o.translation, self.o.size, self.o.orientation = self.o.translation+T*ut, self.o.size+S*ut, self.o.orientation+R*ut
-            #[s.upd(self.o) for s in self.samps]
         return T, S, R
     
-    def draw(self,way="pnt",colors={"al":(0,0,0)}):
+    def draw(self,way,colors):
         assert self.debug
-        [s.draw(colors) for s in self.samps]
+        [s.draw(colors) for s in self]
+
+    def violate(self):
+        return np.array([norm(s.t) for s in self]).sum() #????

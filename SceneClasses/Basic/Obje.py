@@ -250,17 +250,13 @@ class obje(bx2d):
         #region: optField--------#
     def optimizePhy(self,config,debug=False,ut=-1):
         from ..Semantic.Samp import samps
-        self.samples = samps(self,config["ss"],debug)
+        self.samples = samps(self,config["s4"],debug)
         return self.samples(config,ut)
     
-    def optP(self, sp, c): #potential in optimize, only for field grid
-        X0Z = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])*self.size), s=np.array([c[2],1,c[1]])*self.size, o=self.orientation) - sp.transl
-        return min(0,1-X0Z[0]**2-X0Z[2]**2)
-
     def optField(self, sp, c):
         newSelf = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])*self.size), s=np.array([c[2],1,c[1]])*self.size, o=self.orientation)
         try: #for object samples
-            X0Z, A0C = newSelf-sp.transl, newSelf.matrix(-1)@(-sp.radial) / newSelf.size#newSelf-(-sp.radial)#transform the sp.transl, -sp.radial into newSelf's world, as [X,0,C] and [A,0,C]
+            X0Z, A0C = newSelf-sp.transl, newSelf.matrix(-1)@(-sp.radial) / newSelf.size
             X0Z[1],A0C[1] = 0,0
             if norm(X0Z) > 1.0:
                 return np.array([.0,.0,.0])
@@ -271,7 +267,8 @@ class obje(bx2d):
             X0Z = newSelf-sp.transl
             X0Z[1] = 0
             n = norm(X0Z)
-            return (newSelf + (X0Z if norm(X0Z)<0.000001 else X0Z*(max(1-n,0.0)/n))) - newSelf.translation
+            v = (newSelf + (X0Z if norm(X0Z)<0.000001 else X0Z*(max(1-n,0.0)/n))) - newSelf.translation
+            return v, (norm(v)**2)/2.0
         #endregion: optField-----#
 
     #endregion: operations-------#
@@ -292,10 +289,9 @@ class objes():
     @classmethod
     def fromSceneJson(cls,rsj,scene):
         objects = cls.empty(scne=scene)
-        for oi in range(len(rsj["objList"])):
-            objects.addObject(obje.fromObjectJson(rsj["objList"][oi],oi,scene))
-        for oj in []:#rsj["blockList"]:
-            objects.addObject(obje.fromObjectJson(oj))
+        [objects.addObject(obje.fromObjectJson(rsj["objList"][oi],oi,scene)) for oi in range(len(rsj["objList"]))]
+        #for oj in []:#rsj["blockList"]:
+        #    objects.addObject(obje.fromObjectJson(oj))
         return objects
         #endregion: inputs-------#
 
@@ -343,11 +339,6 @@ class objes():
     def nids(self):
         return set([o.nid for o in self.OBJES])
 
-    # def searchNid(self, nid, sig=True):
-    #     return ([o for o in self.OBJES if o.nid == nid] + [None])[0]
-    #     s = [o for o in self.OBJES if o.nid == nid] + [None]
-    #     return (s[0] if sig else s) if len(s)>0 else None
-
     def __iter__(self):
         return iter(self.OBJES)
     #endregion: properties-------#
@@ -368,14 +359,13 @@ class objes():
         #endregion: basic--------#
     
         #region: optFields-------#
-
     def optFields(self,sp,o,config):
         if o: #for o's samples
             return np.array([oo.optField(sp,config[oo.class_name()]) for oo in [_ for _ in self.OBJES if (_.idx != o.idx)]] ).sum(axis=0)
         else: #for field
-            return np.array([oo.optField(sp,config[oo.class_name()]) for oo in self.OBJES] ).sum(axis=0), np.array([oo.optP(sp,config[oo.class_name()]) for oo in self.OBJES] ).sum(axis=0)
+            A = np.array([oo.optField(sp,config[oo.class_name()])[0] for oo in self.OBJES])
+            return  A.sum(axis=0), np.array([(norm(a)**2)/2.0 for a in A] ).sum(axis=0)
         
-
     def optimizePhy(self,config,debug=False,ut=-1):
         return [o.optimizePhy(config,debug,ut) for o in self.OBJES]
         #endregion: optFields----#

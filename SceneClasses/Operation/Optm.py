@@ -24,14 +24,12 @@ class PhyOpt():
         self.scene.fild = fild(scene,config["grid"],config)
         self.config = config
         self.configVis = config["vis"] if config["vis"] else None
-        
-        #要给这PhyOpt和PatOpt配置可视化方案
-        self.shows = {"res":[],"syn":[],"pnt":[],"pns":[]}
+        self.shows = {"res":[],"syn":[],"pnt":[],"pns":[],"fiv":[],"fih":[],"fip":[],"fiq":[]}
 
     def draw(self,s):
-        # _ = self.scene.drao("res", self.configVis["res"],s) if self.configVis["res"] else None
-        # if _:
-        #     self.shows["res"].append(_)
+        for nms in self.shows:
+            if self.configVis[nms]:
+                self.shows[nms].append(self.scene.drao(nms, self.configVis[nms],s))
         # _ = self.scene.drao("syn", self.configVis["syn"],s) if self.configVis["syn"] else None
         # if _:
         #     self.shows["syn"].append(_)
@@ -41,47 +39,46 @@ class PhyOpt():
         # _ = self.scene.drao("pns", self.configVis["pns"],s) if self.configVis["pns"] else None
         # if _:
         #     self.shows["pns"].append(_)
-        _ = self.scene.drao("fiv", self.configVis["fiv"],s) if self.configVis["fiv"] else None
-        #assert False
-        _ = self.scene.drao("fih", self.configVis["fih"],s) if self.configVis["fih"] else None
+        # _ = self.scene.drao("fiv", self.configVis["fiv"],s) if self.configVis["fiv"] else None
+        # #assert False
+        # _ = self.scene.drao("fih", self.configVis["fih"],s) if self.configVis["fih"] else None
         # _ = self.scene.drao("fip", self.configVis["fip"],s) if self.configVis["fip"] else None
         # _ = self.scene.drao("fiq", self.configVis["fiq"],s) if self.configVis["fiq"] else None
 
     def show(self):
         from moviepy.editor import ImageSequenceClip
         import os
-        if "res" in self.shows:
-            ImageSequenceClip(self.shows["res"], fps=2).write_videofile(os.path.join(".","res.mp4"),logger=None)
-        if "syn" in self.shows:
-            ImageSequenceClip(self.shows["syn"], fps=2).write_videofile(os.path.join(".","syn.mp4"),logger=None)
-        if "pnt" in self.shows:
-            ImageSequenceClip(self.shows["pnt"], fps=2).write_videofile(os.path.join(".","pnt.mp4"),logger=None)
-        if "pns" in self.shows:
-            ImageSequenceClip(self.shows["pns"], fps=2).write_videofile(os.path.join(".","pns.mp4"),logger=None)
-       
-        
-        pass
+        for nms in self.shows:
+            if len(self.shows[nms]):
+                ImageSequenceClip(self.shows[nms], fps=2).write_videofile(os.path.join(".",nms+".mp4"),logger=None)
+        # if "res" in self.shows:
+        #     ImageSequenceClip(self.shows["res"], fps=2).write_videofile(os.path.join(".","res.mp4"),logger=None)
+        # if "syn" in self.shows:
+        #     ImageSequenceClip(self.shows["syn"], fps=2).write_videofile(os.path.join(".","syn.mp4"),logger=None)
+        # if "pnt" in self.shows:
+        #     ImageSequenceClip(self.shows["pnt"], fps=2).write_videofile(os.path.join(".","pnt.mp4"),logger=None)
+        # if "pns" in self.shows:
+        #     ImageSequenceClip(self.shows["pns"], fps=2).write_videofile(os.path.join(".","pns.mp4"),logger=None)
 
     def __call__(self,iRate,s):
-        self.scene.OBJES.optimizePhy(
-            self.config,
-            debug=bool(self.configVis),
-            ut=iRate
-        )
-        #r = self.scene.fild() if self.scene.fild else None            
+        self.scene.OBJES.optimizePhy(self.config,debug=bool(self.configVis),ut=iRate)
+        r = self.scene.fild() if self.scene.fild else None
         self.draw(s)
 
 class PatOpt():
     def __init__(self,pm,scene,rec=True,config={}):
-        from .Patn import patternManager as PM
         from .Plan import plans
         self.PM = pm
         self.scene = scene
+        self.rec = rec
         if rec:
             plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
 
     def __call__(self,iRate,s):
         #handly search the father and son relation among objects,
+        from .Plan import plans
+        if self.rec:
+            plans(self.scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
 
         self.scene.grp=True
         j = -1
@@ -90,19 +87,16 @@ class PatOpt():
                 continue
             j += 1
             for oid,nid in p.nids[1:]:
-                assert self.scene[oid].nid == nid
-                assert self.scene[oid].gid == j
+                assert self.scene[oid].nid == nid and self.scene[oid].gid == j
                 son = self.scene[oid]
-
-
                 m = self.pm.nods[self.pm.mid(nid)]
 
                 fid = p.searchOid(m.idx)[0]
                 assert self.scene[fid].nid == m.idx
                 fat = self.scene[fid]
                 fat_son = fat - son #？？？？？
-                fat_son = m.bunches[nid].optimize(fat_son)
+                fat_son = m.bunches[nid].optimize(fat_son,iRate)
                 new_son = fat + fat_son
                 son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
 
-        pass
+        self.draw(s)

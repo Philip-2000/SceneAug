@@ -4,17 +4,20 @@ class sam():
     def __init__(self,scene,transl,idx,config):
         self.transl = transl
         self.idx = (int(idx[0]*config["grid"]["b"]),int(idx[1]*config["grid"]["b"]))
-        self.wo, self.wi, self.dr = scene.WALLS.optFields(self,config)
-        self.ob, self.p_ob = scene.OBJES.optFields(self, None, config["object"])
-        self.res_p = self.wo + self.wi
-        self.res_ob = self.res_p + self.dr
-        self.res = self.res_ob + self.ob
-        self.p = 0
+        wop, wip, self.dr = scene.WALLS.optFields(self,config)
+        self.wo, self.wop, self.wi, self.wip = wop[0], wop[1], wip[0], wip[1]
+        self.ob, self.obp = scene.OBJES.optFields(self, None, config["object"])
+        # self.res_p = self.wo + self.wi
+        # self.res_ob = self.res_p + self.dr
+        # self.res = self.res_ob + self.ob
+        self.res_ob = self.wo + self.wi + self.dr 
+        self.p_ob  = self.wop + self.wip
+        self.p = self.wop+self.wip+self.obp
 
     def __call__(self, scene, config):
-        self.ob, p = scene.OBJES.optFields(self, None, config["object"])
+        self.ob, self.obp = scene.OBJES.optFields(self, None, config["object"])
         self.res = self.res_ob + self.ob
-        self.p = self.p_ob + p
+        self.p = self.p_ob + self.obp
         return self.res
     
     def integral(self,sample):
@@ -40,9 +43,10 @@ class sam():
                 for y in range(b):
                     pxs[self.idx[0]+x,self.idx[1]+y]=c
         elif way == "fip":
-            return 0 # a distance?
+            self.p = self.wop+self.wip+self.obp
+            return self.p
         elif way == "fiq":
-            cl = min(norm(self.wo)/6.,1.0) * np.array(colors["wo"]) + min(norm(self.wi)/.5,1.0) * np.array(colors["wi"]) + min(norm(self.ob)/2.,1.0) * np.array(colors["ob"])
+            cl = min(norm(self.wop)/18.,1.0) * np.array(colors["wo"]) + min(norm(self.wip)/.5,1.0) * np.array(colors["wi"]) + min(norm(self.obp)/2.,1.0) * np.array(colors["ob"])
             c = (int(cl[0] * 255.0),int(cl[1] * 255.0),int(cl[2] * 255.0))
             for x in range(b):
                 for y in range(b):
@@ -52,20 +56,26 @@ class sam():
 class fild():
     def __init__(self,scene,grids,config):
         #所谓field，其实就是一系列sample，把他们结果画出来。
-        L,d = grids["L"], grids["d"]
+        L,d,b = grids["L"], grids["d"], grids["b"]
         N = int(L / d)
         self.grids = [[sam(scene, np.array([xi*d,0,zi*d]), (N+xi,N+zi), config) for zi in range(-N,N+1,1)] for xi in range(-N,N+1,1)]
-        # for xi in range(-N,N+1):
-        #     for zi in range(-N,N+1):
-        #         self.grids[N+xi][N+zi] = sam(scene, np.array([xi*d,0,zi*d]), (N+xi,N+zi), config)
-        self.N = N
-        self.b = grids["b"]
+        self.N,self.d,self.b = N,d,b
         self.config = config
         self.scene = scene
         #self.integral()
         from PIL import Image
-        self.fih = Image.new('RGB',((2*N+1)*self.b,(2*N+1)*self.b))
-        self.fiq = Image.new('RGB',((2*N+1)*self.b,(2*N+1)*self.b))
+        if config["vis"]["fih"]:
+            self.fih = Image.new('RGB',((2*N+1)*b,(2*N+1)*b))
+        if config["vis"]["fiq"]:
+            self.fiq = Image.new('RGB',((2*N+1)*b,(2*N+1)*b))
+        if config["vis"]["fip"]:
+            self.x, self.y = np.meshgrid(np.linspace(-self.N, self.N+1, int(2*self.N)+1)*self.d, np.linspace(-self.N, self.N+1, int(2*self.N)+1)*self.d)
+            from matplotlib import pyplot as plt
+            fig = plt.figure()
+            self.ax = fig.add_subplot(111, projection='3d')
+            self.ax.set_xlabel('X axis')
+            self.ax.set_ylabel('Y axis')
+            self.ax.set_title('fip')
             
     def __call__(self):
         [[s(self.scene,self.config) for s in g]  for g in self.grids]
@@ -95,25 +105,11 @@ class fild():
             self.fih.save('./fih.jpg')
         elif way == "fip":# Curved Surface 
             raise NotImplementedError
-            x = np.linspace(-halfSize, halfSize+1, int(2*halfSize/rate)+1)*scale
-            y = np.linspace(-halfSize, halfSize+1, int(2*halfSize/rate)+1)*scale
-            x, y = np.meshgrid(x, y)
-            
-            z = np.array(-field[3])
-            fig = plt.figure()
-            ax = fig.add_subplot(111, projection='3d')
-            surf = ax.plot_surface(x, y, z, cmap=plt.cm.coolwarm, linewidth=0, antialiased=False)
-            
-            levels = np.linspace(0, 10, 5)**2
-            
-            ax.contour(x, y, z, levels, zdir='z', offset=0, cmap=plt.cm.coolwarm)
-            ax.set_xlabel('X axis')
-            ax.set_ylabel('Y axis')
-            #ax.set_zlabel('Z axis')
-            ax.set_title('00c36b04-369f-4df1-9db1-b29913d2c51f_LivingDiningRoom-7050')
+            p = np.array(-[[s.draw(way,colors) for s in g] for g in self.grids])
+            surf = self.ax.plot_surface(self.x, self.y, p, cmap=plt.cm.coolwarm, linewidth=0, antialiased=False)
+            #ax.contour(self.x, self.y, p, np.linspace(0, 10, 5)**2, zdir='z', offset=0, cmap=plt.cm.coolwarm)
             plt.show()
         elif way == "fiq":# Heatmap
-            raise NotImplementedError
             [[s.draw(way,colors,self.fiq.load(),self.b) for s in g] for g in self.grids]
             self.fiq.save('./fiq.jpg')
 

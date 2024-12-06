@@ -14,7 +14,7 @@ class optm():
     
     def __call__(self, steps=100, iRate=0.01, jRate=0.01):
         [(self.PhyOpt(iRate,s) if self.PhyOpt else None, self.PatOpt(jRate,s) if self.PatOpt else None) for s in range(steps)]
-        self.PhyOpt.show()
+        #self.PhyOpt.show()
         #well we shouldn't go this way? 
         
 class PhyOpt():
@@ -29,21 +29,21 @@ class PhyOpt():
         self.shows = {"res":[],"syn":[],"pnt":[],"pns":[]}
 
     def draw(self,s):
-        _ = self.scene.drao("res", self.configVis["res"],s) if self.configVis["res"] else None
-        if _:
-            self.shows["res"].append(_)
-        _ = self.scene.drao("syn", self.configVis["syn"],s) if self.configVis["syn"] else None
-        if _:
-            self.shows["syn"].append(_)
-        _ = self.scene.drao("pnt", self.configVis["pnt"],s) if self.configVis["pnt"] else None
-        if _:
-            self.shows["pnt"].append(_)
-        _ = self.scene.drao("pns", self.configVis["pns"],s) if self.configVis["pns"] else None
-        if _:
-            self.shows["pns"].append(_)
+        # _ = self.scene.drao("res", self.configVis["res"],s) if self.configVis["res"] else None
+        # if _:
+        #     self.shows["res"].append(_)
+        # _ = self.scene.drao("syn", self.configVis["syn"],s) if self.configVis["syn"] else None
+        # if _:
+        #     self.shows["syn"].append(_)
+        # _ = self.scene.drao("pnt", self.configVis["pnt"],s) if self.configVis["pnt"] else None
+        # if _:
+        #     self.shows["pnt"].append(_)
+        # _ = self.scene.drao("pns", self.configVis["pns"],s) if self.configVis["pns"] else None
+        # if _:
+        #     self.shows["pns"].append(_)
         _ = self.scene.drao("fiv", self.configVis["fiv"],s) if self.configVis["fiv"] else None
-        assert False
-        # _ = self.scene.drao("fih", self.configVis["fih"],s) if self.configVis["fih"] else None
+        #assert False
+        _ = self.scene.drao("fih", self.configVis["fih"],s) if self.configVis["fih"] else None
         # _ = self.scene.drao("fip", self.configVis["fip"],s) if self.configVis["fip"] else None
         # _ = self.scene.drao("fiq", self.configVis["fiq"],s) if self.configVis["fiq"] else None
 

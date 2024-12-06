@@ -15,11 +15,11 @@ def parse(): #using pattern to understand scene
     #在这里配置基础选项，包括可视化内容，优化超参数等等。
     config = {
         "pat":{
-            "steps":8,
+            "steps":1,
             "rate":0.5,
         },
         "phy":{
-            "steps":8,
+            "steps":1,
             "rate":0.5,
             "ss": [[1,0,1],[1,0,0],[1,0,-1],[0,0,-1],[-1,0,-1],[-1,0,0],[-1,0,1],[0,0,1]],
             "door":{
@@ -27,7 +27,9 @@ def parse(): #using pattern to understand scene
                 "out":0.2,
                 "in":1.0,
             },
-            "wall":{},
+            "wall":{
+                "bound":0.5,
+            },
             "object":{
                 "Pendant Lamp":[.0,.01,.01],#
                 "Ceiling Lamp":[.0,.01,.01],#
@@ -67,6 +69,7 @@ def parse(): #using pattern to understand scene
             "grid":{
                 "L":5.5,
                 "d":0.1,
+                "b":10,
             },
             "vis":{
                 "res":{
@@ -84,20 +87,20 @@ def parse(): #using pattern to understand scene
                 "pns":{
                     "wo":(1.0,0,0),
                     "wi":(0,0,1.0),
-                    "dr":(0,1.0,0),
-                    "ob":(0.33,0.33,0.33),
+                    "dr":(0.33,0.33,0.33),
+                    "ob":(0,1.0,0),
                 },
                 "fiv":{
                     "wo":(1.0,0,0),
                     "wi":(0,0,1.0),
-                    "dr":(0,1.0,0),
-                    "ob":(0.33,0.33,0.33),
+                    "dr":(0.33,0.33,0.33),
+                    "ob":(0,1.0,0),
                 },
                 "fih":{
                     "wo":(1.0,0,0),
                     "wi":(0,0,1.0),
-                    "dr":(0,1.0,0),
-                    "ob":(0.33,0.33,0.33),
+                    "dr":(0.33,0.33,0.33),
+                    "ob":(0,1.0,0),
                 },
                 "fip":{
 

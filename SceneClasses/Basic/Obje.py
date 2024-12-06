@@ -254,23 +254,24 @@ class obje(bx2d):
         return self.samples(config,ut)
     
     def optP(self, sp, c): #potential in optimize, only for field grid
-        X0Z = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])), s=np.array([c[1],1,c[2]])*self.size, o=self.orientation) -sp.transl
+        X0Z = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])*self.size), s=np.array([c[2],1,c[1]])*self.size, o=self.orientation) - sp.transl
         return min(0,1-X0Z[0]**2-X0Z[2]**2)
 
     def optField(self, sp, c):
-        newSelf = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])), s=np.array([c[1],1,c[2]])*self.size, o=self.orientation)
+        newSelf = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])*self.size), s=np.array([c[2],1,c[1]])*self.size, o=self.orientation)
         try: #for object samples
-            X0Z, A0C = newSelf-sp.transl, self.matrix(-1)@(-sp.radial) / self.size#newSelf-(-sp.radial)#transform the sp.transl, -sp.radial into newSelf's world, as [X,0,C] and [A,0,C]
-            if (X0Z[0]**2+X0Z[2]**2) > 1.0:
+            X0Z, A0C = newSelf-sp.transl, newSelf.matrix(-1)@(-sp.radial) / newSelf.size#newSelf-(-sp.radial)#transform the sp.transl, -sp.radial into newSelf's world, as [X,0,C] and [A,0,C]
+            X0Z[1],A0C[1] = 0,0
+            if norm(X0Z) > 1.0:
                 return np.array([.0,.0,.0])
-            n2,A0C[1],X0Z[1] = A0C[0]**2+A0C[2]**2,0,0
-            #[F,0,H]= { √(A²+C²-(AZ+CX)²)-AX-CZ }/{ A²+C² }  [A,0,C]
-            F0H = (np.sqrt(n2 - (A0C[0]*X0Z[2]+A0C[2]*X0Z[0])**2) - A0C*X0Z)/n2 * A0C
-            return newSelf+F0H#transform this field back to the world
-        except: #for points in field grid
+            #[F,0,H]= { √(A²+C²-(AZ-CX)²)-AX-CZ }/{ A²+C² }  [A,0,C]
+            F0H = (np.sqrt(norm(A0C)**2 - (np.cross(A0C,X0Z)[1])**2) - A0C@X0Z)/(norm(A0C)**2) * A0C
+            return (newSelf + F0H) - newSelf.translation#transform this field back to the world
+        except:
             X0Z = newSelf-sp.transl
-            n2,X0Z[1] = float(X0Z[0]**2+X0Z[2]**2),0
-            return X0Z / min(max(n2,0.000001),1.0)
+            X0Z[1] = 0
+            n = norm(X0Z)
+            return (newSelf + (X0Z if norm(X0Z)<0.000001 else X0Z*(max(1-n,0.0)/n))) - newSelf.translation
         #endregion: optField-----#
 
     #endregion: operations-------#

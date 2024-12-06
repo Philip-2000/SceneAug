@@ -108,15 +108,16 @@ class scne():
         
         _ = self.fild.draw(suffix,config) if suffix[:2]=="fi" else self.OBJES.drao(suffix, config)
         
-        self.WALLS.draw()
-        plt.axis('equal')
-        plt.xlim(-7,7), plt.ylim(-7,7)
-        plt.axis('off')
-        
-        plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png"))
-        plt.clf()
-        plt.close()
-        return os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png")
+        if suffix == "fiv":
+            self.WALLS.draw()
+            plt.axis('equal')
+            plt.xlim(-7,7), plt.ylim(-7,7)
+            plt.axis('off')
+            
+            plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png"))
+            plt.clf()
+            plt.close()
+            return os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png")
 
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=True,suffix="_Layout"):
         from matplotlib import pyplot as plt

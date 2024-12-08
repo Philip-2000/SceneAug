@@ -9,7 +9,7 @@ class exop():
 
         #（a）操作就是逐步优化pat，优化phy
 
-        #（b）有哪些有待测试的超参数？采样点采样率s4是不是？学习率？步数不算，门状态和墙壁范围不想改了意义不大
+        #（b）有哪些有待测试的超参数？采样点采样率s4是不是？学习率？步数不算，门状态和墙壁范围不想测了意义不大
         #（c）优化的速度如何
             #（2.1）收敛步数？
             #（2.2）收敛时间？
@@ -26,7 +26,42 @@ class exop():
 
     #怎么做？重新写吧，还挺有意思的。
 
+class PatExop():
+    def __init__(self,rerec = False,prerec=False):
 
+        self.rerec = rerec
+        self.prerec= prerec and not rerec
+        #我们考虑再实现和检测这个之前，
+        #总之就是实验的怎么进行的问题
+        #（0）拿到场景之后随机打乱，尝试对场景进行“优化”，检测优化的过程以及时间
+
+        #（a）操作就是逐步优化pat，优化phy
+
+        #（b）有哪些有待测试的超参数？学习率？
+        #（c）优化的速度如何
+            #（c.a）收敛步数？
+            #（c.b）收敛时间？
+        #（d）优化的效果？
+            #（d.a）物体adjust变小了吗，变小的速度如何？
+            #（d.b）recognize评分变好了吗，变好的速度如何？
+        pass
+
+    
+
+    def __call__(self):
+        if self.rerec:
+            pass
+
+
+
+        #还有一个问题就是，到底是打乱之前识别还是打乱之后识别？
+        #（1）每一步之前都重新识别
+        #（2）不在后面重新识别
+            #（2.1）在打乱之前识别
+            #（2.2）在打乱之后识别一次
+
+        #还有一个问题就是，每一步都识别还是只有第一次识别？
+        pass
 
 # class expn():
 #     def __init__(self,pmVersion,dataset,UIDS,expName,num,mt,task,roomMapping={}):

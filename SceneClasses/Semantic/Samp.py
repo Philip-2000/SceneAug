@@ -13,13 +13,19 @@ class samp():
         self.radial = self.transl - o.translation
         self.tangen = np.cross(self.radial/norm(self.radial),[0,1,0])
 
-    def __call__(self, o, config):
+    def __call__(self, o, config, timer):
         self.__update(o)
+        timer("wfield",1)
         wo, wi, dr = o.scne.WALLS.optFields(self,config)
+        timer("wfield",0)
+        timer("ofield",1)
         ob = o.scne.OBJES.optFields(self, o, config["object"]) if o.class_name().find("Lamp") < 0 else np.array([.0,.0,.0])#
+        timer("ofield",0)
+        timer("syn",1)
         self.t = wo+wi+dr+ob
         self.s = np.dot(self.t,self.radial/norm(self.radial))*self.TRANSL
         self.r = np.cross(self.t,self.tangen)[1]/np.linalg.norm(self.radial)
+        timer("syn",0)
         if self.debug:
             self.component["al"], self.component["wo"], self.component["wi"], self.component["dr"], self.component["ob"] = self.t, wo, wi, dr, ob
 
@@ -41,13 +47,15 @@ class samps():
     def __iter__(self):
         return iter(self.samps)
     
-    def __call__(self, config, ut=-1):
-        [s(self.o,config) for s in self]
+    def __call__(self, config, timer, ut=-1):
+        [s(self.o,config,timer) for s in self]
+        timer("syn",1)
         T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
         if ut>0:
             if self.debug:
                 self.o.adjust["T"], self.o.adjust["S"], self.o.adjust["R"] = T*ut,S*ut,R*ut
             self.o.translation, self.o.size, self.o.orientation = self.o.translation+T*ut, self.o.size+S*ut, self.o.orientation+R*ut
+        timer("syn",0)
         return T, S, R
     
     def draw(self,way,colors):

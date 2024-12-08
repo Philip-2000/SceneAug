@@ -1,3 +1,4 @@
+import numpy as np
 class optm():
     def __init__(self,pm=None,scene=None,PatFlag=False,PhyFlag=True,rand=False,rec=True,config={}):
         self.scene = scene
@@ -12,74 +13,124 @@ class optm():
             if o.idx % 2 == 0:
                 o.translation -= 0.8*o.direction()
     
-    def __call__(self, steps=100, iRate=0.01, jRate=0.01):
-        [(self.PhyOpt(iRate,s) if self.PhyOpt else None, self.PatOpt(jRate,s) if self.PatOpt else None) for s in range(steps)]
-        #self.PhyOpt.show()
+    def __call__(self, steps=100, iRate=-1, jRate=-1):
+        if steps>0:
+            for s in range(steps):
+                if self.PhyOpt:
+                    self.PhyOpt(s,iRate)
+                if self.PatOpt:
+                    self.PatOpt(s,jRate)
+        else:
+            PhyRet,PatRet,s = (False),(False),0
+            while (PhyRet[-1] and PatRet[-1]): #the over criterion
+                if self.PhyOpt:
+                    PhyRet = self.PhyOpt(s,iRate)
+                if self.PatOpt:
+                    PatRet = self.PhyOpt(s,iRate)
+                s=s+1
+        self.PhyOpt.show()
         #well we shouldn't go this way? 
         
 class PhyOpt():
-    def __init__(self,scene,config={}):
+    def __init__(self,scene,config={},exp=False):
         self.scene = scene
-        from ..Semantic.Fild import fild
-        self.scene.fild = fild(scene,config["grid"],config)
-        self.config = config
+        self.config= config
+        self.iRate = config["rate"]
+        self.s4 = config["s4"]
+        
         self.configVis = config["vis"] if config["vis"] else None
+        if self.configVis and (self.configVis["fiv"] or self.configVis["fih"] or self.configVis["fip"] or self.configVis["fiq"]):
+            from ..Semantic.Fild import fild
+            self.scene.fild = fild(scene,config["grid"],config)
         self.shows = {"res":[],"syn":[],"pnt":[],"pns":[],"fiv":[],"fih":[],"fip":[],"fiq":[]}
+        self.steps = 0
+
+        from ..Experiment.Tmer import tmer,tme
+        self.timer = tmer() if exp else tme()
+        self.exp = exp
+        #还有一个就是“timer”吗？因为之前的都是离线操作、要么就是离线的“场景识别”、要么就是场景生成但没来及写计时器的
+        #所以其实我从来也没写过计时器
 
     def draw(self,s):
+        r = self.scene.fild() if self.scene.fild else None
         for nms in self.shows:
-            if self.configVis[nms]:
+            if nms in self.configVis:# and (nms[:2] != "fi"):#
                 self.shows[nms].append(self.scene.drao(nms, self.configVis[nms],s))
-        # _ = self.scene.drao("syn", self.configVis["syn"],s) if self.configVis["syn"] else None
-        # if _:
-        #     self.shows["syn"].append(_)
-        # _ = self.scene.drao("pnt", self.configVis["pnt"],s) if self.configVis["pnt"] else None
-        # if _:
-        #     self.shows["pnt"].append(_)
-        # _ = self.scene.drao("pns", self.configVis["pns"],s) if self.configVis["pns"] else None
-        # if _:
-        #     self.shows["pns"].append(_)
-        # _ = self.scene.drao("fiv", self.configVis["fiv"],s) if self.configVis["fiv"] else None
-        # #assert False
-        # _ = self.scene.drao("fih", self.configVis["fih"],s) if self.configVis["fih"] else None
-        # _ = self.scene.drao("fip", self.configVis["fip"],s) if self.configVis["fip"] else None
-        # _ = self.scene.drao("fiq", self.configVis["fiq"],s) if self.configVis["fiq"] else None
 
     def show(self):
         from moviepy.editor import ImageSequenceClip
         import os
         for nms in self.shows:
             if len(self.shows[nms]):
-                ImageSequenceClip(self.shows[nms], fps=2).write_videofile(os.path.join(".",nms+".mp4"),logger=None)
-        # if "res" in self.shows:
-        #     ImageSequenceClip(self.shows["res"], fps=2).write_videofile(os.path.join(".","res.mp4"),logger=None)
-        # if "syn" in self.shows:
-        #     ImageSequenceClip(self.shows["syn"], fps=2).write_videofile(os.path.join(".","syn.mp4"),logger=None)
-        # if "pnt" in self.shows:
-        #     ImageSequenceClip(self.shows["pnt"], fps=2).write_videofile(os.path.join(".","pnt.mp4"),logger=None)
-        # if "pns" in self.shows:
-        #     ImageSequenceClip(self.shows["pns"], fps=2).write_videofile(os.path.join(".","pns.mp4"),logger=None)
+                ImageSequenceClip(self.shows[nms], fps=3).write_videofile(os.path.join(self.scene.imgDir,nms+".mp4"),logger=None)
+    
+    def over(self,mod,vio):
+        return False
 
-    def __call__(self,iRate,s):
-        self.scene.OBJES.optimizePhy(self.config,debug=bool(self.configVis),ut=iRate)
-        r = self.scene.fild() if self.scene.fild else None
+    def __call__(self,s,ir=-1):
+        mod = self.scene.OBJES.optimizePhy(self.config,self.timer,debug=bool(self.configVis),ut=(self.iRate if ir<0 else ir))
+        #[(T,S,R),(T,S,R),(T,S,R),......]
+        vio = self.scene.OBJES.violates() if self.exp else None #[SumOfNorm(s.t),SumOfNorm(s.t),SumOfNorm(s.t),......]
         self.draw(s)
+        self.steps = max(s,self.steps)
+        return mod,vio,self.timer,self.over(mod,vio)
+
+    def log(self):
+        #我觉得像咱们的PhyOpt对象，要对此次的场景、学习率、config等超参数有所感知
+            #学习率？
+            #采样点采样率
+        #并且具备对外输出某些评估指标的能力
+            #逐帧的：
+                #物体调整的尺度
+                #总的violate，即各个采样点的受场力情况
+                #耗时
+            #总体的：
+                #收敛总步数
+                #收敛总时间
+                                                            #不过它没必要管理各大超参数的关系，
+        pass
+
 
 class PatOpt():
-    def __init__(self,pm,scene,rec=True,config={}):
-        from .Plan import plans
+    def __init__(self,pm,scene,config={},rerec=False,prerec=False,rand=False,exp=False): #while in use: rerec=False, prerec=True?, rand=False
         self.PM = pm
         self.scene = scene
-        self.rec = rec
-        if rec:
-            plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        self.rerec = rerec
+        self.prerec= prerec and not rerec
+        self.iRate = config["rate"]
 
-    def __call__(self,iRate,s):
-        #handly search the father and son relation among objects,
+        from ..Experiment.Tmer import tmer,tme
+        self.timer = tmer() if exp else tme()
+        self.exp = exp
+        self.steps = 0
         from .Plan import plans
-        if self.rec:
-            plans(self.scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        if rand and prerec:
+            plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+            self.__random()
+        elif rand:
+            self.__random()
+            plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        elif prerec:
+            plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        self.shows = {"pat":[]}
 
+    def __random(self):
+        for o in self.scene.OBJES:
+            if o.idx % 2 == 0:
+                o.translation -= 0.8*o.direction()
+
+    def draw(self,s):
+        self.shows["pat"].append(self.scene.drao("pat", self.configVis["pat"],s))
+
+    def show(self):
+        from moviepy.editor import ImageSequenceClip
+        import os
+        ImageSequenceClip(self.shows["pat"], fps=2).write_videofile(os.path.join(self.scene.imgDir,"pat.mp4"),logger=None)
+    
+    def over(self,mod,score):
+        return False
+    
+    def optimize(self,ir):
         self.scene.grp=True
         j = -1
         for p in self.plas:
@@ -95,8 +146,54 @@ class PatOpt():
                 assert self.scene[fid].nid == m.idx
                 fat = self.scene[fid]
                 fat_son = fat - son #？？？？？
-                fat_son = m.bunches[nid].optimize(fat_son,iRate)
+                fat_son = m.bunches[nid].optimize(fat_son,(self.iRate if ir <0 else ir))
                 new_son = fat + fat_son
+                if self.exp:
+                    son.adjust["T"] = new_son.translation - son.translation
+                    son.adjust["S"] = new_son.size - son.size
+                    son.adjust["R"] = new_son.orientation - son.orientation
                 son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
-
+        return [(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
+    
+    def __call__(self,s,ir=-1):
+        #handly search the father and son relation among objects,
+        if self.rerec:
+            self.timer("rec",1)
+            from .Plan import plans
+            plans(self.scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+            self.timer("rec",0)
+        
+        self.timer("",1)
+        mod = self.optimize(ir)
+        self.timer("opt",0)
+        fit = self.scene.plan.update_fit() if self.exp else 0
         self.draw(s)
+        self.steps = max(s,self.steps)
+        return mod,fit,self.timer,self.over(mod,fit)
+    
+
+    #沟槽的周日计划：
+    #（0）把PhyOpt的文件系统核对一下，把obje结构调整之后以及rela和rely函数删去之后的那个函数场景识别方法甚至是模式构建方法核对一下？这可麻烦了
+    #（1）把PatOpt做得ok了
+    #（2）把PatExop做得ok了
+    #（3）开启早期实验，确认实验数据的生成、存储和可视化全过程ok
+    #沟槽的周一计划：
+    #（4）逐步向PhyExop和双向的Exop发展
+    #
+
+    def run(self):
+        #我觉得像咱们的PatOpt对象，要对此次的场景、学习率、config等超参数有所感知
+            #学习率？
+            #场景识别方式？
+        #并且具备对外输出某些评估指标的能力
+            #逐帧的：
+                #物体调整的尺度
+                #recognize评分
+                #耗时
+            #总体的：
+                #收敛总步数
+                #收敛总时间
+                                                            #不过它没必要管理各大超参数的关系，
+
+        
+        pass

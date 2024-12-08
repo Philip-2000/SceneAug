@@ -15,11 +15,14 @@ def parse(): #using pattern to understand scene
     #在这里配置基础选项，包括可视化内容，优化超参数等等。
     config = {
         "pat":{
-            "steps":1,
+            "steps":9,
             "rate":0.5,
+            "vis":{
+                "pat":True
+            }
         },
         "phy":{
-            "steps":1,
+            "steps":9,
             "rate":0.5,
             "s4": 2,#[[1,0,1],[1,0,0],[1,0,-1],[0,0,-1],[-1,0,-1],[-1,0,0],[-1,0,1],[0,0,1]],
             "door":{"expand":1.1,"out":0.2,"in":1.0,},
@@ -83,11 +86,11 @@ if __name__ == "__main__": #load="testings",
     from SceneClasses.Basic.Scne import scneDs as SDS
     SDS(args.dataset, lst=[args.sceneID],
         grp=False, cen=False, wl=True, windoor=True,
-        imgDir="./",#os.path.join("./pattern/","optm",args.version),
+        #imgDir="./",os.path.join("./pattern/","optm",args.version),
     ).optimize(
         None,#PM(args.version),
         args.pattern, args.physics,
-        config["phy"]["steps"], config["phy"]["rate"], config["pat"]["rate"],
+        config["phy"]["steps"],
         config
     )
     #O = optm(args.version,S[0],PatFlag=args.pattern,PhyFlag=args.physics,rand=True)

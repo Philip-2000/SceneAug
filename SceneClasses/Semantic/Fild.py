@@ -64,11 +64,11 @@ class fild():
         self.scene = scene
         #self.integral()
         from PIL import Image
-        if config["vis"]["fih"]:
+        if "fih" in config["vis"]:
             self.fih = Image.new('RGB',((2*N+1)*b,(2*N+1)*b))
-        if config["vis"]["fiq"]:
+        if "fiq" in config["vis"]:
             self.fiq = Image.new('RGB',((2*N+1)*b,(2*N+1)*b))
-        if config["vis"]["fip"]:
+        if "fip" in config["vis"]:
             self.x, self.y = np.meshgrid(np.linspace(-self.N, self.N+1, int(2*self.N)+1)*self.d, np.linspace(-self.N, self.N+1, int(2*self.N)+1)*self.d)
             from matplotlib import pyplot as plt
             fig = plt.figure()
@@ -97,21 +97,24 @@ class fild():
                 self.grids[self.N+x][self.N+z].integral(self.grids[self.N+x][self.N+z+1]) 
             self.grids[self.N+r][self.N-r].integral(self.grids[self.N+r][self.N-r+1])             
 
-    def draw(self,way,colors):
+    def draw(self,way,colors,ts):
+        import os
         if way == "fiv":  # Vector Field from each points
             [[s.draw(way,colors) for s in g] for g in self.grids]
         elif way == "fih":# Heatmap of length of vectors
             [[s.draw(way,colors,self.fih.load(),self.b) for s in g] for g in self.grids]
-            self.fih.save('./fih.jpg')
+            self.fih.save(os.path.join(self.scene.imgDir,way+"_"+str(ts)+".png"))
         elif way == "fip":# Curved Surface 
             raise NotImplementedError
+            #物体包围盒矩形从房间场从外向里滑下去那个视频还做吗？咋做
+            #然后鸡你太美那个视频咋做呀。那个视频最关键的一项差别就是，它的墙壁也是可以动的，所以房间场在各个时刻都在变，还考虑上一帧的影响（粘滞）吗？不一定，但可以试一试？。
             p = np.array(-[[s.draw(way,colors) for s in g] for g in self.grids])
             surf = self.ax.plot_surface(self.x, self.y, p, cmap=plt.cm.coolwarm, linewidth=0, antialiased=False)
             #ax.contour(self.x, self.y, p, np.linspace(0, 10, 5)**2, zdir='z', offset=0, cmap=plt.cm.coolwarm)
             plt.show()
         elif way == "fiq":# Heatmap
             [[s.draw(way,colors,self.fiq.load(),self.b) for s in g] for g in self.grids]
-            self.fiq.save('./fiq.jpg')
+            self.fiq.save(os.path.join(self.scene.imgDir,way+"_"+str(ts)+".png"))
 
     def show(self): #show the vector field changing through time
         #record the file names and concatenate them

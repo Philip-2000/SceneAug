@@ -22,6 +22,7 @@ class pla():
     def occupied(self):
         return [a[0] for a in self.nids]
 
+
 class plas(): #it's a recognize plan
     def __init__(self,scene=None,pm=None,base=None):
         if base is None:
@@ -94,8 +95,6 @@ class plas(): #it's a recognize plan
                     print("absolute")
                     print(oo.flat())
                     
-                    print("relative")
-                    print(a.rela(oo,self.pm.scaled).flat())
 
                     print("(%s,%d):%.3f"%(oolosses[0].class_name(),oolosses[0].idx,oolosses[1]))
                     pass
@@ -161,33 +160,19 @@ class plas(): #it's a recognize plan
             self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene))
         self.scene.plan=self
 
-    # def optimize(self,iRate):
-    #     #handly search the father and son relation among objects,
-
-    #     self.scene.grp=True
-    #     j = -1
-    #     for p in self.plas:
-    #         if len(p)<=1:
-    #             continue
-    #         j += 1
-    #         for oid,nid in p.nids[1:]:
-    #             assert self.scene[oid].nid == nid
-    #             assert self.scene[oid].gid == j
-    #             son = self.scene[oid]
-
-
-    #             m = self.pm.nods[self.pm.mid(nid)]
-
-    #             fid = p.searchOid(m.idx)[0]
-    #             assert self.scene[fid].nid == m.idx
-    #             fat = self.scene[fid]
-    #             fat_son = fat.rela(son,self.pm.scaled)
-    #             fat_son = m.bunches[nid].optimize(fat_son)
-    #             new_son = fat + fat_son
-    #             son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
-
-    #     pass
-
+    def update_fit(self):
+        from .Bnch import singleMatch
+        for p in self.plas:
+            for i,on in enumerate(p.nids[1:]):
+                m = self.pm.nods[on[i-1][1]]
+                a = self.scene[on[i-1][0]]
+                oo= self.scene[on[i][0]] #不对不对，这些代码都不对，尤其是你这个和bunches有关的都不对，应该和searchOid配合
+                loss = m.bunches[on[i][0]].loss(a - oo)
+                v = singleMatch(loss,None,None,None,None)
+                pla.fits[i] = v
+        
+        self.fit = sum([sum(p.fits) for p in self.plas])
+        return self.fit
 
 class plans():
     def __init__(self,scene,pm,v=0):
@@ -352,7 +337,7 @@ class plans():
         #     opts = self.currentPlas.optimize()
         #     if draw:
         #         self.scene.draw(drawUngroups=True,classText=True,d=True)
-        return self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas]), opts if opt else None
+        return self.currentPlas.fit, sum([len(p) for p in self.currentPlas.plas]), None
     
     # def optimize(self,draw=True):
     #     self.recognize(use=True,draw=True,opt=False)

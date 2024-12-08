@@ -33,6 +33,10 @@ class wndr():
         from .Obje import bx2d
         self.block = bx2d(self.center,np.array([self.width/2.0,self.height/2.0,0.03]),np.array([np.math.atan2(self.w.n[0],self.w.n[2])]))
 
+    @classmethod
+    def empty(cls):
+        pass
+
     def field(self,sp,config):
         return np.array([0,0,0])
 
@@ -55,6 +59,9 @@ class wndr():
 
     def optField(self,sp,config):
         return np.array([0,0,0])
+    
+    def toTensor(self):
+        pass
 
 class widw(wndr):
     def __init__(self, **kwargs):
@@ -119,6 +126,10 @@ class wndrs():
 
     def toBlocksJson(self,rid=-1):
         return []#[wd.toBlockJson(rid,str(idx)) for idx,wd in enumerate(self.WNDRS)]
+
+    def toTensor(self,fmt,length):
+        import torch
+        return torch.cat([wd.toTensor(fmt) for wd in self]+[wndr.empty(v=False).tensor(format)]*(length-len(self)),axis=0).reshape((1,length,-1))
 
     def optFields(self,sp,config):
         return np.array([wr.optField(sp,config) for wr in self.WNDRS]).sum(axis=0)

@@ -17,6 +17,8 @@ class scne():
         c_e= np.array([0,0,0]) if (cen) or (not (wl or windoor)) else scene["floor_plan_centroid"]
         self.grp = grp
         self.imgDir = imgDir
+        import os
+        os.makedirs(self.imgDir,exist_ok=True)
 
         self.OBJES=objes(scene,ce,self)
         
@@ -93,18 +95,19 @@ class scne():
         from matplotlib import pyplot as plt
         import os
         plt.figure(figsize=(50, 40))
-        _ = self.fild.draw(suffix,config) if suffix[:2]=="fi" else self.OBJES.drao(suffix, config)
+        _ = self.fild.draw(suffix,config,ts) if suffix[:2]=="fi" else self.OBJES.drao(suffix, config)
+        if suffix=="pat":
+            [li.draw() for li in self.LINKS]
         
-        if suffix == "fiv":
+        if suffix not in ["fih","fip","fiq"]: #these three images don't go through the matplotlib-2D pipeline, "fih" and "fiq" is from PIL, and "fip" is from pyplot-3d
             self.WALLS.draw()
             plt.axis('equal')
             plt.xlim(-7,7), plt.ylim(-7,7)
             plt.axis('off')
-            
-            plt.savefig(os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png"))
+            plt.savefig(os.path.join(self.imgDir,suffix+"_"+str(ts)+".png"))
             plt.clf()
             plt.close()
-            return os.path.join(self.imgDir,self.scene_uid+"_"+suffix+"_"+str(ts)+".png")
+        return os.path.join(self.imgDir,suffix+"_"+str(ts)+".png")
 
     def draw(self,imageTitle="",d=False,lim=-1,drawWall=True,drawUngroups=False,drawRoomMask=False,classText=True,suffix="_Layout"):
         from matplotlib import pyplot as plt
@@ -179,8 +182,8 @@ class scne():
     def __getitem__(self,cl):
         return self.OBJES[cl]
        
-    def __call__(self,wi):
-        return self.WALLS[wi]
+    def __call__(self,nid):
+        return [o for o in self.OBJES if o.nid==nid][0]
     #endregion: interfaces-------#
 
     #region: properties----------#
@@ -233,6 +236,7 @@ class scneDs():
     #endregion: magics------------#
     
     #region: in/outputs-----------#
+    
         #region: inputs-----------#
     def load(self,LST,name="",num=8,**kwargs):
         import json,os
@@ -338,13 +342,17 @@ class scneDs():
             from ..Operation.Plan import plans
             plans(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
 
-    def optimize(self,T,PatFlag,PhyFlag,steps,iRate,jRate,config,**kwargs):
+    def optimize(self,T,PatFlag,PhyFlag,steps,config,**kwargs):
+        import os
+        BASE_DIR = os.path.join(".","pattern","opts")
         #pbar = tqdm.tqdm(range(len(self)))
         for i in range(len(self)):#pbar:
             #pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
             from ..Operation.Optm import optm #print(self._dataset[i])
+            self._dataset[i].imgDir = os.path.join(BASE_DIR, self._dataset[i].scene_uid)
+            os.makedirs(self._dataset[i].imgDir,exist_ok=True)
             O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,rec=True,config=config,**kwargs)
-            O(steps,iRate,jRate)
+            O(steps)
         
     def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        
         from ..Operation.Patn import patternManager as PM

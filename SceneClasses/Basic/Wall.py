@@ -29,6 +29,23 @@ class wall():
     def __str__(self):
         return (" " if self.v else "              ")+str(self.w1)+"<-"+str(self.idx)+"->"+str(self.w2)+"\t"+str(self.p)+"\t"+str(self.q)+"\t"+str(self.n)
 
+    def fromTensor(self,tensor,fmt):
+        pass
+
+    def toTensor(self,fmt):
+        import torch
+        res = torch.Tensor([])
+        for f in fmt:
+            if f=="tx":
+                res = torch.cat([res,[self.p[0]]])
+            elif f=="tz":
+                res = torch.cat([res,[self.p[2]]])
+            elif f=="nz":
+                res = torch.cat([res,[self.n[2]]])
+            elif f=="nx":
+                res = torch.cat([res,[self.n[0]]])
+        return res
+
     def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5):
         from simple_3dviz import Lines
         return Lines( [ self.p+np.array([0,height,0]), self.q+np.array([0,height,0]) ], colors=colors, width=width )
@@ -199,6 +216,10 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         a.processWithWindoor()
         return a
     
+    def fromTensor(self,tensor,fmt):
+        [w.fromTensor(tensor[i],fmt) for i,w in enumerate(self)]
+        self.windoors.fromTensor()
+
     @classmethod
     def fromWallsJson(cls,sha,nor,scne,jsn=[]): #nor[:][0] is x, nor[:][1] is z
         return walls(np.array([[sha[i][0],sha[i][1],nor[i][1],nor[i][0]] for i in range(len(sha))]),scne=scne,cont=jsn) #Walls[j][2] should be z, Walls[j][3] should be x
@@ -216,6 +237,10 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 c.append([self.WALLS[I].p[0],self.WALLS[I].p[2],self.WALLS[I].n[0],self.WALLS[I].n[2]])
         return np.array(c)
     
+    def toTensor(self,fmt,length):
+        import torch
+        return torch.cat([w.toTensor(fmt) for w in self.WALLS]+[self.WALLS[-1].tensor(format)]*(length-len(self)),axis=0).reshape((1,length,-1))
+
     def toWallsJson(self,rsj={}):#nor[:][0] is x, nor[:][1] is z
         sha,nor,ori = [],[],[]
         if len([w.idx for w in self.WALLS if w.v]):

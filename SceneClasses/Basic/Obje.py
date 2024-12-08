@@ -62,6 +62,9 @@ class bx2d(): #put those geometrical stuff into this base class
             self.draw(d=False,color=(0.6,0.6,0.6),text=False)
             self.samples.draw(way,colors)
         else:
+            if way=="pat":
+                self.draw(d=True,cr=(0.0,0.0,0.0),text=True)
+                return
             self.draw(d=True,color=colors["res"],cr=(0.0,0.0,0.0),text=False)
             if way == "syn":
                 from matplotlib import pyplot as plt
@@ -174,13 +177,38 @@ class obje(bx2d):
 
         #region: inputs----------#
     @classmethod
-    def empty(cls,j=0):
-        return cls(i=j)
+    def empty(cls,j=0,v=True):
+        return cls(i=j,v=v)
 
     @classmethod
     def fromFlat(cls,v,j):
         return cls(b=bx2d.fromFlat(v),i=j)
  
+    def fromTensor(self,tensor,fmt):
+        import torch
+        i = 0
+        for f in format:
+            if f[0]=="t":
+                self.translation[0] = float(tensor[i])
+                if f[1]==3:
+                    self.translation[1] = float(tensor[i+1])
+                    self.translation[2] = float(tensor[i+2])
+                else:
+                    self.translation[2] = float(tensor[i+1])
+            elif f[0]=="s":
+                self.size[0] = float(tensor[i])
+                if f[1]==3:
+                    self.size[1] = float(tensor[i+1])
+                    self.size[2] = float(tensor[i+2])
+                else:
+                    self.size[2] = float(tensor[i+1])
+            elif f[0]=="o":
+                self.orientation[0] = tensor[i] if f[1]==1 else torch.atan(tensor[i+1],tensor[i])
+            elif f[0]=="c":
+                pass
+            i += f[1]
+        pass
+
     @classmethod
     def fromObjectJson(cls,oj,idx,scne=None):
         return cls(b=bx2d.fromBoxJson(oj),n=oj["coarseSemantic"],idx=idx,modelId=oj["modelId"],scne=scne)
@@ -213,6 +241,24 @@ class obje(bx2d):
         
     def flat(self,inter=True):
         return np.concatenate([self.translation,self.size,[0] if (inter and (self.class_name() in noOriType)) else self.orientation])#])#
+
+    def toTensor(self,format):
+        import torch
+        res = torch.Tensor([])
+        for f in format:
+            if f[0]=="t":
+                cur = torch.Tensor(self.translation) if f[1]==3 else torch.Tensor([self.translation[0],self.translation[2]]) 
+            elif f[0]=="s":
+                cur = torch.Tensor(self.size) if f[1]==3 else torch.Tensor([self.size[0],self.size[2]]) 
+            elif f[0]=="o":
+                cur = torch.Tensor(self.orientation) if f[1]==1 else torch.Tensor([torch.cos(self.orientation[0]),torch.sin(self.orientation[0])]) 
+            elif f[0]=="c":
+                cur = torch.cat([torch.Tensor(self.class_label())] + [[0]*f[1]] )
+                if not self.v:
+                    cur = torch.zeros_like(cur)
+                    cur[-1] = 1
+            res = torch.cat([res,cur])
+        return res
 
     def bpt(self):
         return np.concatenate([self.class_label(),super(obje,self).bpt()]).reshape((1,-1))
@@ -248,11 +294,14 @@ class obje(bx2d):
         #endregion: movement-----#
 
         #region: optField--------#
-    def optimizePhy(self,config,debug=False,ut=-1):
+    def optimizePhy(self,config,timer,debug=False,ut=-1):
         from ..Semantic.Samp import samps
         self.samples = samps(self,config["s4"],debug)
-        return self.samples(config,ut)
+        return self.samples(config,timer,ut)
     
+    def violate(self):
+        return self.samples.violate()
+
     def optField(self, sp, c):
         newSelf = bx2d(t=self.translation + self.matrix()@(np.array([0,0,c[0]])*self.size), s=np.array([c[2],1,c[1]])*self.size, o=self.orientation)
         try: #for object samples
@@ -286,6 +335,11 @@ class objes():
     def empty(cls,ce=np.array([0,0,0]),scne=None):
         return cls({"translations":[],"sizes":[],"angles":[],"class_labels":[],"scene_uid":""},ce,scne=scne)
     
+    def fromTensor(self,tensor,fmt):
+        import torch
+        assert (tensor[:len(self),-1]).sum() == 0 and (torch.ones_like(tensor[len(self):,-1])-tensor[len(self):,-1]).sum() == 0
+        [o.fromTensor(tensor[i],fmt) for i,o in enumerate(self)]
+
     @classmethod
     def fromSceneJson(cls,rsj,scene):
         objects = cls.empty(scne=scene)
@@ -317,6 +371,10 @@ class objes():
     
     def bpt(self):
         return np.concatenate([o.bpt() for o in self.OBJES],axis=0)
+    
+    def toTensor(self,fmt,length):
+        import torch
+        return torch.cat([o.toTensor(fmt) for o in self]+[obje.empty(v=False).tensor(format)]*(length-len(self)),axis=0).reshape((1,length,-1))
 
     def toSceneJson(self,rsj):
         for o in [_ for _ in self.OBJES if _.v]:
@@ -366,8 +424,11 @@ class objes():
             A = np.array([oo.optField(sp,config[oo.class_name()])[0] for oo in self.OBJES])
             return  A.sum(axis=0), np.array([(norm(a)**2)/2.0 for a in A] ).sum(axis=0)
         
-    def optimizePhy(self,config,debug=False,ut=-1):
-        return [o.optimizePhy(config,debug,ut) for o in self.OBJES]
+    def optimizePhy(self,config,timer,debug=False,ut=-1):
+        return [o.optimizePhy(config,timer,debug,ut) for o in self.OBJES]
+    
+    def violates(self):
+        return [o.violate() for o in self.OBJES]
         #endregion: optFields----#
 
     #endregion: operations-------#

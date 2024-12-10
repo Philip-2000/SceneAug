@@ -1,268 +1,204 @@
-from ..Operation.Patn import *
-from ..Operation.Optm import *
-from .ExPn import expn
-
+EXOP_BASE_DIR = "./experiment/opts/"
 class exop():
-    def __init__():
-        #总之就是实验的怎么进行的问题
-        #（0）拿到场景之后随机打乱，尝试对场景进行“优化”，检测优化的过程以及时间
-
-        #（a）操作就是逐步优化pat，优化phy
-
-        #（b）有哪些有待测试的超参数？采样点采样率s4是不是？学习率？步数不算，门状态和墙壁范围不想测了意义不大
-        #（c）优化的速度如何
-            #（2.1）收敛步数？
-            #（2.2）收敛时间？
-        #（c）优化的效果？
-            #（2.1）violate变小了吗，变小的速度如何？
-            #（2.2）物体adjust变小了吗，变小的速度如何？
-            #（2.3）recognize评分变好了吗，变好的速度如何？
-            #（2.4）pat操作和phy操作冲突大吗
-        pass
-
-    def run():
-        pass
-
-
-    #怎么做？重新写吧，还挺有意思的。
-
-class PatExop():
-    def __init__(self,rerec = False,prerec=False):
-
-        self.rerec = rerec
-        self.prerec= prerec and not rerec
-        #我们考虑再实现和检测这个之前，
-        #总之就是实验的怎么进行的问题
-        #（0）拿到场景之后随机打乱，尝试对场景进行“优化”，检测优化的过程以及时间
-
-        #（a）操作就是逐步优化pat，优化phy
-
-        #（b）有哪些有待测试的超参数？学习率？
-        #（c）优化的速度如何
-            #（c.a）收敛步数？
-            #（c.b）收敛时间？
-        #（d）优化的效果？
-            #（d.a）物体adjust变小了吗，变小的速度如何？
-            #（d.b）recognize评分变好了吗，变好的速度如何？
-        pass
-
-    
+    def __init__(self,pmVersion,dataset,UIDS,expName,mod,dev,config,run):
+        
+        from ..Basic.Scne import scneDs as SDS
+        
+        self.sDs = SDS(dataset,lst=UIDS,grp=False, cen=False, wl=True, windoor=True)
+        
+        self.pmVersion = pmVersion
+        self.dev = dev
+        self.config = config
+        self.mod = mod
+        self.res = {s.scene_uid[:10]:[] for s in self.sDs}#"lots of items here, but only the original results, (which scene) : (which step) : [(1)time]"
+        self.run = run #if we implement this experiment or only visualize it
+        self.name= expName
+        import os
+        os.makedirs(os.path.join(EXOP_BASE_DIR,expName),exist_ok=True)
+        self.filename = os.path.join(EXOP_BASE_DIR,expName,"%s %.2f %.3f %d.json"%(mod,dev,config["phy"]["rate"],config["phy"]["s4"]))
+        
+    def __randomize(self,t):
+        import numpy as np
+        for o in t.OBJES:
+            from ..Operation.Adjs import adj
+            dT = np.random.randn((3)) * self.dev
+            dS = np.random.randn((3)) * self.dev * 0.1
+            dR = np.random.randn((1)) * self.dev
+            o.adjust = adj(T=dT,S=dS,R=dR,o=o)
+            o.adjust()
+        from ..Operation.Adjs import adjs
+        return adjs(t.OBJES)
 
     def __call__(self):
-        if self.rerec:
-            pass
+        if self.run:
+            from ..Operation.Optm import optm
+            for s in self.sDs:
 
+                adjs0 = self.__randomize(s)
 
+                OP = optm(pmVersion=self.pmVersion,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True)
+            
+                
+                ret,step,time = {"over":False},0,0
+                while (not ret["over"]): #the over criterion
+                    ret = OP(step) #timer, adjs, vio, fit, cos, over
+                    ret["diff"] = adjs0 - ret["adjs"]
+                    self.store(ret,s,step)
+                    step += 1
+                    time += ret["timer"]["all"]
+                    break
 
-        #还有一个问题就是，到底是打乱之前识别还是打乱之后识别？
-        #（1）每一步之前都重新识别
-        #（2）不在后面重新识别
-            #（2.1）在打乱之前识别
-            #（2.2）在打乱之后识别一次
+                print(step,time)
+            self.save()
+        self.visualize()
 
-        #还有一个问题就是，每一步都识别还是只有第一次识别？
+    def store(self,ret,s,steps):
+        assert steps == len(self.res[s.scene_uid[:10]])
+        ret["timer"]= ret["timer"].dct()
+        ret["adjs"] = ret["adjs"].dct()
+        self.res[s.scene_uid[:10]].append(ret)
+
+    def save(self):
+        import json
+        open(self.filename,"w").write(json.dumps(self.res))
+
+    def load(self):
+        import json
+        self.res = json.load(open(self.filename,"r"))
+    
+    def visualize(self):
+        self.load()
+        print(self.res)
+        raise NotImplementedError
+        #综合各次实验的收敛过程：可以获得多种统计结果：
+        #（1）violate箱线图（这些箱线图，理论上说是需要每一步都有的，但是步数搞不好会特别的多，所以需要多步并作一步）
+        #（2）fit评分箱线图
+        #（3）adjust幅度箱线图？
+        #（4）adjust趋势和noise的趋势是否一致，这个是否一致可以计算一个cos值我觉得，然后将在1到-1之间画一下这些cos值，发现基本上都在-1附近，代表着我们的调整是逆着噪声进行的
+        #（5）pat操作的adjust趋势和phy操作的adjust趋势是否一致，我觉得其实可以类似出图？
+
+class exops():
+    def __init__(self,pmVersion='losy',dataset="../novel3DFront/",run=True,UIDS=[]):
+
+        #还有一个十分关键的问题，就是不同的超参数的实验过程需要分别进行的问题
+        
+        #那么我们的exops类就需要感知到各个超参数的值，对每一组超参数值分别组织实验，对实验的结果分别整合和对齐
+        #甚至是不同超参数之间的各个实验结果数值计算比值，
+        #这个过程为什么在ExPn中没有出现呢？这是因为，ExPn中其实并没有什么待测试的超参数
+        #所以纵观全局会觉得，exop的代码会比expn的代码工程要复杂得多
+
+        #那么有哪些超参数有待测试呢？
+        #第一，识别模式，先识别、后识别、全识别
+            #最傻逼的是，识别算法需要优化哈哈哈哈哈哈哈死了得了，但是这个事情其实不影响调试
+
+        #第二，学习率
+
+        #第三，采样率？
+
+        #第零，场景打乱的方差
+
+        #暂时，这个超参数矩阵的尺度是（1，1，1，1）
+        #矩阵的数值必须放在外面吗？也不一定吧
+        
+        self.UIDS = UIDS
+        if len(UIDS)==0:
+            self.UIDS = ["0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487"]
+        self.run=run
+        self.pmVersion=pmVersion
+        self.dataset=dataset
+
+        self.hypers = []
+        for mod in ["prerec"]:#,"postrec","rerec"]:#
+            for rate in [0.5*i for i in range(1,2)]:
+                for s4 in range(2,3):
+                    for dev in [0.05*i for i in range(1,2)]:
+                        self.hypers.append((mod,rate,s4,dev))
+                        
+
+    def __call__(self):
+        for h in self.hypers:
+            mod,rate,s4,dev = h[0],h[1],h[2],h[3]
+            config = {
+                "pat":{
+                    "rerec":bool(mod=="rerec"),
+                    "prerec":bool(mod=="prerec"),
+                    "rand":False,
+                    "rate":rate
+                },
+                "phy":{
+                    "rate":rate,
+                    "s4": s4,
+                    "door":{"expand":1.1,"out":0.2,"in":1.0,},
+                    "wall":{"bound":0.5,},
+                    "object":{
+                        "Pendant Lamp":[.0,.01,.01],#
+                        "Ceiling Lamp":[.0,.01,.01],#
+                        "Bookcase / jewelry Armoire":[.2,1., .9],#
+                        "Round End Table":[.0,.5, .5],#
+                        "Dining Table":[.0,.5, .5],#
+                        "Sideboard / Side Cabinet / Console table":[.0,.9, .9],#
+                        "Corner/Side Table":[.0,.9, .9],#
+                        "Desk":[.0,.9, .9],#
+                        "Coffee Table":[.0,1.,1.1],#
+                        "Dressing Table":[.0,.9, .9],#
+                        "Children Cabinet":[.2,1., .9],#
+                        "Drawer Chest / Corner cabinet":[.2,1., .9],#
+                        "Shelf":[.2,1., .9],#
+                        "Wine Cabinet":[.2,1., .9],#
+                        "Lounge Chair / Cafe Chair / Office Chair":[.0,.5, .5],#
+                        "Classic Chinese Chair":[.0,.5, .5],#
+                        "Dressing Chair":[.0,.5, .5],#
+                        "Dining Chair":[.0,.5, .5],#
+                        "armchair":[.0,.5, .5],#
+                        "Barstool":[.0,.5, .5],#
+                        "Footstool / Sofastool / Bed End Stool / Stool":[.0,.5, .5],#
+                        "Three-seat / Multi-seat Sofa":[.2,1., .9],#
+                        "Loveseat Sofa":[.2,1., .9],#
+                        "L-shaped Sofa":[.0,.6, .9],#
+                        "Lazy Sofa":[.2,1., .9],#
+                        "Chaise Longue Sofa":[.2,1., .9],#
+                        "Wardrobe":[.2,1., .9],#
+                        "TV Stand":[.2,1., .9],#
+                        "Nightstand":[.0,.5, .5],#
+                        "King-size Bed":[.2,1.,1.2],#
+                        "Kids Bed":[.2,1.,1.2],#
+                        "Bunk Bed":[.2,1.,1.2],#
+                        "Single bed":[.2,1.,1.2],#
+                        "Bed Frame":[.2,1.,1.2],#
+                    },
+                    "syn":{"T":1.0,"S":0.01,"R":1.0,},
+                }
+            }
+            Exop = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,expName="test",mod=mod,dev=dev,config=config,run=self.run)
+            Exop()
+            
         pass
+
+    def load(self):
+        pass
+    
+    def visualize(self):
+        self.load()
+        #这里的visualize函数就实际上更加有趣了，因为他们展现的是超参数不同数值之间比较的内容，
+        #那么exop中的箱线图就已经暂时很难再进行展示了，因为他们的我们没有那么多空间来展示了
+        #我们考虑将箱线改成均值，然后展示一个x轴为时间或步数，z轴为初始dev的曲面
+
+        #具体地获得：
+        #（1）violate曲面图
+        #（2）fit曲面图
+        #（3）adjust曲面图
+        #（4）adjust趋势和noise的趋势是否一致，我觉得还是，这个东西可以搞一个曲面图
+        #（5）pat操作的adjust趋势和phy操作的adjust趋势是否一致，这个东西可以搞一个曲面图，虽然意义不大，但我觉得代码上应该区别不大，所以搞一下吧
+        #（6）实验进行肘方图+收敛步数直方图（高斯波包），这个（6）特色内容，在exop中没有的
+
 
 # class expn():
 #     def __init__(self,pmVersion,dataset,UIDS,expName,num,mt,task,roomMapping={}):
-#         from ..Operation.Patn import patternManager as PM
-#         from ..Basic.Scne import scneDs as SDS
-#         self.pm = PM(pmVersion)
-#         if dataset is not None:
-#             self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False,cen=True,wl=False,keepEmptyWL=True)
-#         self.devs = [0.0,1.0,2.0,3.0,4.0,5.0,6.0,7.0,8.0,9.0,10.0]
-#         self.ld = len(self.devs)
-#         self.roomMapping = ma()#roomMapping #{"Bedroom":"Bedroom", "MasterBedroom":"Bedroom", "SecondBedroom":"Bedroom", "KidsRoom":"Bedroom", "ElderlyRoom":"Bedroom",
-#                                         #"LivingRoom":"LivingRoom", "DiningRoom":"DiningRoom", "LivingDiningRoom":"LivingDiningRoom", "Library":"Library"}
-#         self.rooms = list(set(self.roomMapping.values())) if self.roomMapping["Bedroom"] != "Room" else ["Room"]
-
-#         self.result = [[ [] for j in self.rooms ] for i in self.devs]
-        
-#         self.visualDir = os.path.join(EXP_IMG_BASE_DIR,pmVersion,expName,task)
-#         self.videoDir = os.path.join(EXP_IMG_BASE_DIR,pmVersion,expName,"video")
-#         os.makedirs(self.visualDir,exist_ok=True)
-#         os.makedirs(self.videoDir,exist_ok=True)
-#         self.mt = mt
-#         self.mtl = len(self.mt)
-
 #     def randomize(self, s, dev, hint=None):
-#         from copy import deepcopy
-#         t = deepcopy(s)
-#         diff = []
-#         for o in t.OBJES:
-#             dT = (np.random.randn((3)) if hint is None else hint[:3] + np.random.randn((3))*0.05) * dev* 0.1
-#             o.translation += dT #np.random.randn((3)) * dev* 0.1
-#             dS = (np.random.randn((3)) if hint is None else hint[3:-1] + np.random.randn((3))*0.05) * dev * 0.01
-#             o.size += dS #np.random.randn((3)) * dev * 0.01
-#             dO = (np.random.randn((1)) if hint is None else hint[-1:] + np.random.randn((1))*0.05) * dev* 0.1
-#             o.orientation += dO #np.random.randn((1)) * dev*0.1
-#             diff.append(np.concatenate([dT,dS,dO]))
-#         return t, diff
-
-#     def save(self):#roomSum = sum(roomCnt)
-#         from itertools import chain
-#         lens = [len(j) for j in self.result[0]]
-#         locs = [sum(lens[:r+1]) for r in range(-1,len(self.rooms))]
-#         data = np.array([list(chain(*(self.result[l]))) for l in range(self.ld) ])
-#         np.savez_compressed(os.path.join(self.visualDir,"result.npz"),data=data,locs=locs,rooms=self.rooms)
-#         return locs, data
-
-#     def load(self):#roomSum = sum(roomCnt)
-#         result = np.load(os.path.join(self.visualDir,"result.npz"))
-#         self.rooms = result["rooms"]
-#         return result["locs"], result["data"]
-
+#     def save(self):
+#     def load(self):
 #     def run(self, **kwargs):
-#         pbar = tqdm.tqdm(range(len(self.sDs)))
-#         for i in pbar:
-#             pbar.set_description("%s experiment %s "%(self.__class__.__name__,self.sDs[i].scene_uid[:20]))
-#             s=self.sDs[i]
-#             res = self.execute(s, None, **kwargs)#[fit,n]
-#             self.store(0,s.roomType,res)
-#             for dev in self.devs[1:]:
-#                 rands,diff = self.randomize(s,dev)
-#                 res = self.execute(rands,diff, **kwargs)#[fitr,nr] rands.recognize(self.pm) #plans(rands,self.pm,v=0).recognize(draw=False,**kwargs)
-#                 self.store(self.devs.index(dev),s.roomType,res)
-#         self.save()
-#         self.visualize()
-
 #     def store(self,id,roomType,res):
-#         self.result[id][self.rooms.index(self.roomMapping[roomType])].append(res)
-
-#     def visualSingles(self,data,figName=""):
-#         xTitles = self.devs
-#         metricsTitles = self.mt
-        
-#         from matplotlib import pyplot as plt
-#         import os, numpy as np
-#         N = (len(xTitles)-1) + len(xTitles)*len(metricsTitles)
-#         fig, (box,bar) = plt.subplots(1,2,figsize=((N/7)*4, 16)) #  2:1 
-#         #fig.suptitle(os.path.basename(os.path.splitext(figName)[0]),fontsize=18)
-
-
-#         fontCap, fontBar, fontCnt = "medium", "xx-large", "xx-large"
-#         mO = metricsTitles
-#         mT = len(mO)
-#         mI = [ metricsTitles.index( mO[mi] ) for mi in range(mT) ]
-#         bar.set_position([0.02,0.05,0.95,0.43])
-#         box.set_position([0.02,0.55,0.95,0.43])
-#         scl,gap,colors,dolors,dNames = 0.18, 0.9, ["#BF9A6D","#578279","#B29D94","#BB7967","#81875A"], ["darkblue","#513E1B","yellow"], ["medians","means"]
-#         barsArea = 0.9
-#         barArea = 0.8
-#         dMeans = dNames.index("means")
-#         ds = len(dNames)
-#         barL = scl*barsArea/ds
-        
-#         exps = np.average(data.reshape((-1,mT)),axis=0)
-#         devs = (np.average((data.reshape((-1,mT)) - exps.reshape((1,-1)))**2,axis=0))**0.5
-
-
-#         #-----------initialization----------
-#         #-----------box plot----------------
-
-#         bars,Xs = [],[]
-#         for i in range(len(xTitles)):
-#             for j in range(mT):
-#                 X,exp,dev = (i*(mT+gap)+j)*scl, exps[mI[j]], devs[mI[j]]
-#                 A = box.boxplot((data[i,:,mI[j]]-exp)/dev, positions=[X], labels = [mO[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]}, medianprops={"color":dolors[dNames.index("medians")]}, meanprops={'marker':"*","markeredgecolor":dolors[dMeans],"markerfacecolor":dolors[dMeans]})
-#                 capsUp, capsDn,x= A["caps"][0].get_data()[1][0], A["caps"][1].get_data()[1][0], A["means"][0].get_data()[0][0]
-#                 VcapsUp,VcapsDn = capsUp*dev+exp, capsDn*dev+exp
-#                 box.annotate("%.2f"%(VcapsUp), xy=(x-(0.04 if abs(VcapsUp)/10 < 1 else 0.08),capsUp-0.2 ),fontsize=fontCap, bbox={"facecolor":'white', "edgecolor":'white', "boxstyle":'round'})
-#                 box.annotate("%.2f"%(VcapsDn), xy=(x-(0.04 if abs(VcapsDn)/10 < 1 else 0.08),capsDn+0.08),fontsize=fontCap, bbox={"facecolor":'white', "edgecolor":'white', "boxstyle":'round'})
-#                 Xs = Xs + [X-(ds-1)*(barL/2)+k*barL  for k in range(ds)] #[X-0.2*scl,X+0.2*scl]
-#                 bars = bars + [A[dNames[k]][0].get_data()[1][0] for k in range(ds)]     
-
-#         box.set_xticks([(i*(mT+gap)+(mT-1)/2.0)*scl for i in range(len(xTitles))], xTitles, fontsize=25)
-#         box.set_ylabel("")
-#         box.set_yticklabels("")
-#         box.legend(handles=[plt.Line2D([0],[0],color=colors[i],lw=5,label=mO[i]) for i in range(mT)], labels=["%s(%.3f)"%(mO[j], np.var( [ bars[(i*mT+j)*ds+dMeans] for i in range(len(xTitles))]  ) ) for j in range(mT)], ncol=mT) #, labelcolor=colors, loc='lower left'
-#         #box.set_title("overall",fontsize=15)
-
-
-#         #-----------box plot----------------
-#         #-----------bar plot----------------
-
-#         y_min, y_max = box.get_ylim()
-
-#         from itertools import chain
-#         bar.bar(Xs, np.array(bars)-y_min, bottom=y_min, width=barArea*barL, color=(list(chain(*[[c]*ds for c in colors[:mT]])))*(int(len(Xs)/ (ds*mT) )), edgecolor=dolors[:ds]*(int(len(Xs)/ds)))
-
-#         for i in range(len(xTitles)):
-#             for j in range(mT):
-#                 I0,exp,dev = (i*mT+j)*ds, exps[mI[j]], devs[mI[j]]
-#                 ord = sorted([ (k,bars[I0+k],bars[I0+k]*dev+exp) for k in range(ds)],key= lambda x:-x[1])
-#                 for o in ord:
-#                     y = 2.5+(len(ord)-1)*0.3-ord.index(o)*0.6
-#                     bar.annotate("%.2f"%(o[2]), xy=(Xs[I0]-(0.02 if abs(o[2])/10 < 1 else 0.10),y),fontsize=fontBar , color=dolors[o[0]], bbox={"facecolor":'white', "edgecolor":'white', "boxstyle":'round'})
-
-#         bar.set_xticks([(i*(mT+gap)+(mT-1)/2.0)*scl for i in range(len(xTitles))], xTitles, fontsize=25)
-#         bar.set_ylim(y_min,y_max)
-#         bar.set_ylabel("")
-#         bar.set_yticklabels("")
-#         bar.legend(handles=[plt.Rectangle((0,0),width=1.0, height=0.8,facecolor="white",edgecolor=dolors[k],linewidth=0.4,label=dNames[k]) for k in range(ds)], labels=dNames, ncol=ds) #, labelcolor=colors, loc='lower left'
-#         bar.set_title( " & ".join(dNames),fontsize=30)
-
-
-#         #os.makedirs(os.path.dirname(figName),exist_ok=True)
-#         plt.savefig(os.path.join(self.visualDir,figName+".png"))
-#         plt.clf()
-#         return
-
 #     def visualSingle(self,data,figName=""):
-#         #data.shape = len(self.dev) = 10? : len(self.roomTypes) = 4 and num = ??? : len(xTitle) = 2/1
-#         from matplotlib import pyplot as plt
-#         fig, ax1 = plt.subplots()
-
-#         metricsExp = np.average(data.reshape((-1,self.mtl)),axis=0)
-#         metricsDev = (np.average((data.reshape((-1,self.mtl)) - metricsExp.reshape((1,-1)))**2,axis=0))**0.5
-        
-#         metricsStandard = np.array([[metricsExp[j],metricsDev[j]] for j in range(self.mtl)])
-
-#         colors = ["khaki","paleturquoise","plum","tomato", "springgreen"]#print(metricsStandard)
-#         scl=1
-#         for i in range(len(self.devs)):
-#             for j in range(len(self.mt)):
-#                 st = metricsStandard[j]
-#                 A = ax1.boxplot((data[i,:,j]-st[0].reshape((-1)))/st[1].reshape((-1)), positions=[(i*(self.mtl+2)+j)*scl], labels = [self.mt[j]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[j]})
-#                 B = {"medians":A["medians"][0].get_data()[1][0],"means":A["means"][0].get_data()[1][0],"capsUp":A["caps"][0].get_data()[1][0],"capsDown":A["caps"][1].get_data()[1][0],"x":A["means"][0].get_data()[0][0]}
-#                 ax1.text(B["x"]+0.1,B["means"],"%.2f"%((B["means"])*st[1]+st[0]),fontsize='xx-small')
-#                 ax1.text(B["x"]+0.1,B["capsUp"]-0.05,"%.2f"%((B["capsUp"])*st[1]+st[0]),fontsize='xx-small')
-#                 ax1.text(B["x"]+0.1,B["capsDown"]+0.05,"%.2f"%((B["capsDown"])*st[1]+st[0]),fontsize='xx-small')
-        
-#         ax1.set_xticks([(i*(self.mtl+2)+(self.mtl-1)/2.0)*scl for i in range(len(self.devs))], ["%.3f"%(d) for d in self.devs])
-#         ax1.set_ylabel("")
-#         ax1.set_yticklabels("")
-        
-#         if self.mtl>1:
-#             ax1.legend(handles=[plt.Line2D([0],[0],color=colors[i],lw=5,label=self.mt[i]) for i in range(self.mtl)], labels=self.mt, ncol=self.mtl) #, labelcolor=colors, loc='lower left'
-#         plt.savefig(os.path.join(self.visualDir,figName+".png"))
-#         plt.clf()
-#         plt.close()
-
 #     def visualize(self):
-#         locs, data = self.load()
-#         self.visualSingles(data,figName="Overall")
-#         for r in range(len(locs)-1):
-#             if len(locs)>2:
-#                 self.visualSingle(data[:,locs[r]:locs[r+1],:],figName=self.rooms[r])
-
 #     def execute(self,scene,**kwargs):
-#         pass
-
-
-
-
-# class OptExpn(expn):
-#     def __init__(self,pmVersion,dataset,UIDS,task,num):
-#         super(OptExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,num,["modify"],task)
-    
-#     def loss(self,ope,noise):
-#         return ope-noise
-
-#     def execute(self, s, diff, **kwargs):
-#         from ..Operation.Plan import plans
-#         return plans(s,self.pm).recognize(draw=False,opt=True,**kwargs)#rands.recognize(self.pm)
-
-#     def show(self):
-#         raise NotImplementedError
-#         return

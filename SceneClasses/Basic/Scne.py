@@ -342,7 +342,7 @@ class scneDs():
             from ..Operation.Plan import plans
             plans(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
 
-    def optimize(self,T,PatFlag,PhyFlag,steps,config,**kwargs):
+    def optimize(self,T,PatFlag,PhyFlag,steps,config):
         import os
         BASE_DIR = os.path.join(".","pattern","opts")
         #pbar = tqdm.tqdm(range(len(self)))
@@ -351,8 +351,8 @@ class scneDs():
             from ..Operation.Optm import optm #print(self._dataset[i])
             self._dataset[i].imgDir = os.path.join(BASE_DIR, self._dataset[i].scene_uid)
             os.makedirs(self._dataset[i].imgDir,exist_ok=True)
-            O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,rec=True,config=config,**kwargs)
-            O(steps)
+            O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,config=config)
+            O.loop(steps)
         
     def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        
         from ..Operation.Patn import patternManager as PM

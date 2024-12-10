@@ -18,8 +18,9 @@ class bx2d(): #put those geometrical stuff into this base class
         self.translation = t if not b else b.translation
         self.size        = s if not b else b.size
         self.orientation = o if not b else b.orientation
-        self.adjust = {}
-
+        from ..Operation.Adjs import adj
+        self.adjust = adj(o=self)
+        
     #region: in/outputs----------#
 
         #region: inputs----------#
@@ -216,7 +217,7 @@ class obje(bx2d):
 
         #region: presentation----#
     def __str__(self):
-        return "%d %s\t"%(self.idx, self.class_name()[:10]) + (super(obje,self).__str__())
+        return "%d %s\t"%(self.idx, self.class_name()[:10]) + (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
 
     def toObjectJson(self, rid=0):
         return {**(super(obje,self).toBoxJson()), "id":self.scne.scene_uid if self.scne.scene_uid else ""+"_"+str(self.idx), "type":"Object", "modelId":self.modelId, "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False}
@@ -283,14 +284,14 @@ class obje(bx2d):
     #region: operations----------#
 
         #region: movement--------#
-    def adjust(self,movement):
-        self.translation+=movement
-        for i in self.linkIndex:
-            self.scne.LINKS[i].adjust(movement)
+    # def adjust(self,movement):
+    #     self.translation+=movement
+    #     for i in self.linkIndex:
+    #         self.scne.LINKS[i].adjust(movement)
         
-        if len(self.destIndex) > 1:
-            for i in self.destIndex:
-                self.scne.LINKS[i].update(self.translation)
+    #     if len(self.destIndex) > 1:
+    #         for i in self.destIndex:
+    #             self.scne.LINKS[i].update(self.translation)
         #endregion: movement-----#
 
         #region: optField--------#
@@ -425,10 +426,13 @@ class objes():
             return  A.sum(axis=0), np.array([(norm(a)**2)/2.0 for a in A] ).sum(axis=0)
         
     def optimizePhy(self,config,timer,debug=False,ut=-1):
-        return [o.optimizePhy(config,timer,debug,ut) for o in self.OBJES]
+        for o in self.OBJES:
+            o.optimizePhy(config,timer,debug,ut)
+        from ..Operation.Adjs import adjs
+        return adjs(self)#[o.optimizePhy(config,timer,debug,ut) for o in self.OBJES]
     
     def violates(self):
-        return [o.violate() for o in self.OBJES]
+        return sum([o.violate() for o in self])/float(len(self))
         #endregion: optFields----#
 
     #endregion: operations-------#

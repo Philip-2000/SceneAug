@@ -6,12 +6,11 @@ class samp():
         self.TRANSL = np.array(s)
         self.debug  = debug
         self.component = {}
-        self.t, self.s, self.r = np.array([.0,.0,.0]), np.array([.0,.0,.0]), np.array([.0,.0,.0])
+        self.t, self.s, self.r = np.array([.0,.0,.0]), np.array([.0,.0,.0]), np.array([.0])
 
     def __update(self,o):
         self.transl = o + self.TRANSL
-        self.radial = self.transl - o.translation
-        self.tangen = np.cross(self.radial/norm(self.radial),[0,1,0])
+        self.radial = self.transl - o.translation#self.tangen = np.cross(self.radial/norm(self.radial),[0,1,0])
 
     def __call__(self, o, config, timer):
         self.__update(o)
@@ -24,7 +23,7 @@ class samp():
         timer("syn",1)
         self.t = wo+wi+dr+ob
         self.s = np.dot(self.t,self.radial/norm(self.radial))*self.TRANSL
-        self.r = np.cross(self.t,self.tangen)[1]/np.linalg.norm(self.radial)
+        self.r = np.cross(self.t,self.radial)[1]/norm(self.radial) #self.tangen
         timer("syn",0)
         if self.debug:
             self.component["al"], self.component["wo"], self.component["wi"], self.component["dr"], self.component["ob"] = self.t, wo, wi, dr, ob
@@ -41,7 +40,7 @@ class samp():
 
 class samps():
     def __init__(self,o,s4,debug=True):#assert sr%4 == 0 np.max(np.abs(np.array(ss)[:,0].sum()),np.abs(np.array(ss)[:,2].sum())) < 0.000001
-        ss = [[1.,.0,1.-i*2.0/s4] for i in range(s4)] + [[1.-i*2.0/s4,.0,-1.] for i in range(s4)] + [[-1.,.0,-1.+i*2.0/s4] for i in range(s4)] + [[-1.+i*2.0/s4,.0,-1.] for i in range(s4)]
+        ss = [[1.,.0,1.-i*2.0/s4] for i in range(s4)] + [[1.-i*2.0/s4,.0,-1.] for i in range(s4)] + [[-1.,.0,-1.+i*2.0/s4] for i in range(s4)] + [[-1.+i*2.0/s4,.0,1.] for i in range(s4)]
         self.o, self.samps, self.debug = o, [samp(s,debug) for s in ss], debug
 
     def __iter__(self):
@@ -53,8 +52,10 @@ class samps():
         T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
         if ut>0:
             if self.debug:
-                self.o.adjust["T"], self.o.adjust["S"], self.o.adjust["R"] = T*ut,S*ut,R*ut
-            self.o.translation, self.o.size, self.o.orientation = self.o.translation+T*ut, self.o.size+S*ut, self.o.orientation+R*ut
+                from ..Operation.Adjs import adj
+                self.o.adjust = adj(T=T*ut,S=S*ut,R=R*ut,o=self.o)#self.o.adjust["T"], self.o.adjust["S"], self.o.adjust["R"] = T*ut,S*ut,R*ut
+            self.o.adjust()#self.o.translation, self.o.size, self.o.orientation = self.o.translation+T*ut, self.o.size+S*ut, self.o.orientation+R*ut
+        
         timer("syn",0)
         return T, S, R
     

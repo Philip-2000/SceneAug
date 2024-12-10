@@ -24,7 +24,7 @@ class evnt():
             
     def clear(self):
         self.record = []
-
+    
 class tmer():
     def __init__(self):
         self.evnts = {}
@@ -43,6 +43,9 @@ class tmer():
         
     def clear(self):
         [self.evnts[e].clear() for e in self.evnts]
+    
+    def dct(self):
+        return {e: self.evnts[e].last for e in self.evnts}
                 
 class tme(): #a fake class for timer, doing nothing
     def __init__(self):
@@ -59,3 +62,6 @@ class tme(): #a fake class for timer, doing nothing
         
     def clear(self):
         return
+    
+    def dct(self):
+        return {}

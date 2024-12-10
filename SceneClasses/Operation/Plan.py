@@ -9,7 +9,7 @@ class pla():
         return len(self.nids)
     
     def searchOid(self,nid):
-        return [on[0] for on in self.nids if on[1] == nid]
+        return [on[0] for on in self.nids if on[1] == nid][0]
 
     @classmethod
     def extend(cls,a,oid,nid,v):
@@ -53,9 +53,10 @@ class plas(): #it's a recognize plan
             newNids, fid = {0:0},0
             for oid,nid in p.nids:
                 o,mid = self.scene[oid], self.pm.mid(nid)#m.idx
-                O = obje(o.translation,np.array([1,1,1]),o.orientation,i=0) if p.nids.index((oid,nid))==0 else self.scene[p.searchOid(mid)[0]]
+                O = obje(o.translation,np.array([1,1,1]),o.orientation,i=0) if p.nids.index((oid,nid))==0 else self.scene[p.searchOid(mid)]
                 fid = pm.createNode(pm.nods[fid],self.pm.merging[o.class_name()],1,1)
-                pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,O.rela(o,self.pm.scaled).flat(),np.abs(O.rela(o,self.pm.scaled).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
+                #pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,O.rela(o,self.pm.scaled).flat(),np.abs(O.rela(o,self.pm.scaled).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
+                pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,(O-o).flat(),np.abs((O-o).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
         return pm
 
     def diff(self,scene,ref=None,v=0):
@@ -82,9 +83,9 @@ class plas(): #it's a recognize plan
         cs=0
         for ed in self.pm.nods[p.nids[-1][1]].edges:
             m = self.pm.nods[self.pm.mid(ed.endNode.idx)]
-            a = self.scene[p.searchOid(m.idx)[0]]
+            a = self.scene[p.searchOid(m.idx)]
             self.printIds()
-            losses = [(oo,m.bunches[ed.endNode.idx].loss(a.rela(oo,self.pm.scaled))) for oo in [o for o in self.scene.OBJES if (self.pm.merging[o.class_name()]==ed.endNode.type and (o.idx not in self.occupied and o.idx not in [on[0] for on in p.nids] ))]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
+            losses = [(oo,m.bunches[ed.endNode.idx].loss(a-oo)) for oo in [o for o in self.scene.OBJES if (self.pm.merging[o.class_name()]==ed.endNode.type and (o.idx not in self.occupied and o.idx not in [on[0] for on in p.nids] ))]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
             if m.idx==1 and ed.endNode.idx == 254 and False:#
                 print("m.idx=%d,m.oid=%d,new.idx=%d"%(m.idx,a.idx,ed.endNode.idx))
                 print("exp")
@@ -142,35 +143,71 @@ class plas(): #it's a recognize plan
             self.scene.LINKS.clear()
             self.scene.GRUPS.clear()
             for o in self.scene.OBJES:
-                o.gid,o.nid=-1,0
+                o.gid,o.nid=0,0
         self.scene.grp=True
-        j = -1
+        j = 0
         for p in self.plas:
             if len(p)<=1 and not forShow:
                 continue
             j += 1
+            self.scene[p.nids[0][0]].nid = p.nids[0][1]
+            self.scene[p.nids[0][0]].gid = j
             for oid,nid in p.nids[1:]:
                 self.scene[oid].nid = nid
                 self.scene[oid].gid = j
                 self.scene.LINKS.append(objLink(oid,p.nids[p.nids.index((oid,nid))-1][0],len(self.scene.LINKS),self.scene,"lightblue"))
                 
-                m = self.pm.nods[self.pm.mid(nid)]#print(m.idx)#print(p.searchOid(m.idx)[0])
-                self.scene.LINKS.append(objLink(oid,p.searchOid(m.idx)[0],len(self.scene.LINKS),self.scene,"pink"))
+                m = self.pm.nods[self.pm.mid(nid)]#print(m.idx)#print(p.searchOid(m.idx))
+                self.scene.LINKS.append(objLink(oid,p.searchOid(m.idx),len(self.scene.LINKS),self.scene,"pink"))
 
-            self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene))
+            self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j,scne=self.scene))
         self.scene.plan=self
 
+    def optimize(self,ir,exp=False): #关键就两个问题，一个是optimize，一个是update fit。
+        self.scene.grp=True
+        j = 0
+        for p in self.plas:
+            if len(p)<=1:
+                continue
+            j += 1
+            for oid,nid in p.nids[1:]:
+                assert self.scene[oid].nid == nid and self.scene[oid].gid == j
+                son = self.scene[oid]
+                m = self.pm.nods[self.pm.mid(nid)]
+                fid = p.searchOid(m.idx)
+                assert self.scene[fid].nid == m.idx
+                fat = self.scene[fid]
+                fat_son = fat - son #？？？？？
+                fat_son = m.bunches[nid].optimize(fat_son,ir)
+                new_son = fat + fat_son
+                if exp:
+                    from ..Operation.Adjs import adj
+                    son.adjust = adj(T=new_son.translation-son.translation,S=new_son.size-son.size,R=new_son.orientation-son.orientation,o=son)
+                    # son.adjust["T"] = new_son.translation - son.translation
+                    # son.adjust["S"] = new_son.size - son.size
+                    # son.adjust["R"] = new_son.orientation - son.orientation
+                son.adjust()#son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
+        
+        from ..Operation.Adjs import adjs
+        return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
+    
     def update_fit(self):
         from .Bnch import singleMatch
+        j = 0
         for p in self.plas:
+            if len(p)<=1:
+                continue
+            j += 1
             for i,on in enumerate(p.nids[1:]):
-                m = self.pm.nods[on[i-1][1]]
-                a = self.scene[on[i-1][0]]
-                oo= self.scene[on[i][0]] #不对不对，这些代码都不对，尤其是你这个和bunches有关的都不对，应该和searchOid配合
-                loss = m.bunches[on[i][0]].loss(a - oo)
+                oid,nid = on[0], on[1]
+                assert self.scene[oid].nid == nid and self.scene[oid].gid == j
+                m = self.pm.nods[self.pm.mid(nid)]
+                fid = p.searchOid(m.idx)
+                assert self.scene[fid].nid == m.idx
+                loss = m.bunches[nid].loss(self.scene[fid] - self.scene[oid])
                 v = singleMatch(loss,None,None,None,None)
-                pla.fits[i] = v
-        
+                p.fits[i+1] = v
+
         self.fit = sum([sum(p.fits) for p in self.plas])
         return self.fit
 

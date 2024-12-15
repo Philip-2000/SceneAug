@@ -70,6 +70,32 @@ class scne():
         kwargs["windoor"] = (conts is not None) and ("windoor" in kwargs and kwargs["windoor"])#print(kwargs)
 
         return cls(sceneDict,**kwargs)
+    
+
+    # TODO
+    def randDisrupt(self, rand_degree=1): 
+        '''
+        disrupt objects, while the room mask remains unchanged
+        '''
+        
+        self.OBJES.disruptObject(rand_degree)
+               
+        
+    # TODO
+    def randSynthesis(self, objects):
+        '''
+        randomly synthesize objects in an empty scene with given floor plan
+        '''
+        from .Obje import objes
+        scene = {}
+        scene["class_label"] = objects
+        scene["translation"] = 
+        scene["size"] =
+        scene["angle"] =
+        ce = 
+        scene_objs = objes(scene, ce)
+        self.OBJES = scene_objs
+
 
     def addObject(self,objec):
         return self.OBJES.addObject(objec)
@@ -209,8 +235,8 @@ class scneDs():
     def __init__(self,name="../novel3DFront/",lst=[],prepare="uncond",num=8,_dataset=[],**kwargs):#print(kwargs)
         from numpy.random import choice
         import os
-        self.name,self._dataset = name, []
-        if prepare=="uncond":
+        self.name, self._dataset = name, []
+        if prepare=="uncond": # LST is? list of scene name?
             LST = os.listdir(name) if (os.path.exists(name) and len(lst)==0 and num==0) else ([choice(os.listdir(name)) for i in range(num) ] if os.path.exists(name) and len(lst)==0 else lst)
             self.load(LST,name,num,**kwargs)
         elif prepare=="textcond":
@@ -303,6 +329,41 @@ class scneDs():
     #endregion: preparing---------#
 
     #region: operation------------#
+
+    # TODO
+    def randDisrupt(self, rand_degree=1):
+        '''
+        suppose the scene dataset is not empty
+        '''
+        for s in self._dataset:
+            s.randDisrupt(rand_degree)
+
+    # TODO
+    def randSynthesis(self, T):
+        '''
+        suppose the scene dataset is not empty
+        sampling objects from the tree for every scene in the dataset
+        '''
+        for s in self._dataset:
+            s.randSynthesis(T)
+
+
+    # TODO
+    def randSynthesisFromWL(self, T, wall_list=[[]], num=10):
+        '''
+        start with an empty scene dataset
+        randomly synthesis n scenes for each wall list
+        '''
+        if not isinstance(wall_list, list) or not all(isinstance(sublist, list) for sublist in wall_list):
+            raise TypeError("wall_list has to be a list of lists")
+        
+        for i in range(num):
+            objs_dict = 
+            scene = scne()
+            scene.randSynthesis(objs_dict)
+            scene.registerWalls()
+            self._dataset.append(scene)
+
 
     def synthesis(self,syth,cond,T):
         from ..Operation.Syth import agmt,gnrt,copl,rarg

@@ -411,6 +411,11 @@ class objes():
         self.OBJES.append(objec)
         return objec.idx
     
+    def disruptObject(self, rand_degree):
+        # TODO
+
+        pass
+    
     def objectView(self,id,bd=100000,scl=False,maxDis=100000):
         newOBJES = [(self[id] - o) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
         return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]

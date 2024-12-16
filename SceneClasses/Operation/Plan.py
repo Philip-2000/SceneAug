@@ -200,12 +200,15 @@ class plas(): #it's a recognize plan
             j += 1
             for i,on in enumerate(p.nids[1:]):
                 oid,nid = on[0], on[1]
+                if on[1] == p.nids[i][1]:
+                    continue
                 assert self.scene[oid].nid == nid and self.scene[oid].gid == j
                 m = self.pm.nods[self.pm.mid(nid)]
                 fid = p.searchOid(m.idx)
                 assert self.scene[fid].nid == m.idx
                 loss = m.bunches[nid].loss(self.scene[fid] - self.scene[oid])
                 v = singleMatch(loss,None,None,None,None)
+
                 p.fits[i+1] = v
 
         self.fit = sum([sum(p.fits) for p in self.plas])

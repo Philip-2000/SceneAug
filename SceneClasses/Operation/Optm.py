@@ -18,9 +18,11 @@ class optm():
     def __call__(self, s, iRate=-1, jRate=-1): #timer, adjs, vio, fit, cos(PhyAdjs,PatAdjs), Over
         if self.PhyOpt and self.PatOpt:
             self.timer("all",1)
+            self.timer("accum",1)
             PhyRet = self.PhyOpt(s,iRate) #adjs,vio,self.over(adjs,vio)
             PatRet = self.PatOpt(s,jRate) #adjs,fit,self.over(adjs,vio)
             self.timer("all",0)
+            self.timer("accum",0)
             if self.exp:#单次操作耗时，adjust数值，violate数值，recognize的fit，pat操作趋势和phy操作趋势冲突？
                 return {"timer":self.timer, "adjs":PhyRet["adjs"]+PatRet["adjs"], "vio":PhyRet["vio"], "fit":PatRet["fit"], "cos":PhyRet["adjs"]-PatRet["adjs"], "over":PhyRet["over"] and PatRet["over"]}
             else:
@@ -74,7 +76,7 @@ class PhyOpt():
                 ImageSequenceClip(self.shows[nms], fps=3).write_videofile(os.path.join(self.scene.imgDir,nms+".mp4"),logger=None)
     
     def over(self,adjs,vio):
-        return False
+        return False #vio < 0.001
 
     def __call__(self,s,ir=-1):
         self.timer("phy_opt",1)
@@ -127,7 +129,7 @@ class PatOpt():
         ImageSequenceClip(self.shows["pat"], fps=3).write_videofile(os.path.join(self.scene.imgDir,"pat.mp4"),logger=None)
     
     def over(self,adjs,fit):
-        return False
+        return False#adjs.norm() < 0.1
     
     def __call__(self,s,ir=-1):
         if self.rerec:

@@ -42,7 +42,7 @@ class tmer():
         return np.array([self.evnts[e].last for e in self.evnts]).sum()
         
     def clear(self):
-        [self.evnts[e].clear() for e in self.evnts]
+        [self.evnts[e].clear() for e in self.evnts if e != "accum"]
     
     def dct(self):
         return {e: self.evnts[e].last for e in self.evnts}

@@ -29,8 +29,7 @@ class adj():
     def normed(self):
         return self.flat()/np.linalg.norm(self.flat())
 
-
-    def dct(self):
+    def dct(self): #return np.round(self.norm(),4)
         return {"T":np.round(self.T,4).tolist(),"S":np.round(self.S,4).tolist(),"R":np.round(self.R,4).tolist()}
     
 class adjs():
@@ -60,5 +59,8 @@ class adjs():
     def __iter__(self):
         return iter(self.adjusts)
     
+    def norm(self):
+        return sum([a.norm() for a in self]) / len(self)
+
     def dct(self):
         return [a.dct() for a in self]

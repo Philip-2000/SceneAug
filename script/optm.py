@@ -10,9 +10,13 @@ def parse(): #using pattern to understand scene
 
     sceneLst = [
         "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
-        #"1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
-        #"1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
-        #"0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
+        "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
+        "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
+        "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
+        "34f5f040-eb63-482b-82cb-9a3914c92c79_LivingDiningRoom-8678",
+        "328ada87-9de8-4283-879d-58bffe5eb37a_Bedroom-5280",
+        "39629e24-b405-420b-8fb0-72cef0238f70_SecondBedroom-1255",
+        "4efedd5d-31d9-46c2-8c26-94ebdd7c0187_MasterBedroom-39695",
     ]
 
     config = {

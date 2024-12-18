@@ -16,6 +16,7 @@ class node():
         self.suffix = suffix
         self.source = None
         self.idx = idx
+        self.chosen_level = 0
         self.edges = []
         self.bunches = {}
 

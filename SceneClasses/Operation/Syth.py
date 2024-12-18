@@ -70,7 +70,7 @@ class syth():
         os.makedirs(self.scene.imgDir,exist_ok=True)
         self.pm = PM(pmVersion)
         self.name = nm
-    
+     
     def uncond(self):
         return self.scene
 
@@ -87,31 +87,50 @@ class gnrt(syth):
     def __init__(self,pmVersion,scene=None,nm="test",v=0):
         super(gnrt,self).__init__(pmVersion,scene,self.__class__.__name__,nm,v)
 
+    def __randomchoose(self,node,version = "confidence"):
+        import numpy as np
+        if version == "confidence":
+            cs = 0
+            for ed in node.edges:
+                cs += ed.confidence
+                if np.random.rand() < ed.confidenceIn:
+                    return ed
+                if np.random.rand() < cs:
+                    return None           
+        if version == "random":
+            return node.edges[np.random.randint(0,len(node.edges))]
+        if version == "random_confidence":
+            while 1:
+                ran = np.random.randint(0,len(node.edges))
+                if np.random.rand() < node.edges[ran].confidence:
+                    return node.edges[ran]
+        if version == "random_confidence_times":
+            value = 0
+            for i in node.edges: value += i.confidence*i.times
+            while 1:
+                ran = np.random.randint(0,len(node.edges))
+                if np.random.rand() < node.edges[ran].confidence and np.random.rand() < node.edges[ran].confidence*node.edges[ran].confidence/(0.1+value):
+                    node.edges[ran].times += 1
+                    return node.edges[ran]
+
     def uncond(self,draw=False,uid=""):
         import numpy as np
         from ..Semantic.Link import objLink
         from ..Basic.Obje import obje,object_types
         N = self.pm.nods[0]
         while len(N.edges)>0:
-            cs = 0
-            for ed in N.edges:
-                cs += ed.confidence
-                if np.random.rand() < ed.confidenceIn:
-                    N,m = ed.endNode,ed.startNode
-                    while not (N.idx in m.bunches):
-                        m = m.source.startNode
-                    r = m.bunches[N.idx].sample()
-                    a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
-                    o = a[0] + obje.fromFlat(r,j=object_types.index(N.type))
-                    self.scene.addObject(o)
-                    o.nid = N.idx
-                    if m.idx > 0:
-                        self.scene.LINKS.append(objLink(a[0].idx,o.idx,len(self.scene.LINKS),self.scene))
-                    cs = 0
-                    break
-            
-                if np.random.rand() < cs:
-                    break
+            ed = self.__randomchoose(N,"random_confidence_times")
+            if ed :
+                N,m = ed.endNode,ed.startNode
+                while not (N.idx in m.bunches):
+                    m = m.source.startNode
+                r = m.bunches[N.idx].sample()
+                a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
+                o = a[0] + obje.fromFlat(r,j=object_types.index(N.type))
+                self.scene.addObject(o)
+                o.nid = N.idx
+                if m.idx > 0:
+                    self.scene.LINKS.append(objLink(a[0].idx,o.idx,len(self.scene.LINKS),self.scene))
         if draw:
             self.scene.draw()
         return self.scene
@@ -288,9 +307,135 @@ class copl(syth):
 class rarg(syth):
     def __init__(self,pmVersion,scene,nm="test",v=0):
         super(rarg,self).__init__(pmVersion,scene,self.__class__.__name__,nm,v)
-        raise NotImplementedError
 
-    def uncond(self):#先初始化，再蒙特卡洛树 A10 n + node_num   加 模拟次数*10
+    def __clean_find(self,node,level):
+        if level == -1:
+            node.chosen_level = 0
+            for i in node.edges:
+                self.__clean_find(i.endNode,level)
+        if node.chosen_level >= 2**level:
+            node.chosen_level -= 2**level
+        for i in node.edges:
+            if i.endNode.chosen_level >= 2**level:
+                i.endNode.chosen_level -= 2**level
+                self.__clean_find(i.endNode,level)
+
+    def uncond(self,draw = True):
+        import numpy as np
+        from ..Semantic.Link import objLink
+        from ..Basic.Obje import obje,object_types,objes
+        from ..Basic.Scne import scne
+        indexs = [f.class_index for f in self.scene.OBJES]
+        choose_edges = None
+        most_long_edge = []
+        most_len = 0
+        level = 0
+        N = self.pm.nods[0]
+        #print([object_types.index(ed.endNode.type) for ed in N.edges])
+        #print(indexs)
+        begin_len = len(indexs)
+        most_level = len([i for i in indexs if i in [4,8,29,7,9]])
+        choose_edges = [[] for i in range(0,most_level)]
+        chosen_index = [[] for i in range(0,most_level)]
+        while(True):
+            from ..Basic.Obje import obje,object_types,obje
+            N = self.pm.nods[0]
+            if most_level > 1 and level >= most_level:
+                if most_len < begin_len - len(indexs):
+                    most_long_edge = choose_edges.copy()
+                    most_len = begin_len - len(indexs)
+                indexs += chosen_index[-1]
+                indexs += chosen_index[-2]
+                chosen_index[-1] = []
+                chosen_index[-2] = []
+                choose_edges[-1] = []
+                choose_edges[-2] = []
+                level -= 2
+                continue
+            if most_level == 1 and level >= most_level:
+                if most_len < begin_len - len(indexs):
+                    most_long_edge = choose_edges.copy()
+                    most_len = begin_len - len(indexs)
+                indexs += chosen_index[-1]
+                chosen_index[-1] = []
+                choose_edges[-1] = []
+                level -= 1
+                continue
+            if level ==  -1:
+                break
+            while N.edges and indexs:
+                if_continue = False
+                for ed in N.edges:
+                    if ed.endNode.chosen_level >= 2**level: continue
+                    number = object_types.index(ed.endNode.type)
+                    if number in indexs:
+                        chosen_index[level].append(number)
+                        indexs.remove(number)
+                        choose_edges[level].append(ed)
+                        N = ed.endNode
+                        if_continue = True
+                        break
+                    else:
+                        ed.endNode.chosen_level += 2**level
+                if if_continue: continue
+                if N.chosen_level< 2**level: N.chosen_level += 2**level
+                break
+            if not N.edges:
+                if N.chosen_level< 2**level: N.chosen_level += 2**level
+                level += 1
+                continue
+            if not indexs:
+                most_long_edge = choose_edges.copy()
+                break
+            if self.pm.nods[0].chosen_level < 2**level:
+                if most_len < begin_len - len(indexs):
+                    most_long_edge = choose_edges.copy()
+                    most_len = begin_len - len(indexs)
+                indexs += chosen_index[level]
+                chosen_index[level] = []
+                choose_edges[level] = []
+                continue
+            else:
+                if most_len < begin_len - len(indexs):
+                    most_long_edge = choose_edges.copy()
+                    most_len = begin_len - len(indexs)
+                if level == 0:
+                    break
+                indexs += chosen_index[level-1]
+                chosen_index[level-1] = []
+                choose_edges[level-1] = []
+                self.__clean_find(self.pm.nods[0],level)
+                level -= 1
+                continue  
+        self.__clean_find(self.pm.nods[0],-1)
+        choose_edges = most_long_edge
+        #print("most_level",most_level)
+        #print("edge_len",most_len)
+        set_idx = []
+        for i in range(0,len(choose_edges)):
+            offset = [[0,0,0],[4,0,0],[-4,0,0],[0,4,0],[0,-4,0]]
+            idxes = []
+            for ed in choose_edges[i]:
+                N,m = ed.endNode,ed.startNode
+                while not (N.idx in m.bunches):
+                    m = m.source.startNode
+                r = m.bunches[N.idx].sample()
+                a = [o for o in self.scene.OBJES if o.nid == m.idx and not o.idx in set_idx] if m.idx > 0 else [obje(np.array(offset[i]),np.array([1,1,1]),np.array([0]))]
+                o = a[0] + obje.fromFlat(r,j=object_types.index(N.type))
+                o.nid = N.idx
+                for obj in self.scene.OBJES.OBJES:
+                    if obj.class_index == o.class_index:
+                        idxes.append(obj.idx)
+                        obj.translation = o.translation
+                        obj.size = o.size
+                        obj.orientation = o.orientation
+                        obj.v, obj.modelId, obj.gid, obj.nid,obj.linkIndex,obj.destIndex = o.v, o.modelId, o.gid, o.nid,o.linkIndex,o.destIndex
+                        if m.idx > 0:
+                            self.scene.LINKS.append(objLink(a[0].idx,obj.idx,len(self.scene.LINKS),self.scene))
+                        break
+            set_idx += idxes
+        if draw:
+            self.scene.draw()
         return self.scene
 
     def textcond(self):

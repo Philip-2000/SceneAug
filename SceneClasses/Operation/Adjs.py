@@ -11,7 +11,7 @@ class adj():
         _ = self() if call else None
 
     def __str__(self):
-        return "%s id=%d, T:(%.3f,%.3f,%.3f), S:(%.3f,%.3f,%.3f), R:(%.3f)" % (self.o.class_name(), self.o.idx, self.T[0], self.T[1], self.T[2], self.S[0], self.S[1], self.S[2], self.R[0])
+        return "%s id=%d, T:(%.3f,%.3f,%.3f), S:(%.3f,%.3f,%.3f), R:(%.3f)" % (self.o.class_name()[:10], self.o.idx, self.T[0], self.T[1], self.T[2], self.S[0], self.S[1], self.S[2], self.R[0])
 
     def __getitem__(self, k):
         assert k in ["T", "S", "R"]
@@ -23,7 +23,7 @@ class adj():
         self.o.orientation += self.R * rt
 
     def __add__(self, a):
-        return adj(self.T + a.T, self.S + a.S, self.R + a.R, self.o)
+        return adj(self.T + a.T, self.S + a.S, self.R + a.R, self.o, call=False)
 
     def __sub__(self, a):
         return self.normed() @ a.normed()
@@ -70,7 +70,10 @@ class adjs():
             self.adjusts = lst
 
     def snapshot(self):
-        return adjs(self.objes, [adj(a.T, a.S, a.R, a.o) for a in self.adjusts])
+        return adjs(self.objes, [adj(a.T, a.S, a.R, a.o, call=False) for a in self.adjusts])
+    
+    def __str__(self):
+        return "\n".join([str(a) for a in self.adjusts])
         
     def __add__(self, os):
         return adjs(self.objes, [a + b for a, b in zip(self.adjusts, os.adjusts)])
@@ -95,9 +98,5 @@ class adjs():
 
     def apply_influence(self):
         if DECAY_RATE < 100:
-            for i, adj_i in enumerate(self.adjusts):
-                total = np.zeros_like(adj_i.flat())
-                for j, adj_j in enumerate(self.adjusts):
-                    total += adj_j.flat() * np.exp(-DECAY_RATE * np.linalg.norm(adj_i.o.translation - adj_j.o.translation)) if i != j else np.zeros_like(adj_i.flat())
-                adj_i.update(total[:3], total[3:6], total[6:], call=False)
-            self()
+            buffer = [np.array([adj_j.flat()*np.exp(-DECAY_RATE*np.linalg.norm(adj_i.o.translation-adj_j.o.translation)) for j, adj_j in enumerate(self.adjusts) if i != j]).mean(axis=0) for i, adj_i in enumerate(self.adjusts)]
+            [adj.update(buffer[i][:3], buffer[i][3:6], buffer[i][6:]) for i, adj in enumerate(self.adjusts)]

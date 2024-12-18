@@ -25,7 +25,7 @@ class exop():
         return adjs(t.OBJES)
     
     def debugdraw(self,s,step):
-        s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(s.scene_uid[:10],step))#return #
+        s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+.png"%(s.scene_uid[:10],step))#return #
 
     def __call__(self):
         if self.task==2: #2:experiment, 1:process and visualize, 0:load and visualize
@@ -41,16 +41,16 @@ class exop():
                     plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
 
                 OP = optm(pmVersion=self.pmVersion,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True)
-                self.debugdraw(s,0)
+                s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s.png"%(s.scene_uid[:10]))
                 step = 0
                 ret = {"over":False}
                 while (not ret["over"]): #the over criterion
                     ret = OP(step) #timer, adjs, vio, fit, cos, over
                     ret["diff"] = adjs0 - ret["adjs"]
                     self.store(ret,s,step)
-                    step += 1
                     self.debugdraw(s,step)
-                    if step > 8:
+                    step += 1
+                    if step > 33:
                         break
 
                 #print(step,time)
@@ -151,7 +151,7 @@ class exop():
         if self.task > 0: #2:experiment, 1:process and visualize, 0:load and visualize
             #print([len(self.origin[s.scene_uid[:10]]) for s in self.sDs])
             ms = max([len(self.origin[s.scene_uid[:10]]) for s in self.sDs])
-            boxes = 9
+            boxes = 34
             bs = [[] for _ in range(boxes)]
             for j in range(0,ms,ms//boxes):
                 for i in range(j,min(j+ms//boxes,ms)):
@@ -218,7 +218,7 @@ class exop():
             vs = [self.origin[s.scene_uid[:10]][-1]["timer"]["accum"] for s in self.sDs] if key == "time" else [len(self.origin[s.scene_uid[:10]]) for s in self.sDs]
             vs = sorted(vs)
             #print(vs)
-            boxes = 4
+            boxes = 34
             gap = max(vs)/float(boxes)
             hs =  [0 for b in range(boxes)]
             i = 0
@@ -249,16 +249,23 @@ class exops():
     def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="test",UIDS=[]):
         self.UIDS = UIDS
         if len(UIDS)==0:
-            #self.UIDS = ["0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487"]
             self.UIDS = [
                 "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
+                "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
                 "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
                 "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
-                "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
                 "34f5f040-eb63-482b-82cb-9a3914c92c79_LivingDiningRoom-8678",
                 "328ada87-9de8-4283-879d-58bffe5eb37a_Bedroom-5280",
                 "39629e24-b405-420b-8fb0-72cef0238f70_SecondBedroom-1255",
                 "4efedd5d-31d9-46c2-8c26-94ebdd7c0187_MasterBedroom-39695",
+                "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",
+                "0ead178d-e4db-4b93-a9d0-0a8ee617d879_LivingRoom-18781",
+                "001ef085-8b13-48ec-b4e4-4a0dc1230390_KidsRoom-1704",
+                "1c70b531-095e-44aa-9284-6585b89c4d56_DiningRoom-78405",
+                "1e6211be-ba2f-4dc0-9206-c5dcd4ae85be_LivingDiningRoom-3184",
+                "05a80889-128e-40b0-8375-fea9856931b8_LivingDiningRoom-64430",
+                "1e442945-e065-4453-b056-ddbb916e5c7c_SecondBedroom-1995",
+                "5e6f0a50-b34c-45a8-8e31-55c7d9adad2d_MasterBedroom-92088"
             ]
         self.num=0 #self.num=512, self.UIDS = []
         self.task = task #2:experiment, 1:process and visualize, 0:load and visualize
@@ -269,16 +276,11 @@ class exops():
         os.makedirs(os.path.join(EXOP_BASE_DIR,expName),exist_ok=True)
 
         self.hypers = []
-        self.mods = ["prerec"]#,"postrec","rerec"]
+        self.mods = ["prerec",]#"postrec",
         self.s4s = [2]
-        self.rates =[0.05*i for i in range(1,2)]
-        self.devs = [ 0.5*i for i in range(1,2)]
+        self.rates =[ 0.1*i for i in range(1,2)]
+        self.devs = [ 0.1*i for i in range(3,4)]
         self.hypers = [[[[ (mod,rate,s4,dev) for dev in self.devs ] for rate in self.rates] for s4 in self.s4s ] for mod in self.mods] 
-        # for mod in ["prerec"]:#,"postrec","rerec"]:#
-        #     for s4 in range(2,3):
-        #         for rate in [0.5*i for i in range(1,2)]:
-        #             for dev in [0.05*i for i in range(1,2)]:
-        #                 self.hypers.append((mod,rate,s4,dev))
         self.exops = [[[[ None for dev in self.devs ] for rate in self.rates]  for s4 in self.s4s ]for mod in self.mods] 
         
     def __call__(self):
@@ -292,53 +294,53 @@ class exops():
                                     "rerec":bool(mod=="rerec"),
                                     "prerec":bool(mod=="prerec"),
                                     "rand":False,
-                                    "rate":rate
+                                    "rate":{"mode":"exp_dn","r0":rate,"lda":0.5,"rinf":rate/5.0},#{"mode":"static","v":rate},
                                 },
                                 "phy":{
-                                    "rate":rate*10,
+                                    "rate":{"mode":"exp_up","rinf":rate*4,"lda":1.5,"r0":rate/100.0},#{"mode":"static","v":rate/500},#
                                     "s4": s4,
-                                    "door":{"expand":1.1,"out":0.2,"in":1.0,},
+                                    "door":{"expand":0.6,"out":0.1,"in":0.2,},
                                     "wall":{"bound":0.5,},
                                     "object":{
-                                        "Pendant Lamp":[.0,.01,.01],#
-                                        "Ceiling Lamp":[.0,.01,.01],#
-                                        "Bookcase / jewelry Armoire":[.2,1., .9],#
-                                        "Round End Table":[.0,.5, .5],#
-                                        "Dining Table":[.0,.5, .5],#
-                                        "Sideboard / Side Cabinet / Console table":[.0,.9, .9],#
-                                        "Corner/Side Table":[.0,.9, .9],#
-                                        "Desk":[.0,.9, .9],#
-                                        "Coffee Table":[.0,1.,1.1],#
-                                        "Dressing Table":[.0,.9, .9],#
-                                        "Children Cabinet":[.2,1., .9],#
-                                        "Drawer Chest / Corner cabinet":[.2,1., .9],#
-                                        "Shelf":[.2,1., .9],#
-                                        "Wine Cabinet":[.2,1., .9],#
-                                        "Lounge Chair / Cafe Chair / Office Chair":[.0,.5, .5],#
-                                        "Classic Chinese Chair":[.0,.5, .5],#
-                                        "Dressing Chair":[.0,.5, .5],#
-                                        "Dining Chair":[.0,.5, .5],#
-                                        "armchair":[.0,.5, .5],#
-                                        "Barstool":[.0,.5, .5],#
-                                        "Footstool / Sofastool / Bed End Stool / Stool":[.0,.5, .5],#
-                                        "Three-seat / Multi-seat Sofa":[.2,1., .9],#
-                                        "Loveseat Sofa":[.2,1., .9],#
-                                        "L-shaped Sofa":[.0,.6, .9],#
-                                        "Lazy Sofa":[.2,1., .9],#
-                                        "Chaise Longue Sofa":[.2,1., .9],#
-                                        "Wardrobe":[.2,1., .9],#
-                                        "TV Stand":[.2,1., .9],#
-                                        "Nightstand":[.0,.5, .5],#
-                                        "King-size Bed":[.2,1.,1.2],#
-                                        "Kids Bed":[.2,1.,1.2],#
-                                        "Bunk Bed":[.2,1.,1.2],#
-                                        "Single bed":[.2,1.,1.2],#
-                                        "Bed Frame":[.2,1.,1.2],#
+                                        "Pendant Lamp":[.0,.01,.01,False],#
+                                        "Ceiling Lamp":[.0,.01,.01,False],#
+                                        "Bookcase / jewelry Armoire":[.2,1., .9,True],#
+                                        "Round End Table":[.0,.5, .5,False],#
+                                        "Dining Table":[.0,.5, .5,False],#
+                                        "Sideboard / Side Cabinet / Console table":[.0,.9, .9,True],#
+                                        "Corner/Side Table":[.0,.9, .9,True],#
+                                        "Desk":[.0,.9, .9,True],#
+                                        "Coffee Table":[.0,1.,1.1,False],#
+                                        "Dressing Table":[.0,.9, .9,True],#
+                                        "Children Cabinet":[.2,1., .9,True],#
+                                        "Drawer Chest / Corner cabinet":[.2,1., .9,True],#
+                                        "Shelf":[.2,1., .9,True],#
+                                        "Wine Cabinet":[.2,1., .9,True],#
+                                        "Lounge Chair / Cafe Chair / Office Chair":[.0,.5, .5,False],#
+                                        "Classic Chinese Chair":[.0,.5, .5,False],#
+                                        "Dressing Chair":[.0,.5, .5,False],#
+                                        "Dining Chair":[.0,.5, .5,False],#
+                                        "armchair":[.0,.5, .5,False],#
+                                        "Barstool":[.0,.5, .5,False],#
+                                        "Footstool / Sofastool / Bed End Stool / Stool":[.0,.5, .5,False],#
+                                        "Three-seat / Multi-seat Sofa":[.2,1., .9,True],#
+                                        "Loveseat Sofa":[.2,1., .9,True],#
+                                        "L-shaped Sofa":[.0,.6, .9,True],#
+                                        "Lazy Sofa":[.2,1., .9,True],#
+                                        "Chaise Longue Sofa":[.2,1., .9,True],#
+                                        "Wardrobe":[.2,1., .9,True],#
+                                        "TV Stand":[.2,1., .9,True],#
+                                        "Nightstand":[.0,.5, .5,True],#
+                                        "King-size Bed":[.2,1.,1.2,True],#
+                                        "Kids Bed":[.2,1.,1.2,True],#
+                                        "Bunk Bed":[.2,1.,1.2,True],#
+                                        "Single bed":[.2,1.,1.2,True],#
+                                        "Bed Frame":[.2,1.,1.2,True],#
                                     },
-                                    "syn":{"T":1.0,"S":0.01,"R":1.0,},
+                                    "syn":{"T":1.1,"S":0.1,"R":1.0,},
                                 },
                                 "adjs":{
-                                    "inertia":0.01,"decay":5.0,
+                                    "inertia":0.,"decay":1.0,
                                 }
                             }
                             dirName = "%s %.2f %.3f %d"%(mod,dev,rate,s4)

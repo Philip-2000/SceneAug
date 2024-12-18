@@ -10,12 +10,13 @@ class samp():
 
     def __update(self,o):
         self.transl = o + self.TRANSL
-        self.radial = self.transl - o.translation#self.tangen = np.cross(self.radial/norm(self.radial),[0,1,0])
+        self.radial = self.transl - o.translation
 
     def __call__(self, o, config, timer):
         self.__update(o)
         timer("wfield",1)
         wo, wi, dr = o.scne.WALLS.optFields(self,config)
+        wi = wi if config["object"][o.class_name()][-1] else np.zeros_like(wi)
         timer("wfield",0)
         timer("ofield",1)
         ob = o.scne.OBJES.optFields(self, o, config["object"]) if o.class_name().find("Lamp") < 0 else np.array([.0,.0,.0])#
@@ -23,7 +24,7 @@ class samp():
         timer("syn",1)
         self.t = wo+wi+dr+ob
         self.s = np.dot(self.t,self.radial/norm(self.radial))*self.TRANSL
-        self.r = np.cross(self.t,self.radial)[1:2]/norm(self.radial) #self.tangen
+        self.r =-np.cross(self.t,self.radial)[1:2]/norm(self.radial) #self.tangen
         timer("syn",0)
         if self.debug:
             self.component["al"], self.component["wo"], self.component["wi"], self.component["dr"], self.component["ob"] = self.t, wo, wi, dr, ob
@@ -50,7 +51,7 @@ class samps():
         [s(self.o,config,timer) for s in self]
         timer("syn",1)
         T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
-        if ut>0:
+        if ut>-1e-5:
             self.o.adjust.update(T*ut,S*ut,R*ut)#self.o.adjust()
         timer("syn",0)
         return T, S, R

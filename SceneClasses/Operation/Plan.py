@@ -190,7 +190,7 @@ class plas(): #it's a recognize plan
 
                 assert self.scene[fid].nid == m.idx
 
-                exp_fid = self.scene[oid]+(obje.fromFlat(m.bunches[nid].exp,v=True,j=self.scene[oid].class_index))-obje.empty(j=self.scene[fid].class_index))
+                exp_fid = self.scene[oid]+(obje.fromFlat(m.bunches[nid].exp,j=self.scene[oid].class_index)-obje.empty(j=self.scene[fid].class_index))
                 self.scene[fid].adjust.toward(exp_fid, ir)
                 
                 exp_son = self.scene[fid]+obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
@@ -207,9 +207,9 @@ class plas(): #it's a recognize plan
                 assert self.scene[fid].nid == m.idx
                 exp_son = self.scene[fid] + obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
                 self.scene[oid].adjust.toward(exp_son, ir)
-                
-            from ..Operation.Adjs import adjs
-            return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
+
+        from ..Operation.Adjs import adjs
+        return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
     
     def update_fit(self):
         from .Bnch import singleMatch

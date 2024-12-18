@@ -428,9 +428,12 @@ class objes():
             return  A.sum(axis=0), np.array([(norm(a)**2)/2.0 for a in A] ).sum(axis=0)
         
     def optimizePhy(self,config,timer,debug=False,ut=-1):
+        #print(ut)
         for o in self.OBJES:
             o.optimizePhy(config,timer,debug,ut)
         from ..Operation.Adjs import adjs
+        #from ..Experiment.ExOp import EXOP_BASE_DIR
+        #self.scne.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+opt.png"%(self.scne.scene_uid[:10],1))#return #
         return adjs(self)#[o.optimizePhy(config,timer,debug,ut) for o in self.OBJES]
     
     def violates(self):

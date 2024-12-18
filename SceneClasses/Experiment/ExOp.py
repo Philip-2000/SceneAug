@@ -4,10 +4,12 @@ class exop():
         from ..Basic.Scne import scneDs as SDS
         self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False, cen=False, wl=True, windoor=True)
         self.pmVersion = pmVersion
+        from SceneClasses.Operation.Patn import patternManager as PM 
+        self.PM = PM(pmVersion)
         self.dev = dev
         self.config = config
         self.mod = mod
-        self.origin = {s.scene_uid[:10]:[] for s in self.sDs}#"the original results, (which scene) : (which step) : [(1)time]"
+        self.origin = {s.scene_uid[:10]:[] for s in self.sDs}#the original results
         self.plots = {"fit":{},"vio":{},"adjs":{},"cos":{},"diff":{},"time":{},"steps":{}} #"the data for plots"
         self.task = task #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized by exops
         import os
@@ -17,14 +19,9 @@ class exop():
         
     def __randomize(self,t):
         import numpy as np
+        from ..Operation.Adjs import adjs,adj
         for o in t.OBJES:
-            from ..Operation.Adjs import adj
-            dT = np.random.randn((3)) * self.dev
-            dS = np.random.randn((3)) * self.dev * 0.1
-            dR = np.random.randn((1)) * self.dev
-            o.adjust = adj(T=dT,S=dS,R=dR,o=o)
-            o.adjust()
-        from ..Operation.Adjs import adjs
+            o.adjust = adj(T=np.random.randn((3))*self.dev,S=np.random.randn((3))*self.dev * 0.1,R=np.random.randn((1))*self.dev,o=o)#o.adjust()
         return adjs(t.OBJES)
     
     def debugdraw(self,s,step):
@@ -33,20 +30,25 @@ class exop():
     def __call__(self):
         if self.task==2: #2:experiment, 1:process and visualize, 0:load and visualize
             from ..Operation.Optm import optm
+            from ..Operation.Plan import plans
             for s in self.sDs:
-
-                adjs0 = self.__randomize(s)
+                
+                if self.mod == "prerec":
+                    plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
+                    adjs0 = self.__randomize(s)
+                elif self.mod == "postrec":
+                    adjs0 = self.__randomize(s)
+                    plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
 
                 OP = optm(pmVersion=self.pmVersion,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True)
-                
                 self.debugdraw(s,0)
-                ret,step,time = {"over":False},0,0
+                step = 0
+                ret = {"over":False}
                 while (not ret["over"]): #the over criterion
                     ret = OP(step) #timer, adjs, vio, fit, cos, over
                     ret["diff"] = adjs0 - ret["adjs"]
                     self.store(ret,s,step)
                     step += 1
-                    time += ret["timer"]["all"] 
                     self.debugdraw(s,step)
                     if step > 8:
                         break
@@ -58,7 +60,7 @@ class exop():
     def store(self,ret,s,steps):
         assert steps == len(self.origin[s.scene_uid[:10]])
         ret["timer"]= ret["timer"].dct()
-        ret["adjs"] = ret["adjs"].norm()
+        ret["adjs"] = ret["adjs"].Norm()
         self.origin[s.scene_uid[:10]].append(ret)
 
     def store_plot(self,key,ele,value):
@@ -86,7 +88,6 @@ class exop():
         #content: 20*72
         array = np.array(content).T
         means,Xs = [],[]#, positions=[X*5 for X in range(len(content))]
-        print(array.shape)
         A = plt.boxplot(array)#, labels = [content[1]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[key]}, medianprops={"color":dolors["medians"]}, meanprops={'marker':"*","markeredgecolor":dolors["means"],"markerfacecolor":dolors["means"]})
         #print(A["means"][0].get_data())
         #raise NotImplementedError
@@ -148,6 +149,7 @@ class exop():
 
         #step-aligned flatten, as box-plot
         if self.task > 0: #2:experiment, 1:process and visualize, 0:load and visualize
+            #print([len(self.origin[s.scene_uid[:10]]) for s in self.sDs])
             ms = max([len(self.origin[s.scene_uid[:10]]) for s in self.sDs])
             boxes = 9
             bs = [[] for _ in range(boxes)]
@@ -215,7 +217,7 @@ class exop():
         if self.task > 0: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized by exops
             vs = [self.origin[s.scene_uid[:10]][-1]["timer"]["accum"] for s in self.sDs] if key == "time" else [len(self.origin[s.scene_uid[:10]]) for s in self.sDs]
             vs = sorted(vs)
-            print(vs)
+            #print(vs)
             boxes = 4
             gap = max(vs)/float(boxes)
             hs =  [0 for b in range(boxes)]
@@ -245,14 +247,12 @@ class exop():
 
 class exops():
     def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="test",UIDS=[]):
-
-        
         self.UIDS = UIDS
         if len(UIDS)==0:
             #self.UIDS = ["0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487"]
             self.UIDS = [
-                "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
                 "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
+                "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
                 "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
                 "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
                 "34f5f040-eb63-482b-82cb-9a3914c92c79_LivingDiningRoom-8678",
@@ -271,8 +271,8 @@ class exops():
         self.hypers = []
         self.mods = ["prerec"]#,"postrec","rerec"]
         self.s4s = [2]
-        self.rates = [0.5*i for i in range(1,3)]
-        self.devs = [0.05*i for i in range(1,3)]
+        self.rates =[0.05*i for i in range(1,2)]
+        self.devs = [ 0.5*i for i in range(1,2)]
         self.hypers = [[[[ (mod,rate,s4,dev) for dev in self.devs ] for rate in self.rates] for s4 in self.s4s ] for mod in self.mods] 
         # for mod in ["prerec"]:#,"postrec","rerec"]:#
         #     for s4 in range(2,3):
@@ -288,56 +288,59 @@ class exops():
                     for r,rate in enumerate(self.rates):
                         for d,dev in enumerate(self.devs):
                             config = {
-                            "pat":{
-                                "rerec":bool(mod=="rerec"),
-                                "prerec":bool(mod=="prerec"),
-                                "rand":False,
-                                "rate":rate
-                            },
-                            "phy":{
-                                "rate":rate,
-                                "s4": s4,
-                                "door":{"expand":1.1,"out":0.2,"in":1.0,},
-                                "wall":{"bound":0.5,},
-                                "object":{
-                                    "Pendant Lamp":[.0,.01,.01],#
-                                    "Ceiling Lamp":[.0,.01,.01],#
-                                    "Bookcase / jewelry Armoire":[.2,1., .9],#
-                                    "Round End Table":[.0,.5, .5],#
-                                    "Dining Table":[.0,.5, .5],#
-                                    "Sideboard / Side Cabinet / Console table":[.0,.9, .9],#
-                                    "Corner/Side Table":[.0,.9, .9],#
-                                    "Desk":[.0,.9, .9],#
-                                    "Coffee Table":[.0,1.,1.1],#
-                                    "Dressing Table":[.0,.9, .9],#
-                                    "Children Cabinet":[.2,1., .9],#
-                                    "Drawer Chest / Corner cabinet":[.2,1., .9],#
-                                    "Shelf":[.2,1., .9],#
-                                    "Wine Cabinet":[.2,1., .9],#
-                                    "Lounge Chair / Cafe Chair / Office Chair":[.0,.5, .5],#
-                                    "Classic Chinese Chair":[.0,.5, .5],#
-                                    "Dressing Chair":[.0,.5, .5],#
-                                    "Dining Chair":[.0,.5, .5],#
-                                    "armchair":[.0,.5, .5],#
-                                    "Barstool":[.0,.5, .5],#
-                                    "Footstool / Sofastool / Bed End Stool / Stool":[.0,.5, .5],#
-                                    "Three-seat / Multi-seat Sofa":[.2,1., .9],#
-                                    "Loveseat Sofa":[.2,1., .9],#
-                                    "L-shaped Sofa":[.0,.6, .9],#
-                                    "Lazy Sofa":[.2,1., .9],#
-                                    "Chaise Longue Sofa":[.2,1., .9],#
-                                    "Wardrobe":[.2,1., .9],#
-                                    "TV Stand":[.2,1., .9],#
-                                    "Nightstand":[.0,.5, .5],#
-                                    "King-size Bed":[.2,1.,1.2],#
-                                    "Kids Bed":[.2,1.,1.2],#
-                                    "Bunk Bed":[.2,1.,1.2],#
-                                    "Single bed":[.2,1.,1.2],#
-                                    "Bed Frame":[.2,1.,1.2],#
+                                "pat":{
+                                    "rerec":bool(mod=="rerec"),
+                                    "prerec":bool(mod=="prerec"),
+                                    "rand":False,
+                                    "rate":rate
                                 },
-                                "syn":{"T":1.0,"S":0.01,"R":1.0,},
+                                "phy":{
+                                    "rate":rate*10,
+                                    "s4": s4,
+                                    "door":{"expand":1.1,"out":0.2,"in":1.0,},
+                                    "wall":{"bound":0.5,},
+                                    "object":{
+                                        "Pendant Lamp":[.0,.01,.01],#
+                                        "Ceiling Lamp":[.0,.01,.01],#
+                                        "Bookcase / jewelry Armoire":[.2,1., .9],#
+                                        "Round End Table":[.0,.5, .5],#
+                                        "Dining Table":[.0,.5, .5],#
+                                        "Sideboard / Side Cabinet / Console table":[.0,.9, .9],#
+                                        "Corner/Side Table":[.0,.9, .9],#
+                                        "Desk":[.0,.9, .9],#
+                                        "Coffee Table":[.0,1.,1.1],#
+                                        "Dressing Table":[.0,.9, .9],#
+                                        "Children Cabinet":[.2,1., .9],#
+                                        "Drawer Chest / Corner cabinet":[.2,1., .9],#
+                                        "Shelf":[.2,1., .9],#
+                                        "Wine Cabinet":[.2,1., .9],#
+                                        "Lounge Chair / Cafe Chair / Office Chair":[.0,.5, .5],#
+                                        "Classic Chinese Chair":[.0,.5, .5],#
+                                        "Dressing Chair":[.0,.5, .5],#
+                                        "Dining Chair":[.0,.5, .5],#
+                                        "armchair":[.0,.5, .5],#
+                                        "Barstool":[.0,.5, .5],#
+                                        "Footstool / Sofastool / Bed End Stool / Stool":[.0,.5, .5],#
+                                        "Three-seat / Multi-seat Sofa":[.2,1., .9],#
+                                        "Loveseat Sofa":[.2,1., .9],#
+                                        "L-shaped Sofa":[.0,.6, .9],#
+                                        "Lazy Sofa":[.2,1., .9],#
+                                        "Chaise Longue Sofa":[.2,1., .9],#
+                                        "Wardrobe":[.2,1., .9],#
+                                        "TV Stand":[.2,1., .9],#
+                                        "Nightstand":[.0,.5, .5],#
+                                        "King-size Bed":[.2,1.,1.2],#
+                                        "Kids Bed":[.2,1.,1.2],#
+                                        "Bunk Bed":[.2,1.,1.2],#
+                                        "Single bed":[.2,1.,1.2],#
+                                        "Bed Frame":[.2,1.,1.2],#
+                                    },
+                                    "syn":{"T":1.0,"S":0.01,"R":1.0,},
+                                },
+                                "adjs":{
+                                    "inertia":0.01,"decay":5.0,
+                                }
                             }
-                        }
                             dirName = "%s %.2f %.3f %d"%(mod,dev,rate,s4)
                             Exop = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,mod=mod,dev=dev,config=config,task=self.task)
                             Exop()

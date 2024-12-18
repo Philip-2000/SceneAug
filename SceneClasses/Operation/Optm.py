@@ -6,16 +6,37 @@ class optm():
         from ..Experiment.Tmer import tmer,tme
         self.timer = tmer() if exp else tme()
         self.exp = exp
+        from . import Adjs
+        Adjs.INERTIA, Adjs.DECAY_RATE = config["adjs"]["inertia"], config["adjs"]["decay"]
         self.PatOpt = None if not PatFlag else PatOpt(pmVersion,scene,self.timer,config=config["pat"],exp=exp) 
         self.PhyOpt = None if not PhyFlag else PhyOpt(scene,self.timer,config=config["phy"],exp=exp)
         _           = None if not rand    else self.__random()
 
     def __random(self):
+        self.dev = 0.05
+        import numpy as np
+        from ..Operation.Adjs import adjs,adj
         for o in self.scene.OBJES:
-            if o.idx % 2 == 0:
-                o.translation -= 0.8*o.direction()
-
+            o.adjust = adj(T=np.random.randn((3))*self.dev,S=np.random.randn((3))*self.dev * 0.1,R=np.random.randn((1))*self.dev,o=o)#o.adjust()
+        return adjs(self.scene.OBJES)
+        #for o in self.scene.OBJES: o.translation = o.translation if o.idx%2 else o.translation - 0.8*o.direction()
+    
+    def __over(self,PhyRet,PatRet):
+        return False#PhyRet["over"] and PatRet["over"] and (PhyRet["adjs"]+PatRet["adjs"]).Norm() < 0.1
+    
     def __call__(self, s, iRate=-1, jRate=-1): #timer, adjs, vio, fit, cos(PhyAdjs,PatAdjs), Over
+
+
+        #就是说这个函数不应该是这样的，捋一下捋一下，
+        #首先计算并暂存phy调整操作如何。然后phy再从全局性质出发，调整所有物体。如果有实验结果的话给出实验结果，注意，实际上我们的实验结果应该在“全局调整”之后再给出
+        #然后对pat做同样的操作？
+        #关键是我们用于做评估的这个adj调整应该是谁才对呢？我觉得应该是原调整加宏观调整（这是因为我们在实际应用Optm对象时，输出的结果永远都是原调整加宏观调整得到的总调整，即使是和adjust0
+        # 去比，也是拿总调整去比的）。那可就有意思了，因为这个“加”需要手动实现，它从未真正出现过。
+        #一定要明确，大写的TSR，和小写的tsr到底是什么意思，留小写的tsr到底有没有意义，后面在比的时候到底应该用谁。
+        #另外，在pat操作过之后，phy中的vio评估数值有所变化，是否需要重新算？我觉得其实也不必要，因为势必变差，不如置之不理？
+        #还有一个问题就是收敛位置不统一的问题，
+
+
         if self.PhyOpt and self.PatOpt:
             self.timer("all",1)
             self.timer("accum",1)
@@ -23,14 +44,15 @@ class optm():
             PatRet = self.PatOpt(s,jRate) #adjs,fit,self.over(adjs,vio)
             self.timer("all",0)
             self.timer("accum",0)
-            if self.exp:#单次操作耗时，adjust数值，violate数值，recognize的fit，pat操作趋势和phy操作趋势冲突？
-                return {"timer":self.timer, "adjs":PhyRet["adjs"]+PatRet["adjs"], "vio":PhyRet["vio"], "fit":PatRet["fit"], "cos":PhyRet["adjs"]-PatRet["adjs"], "over":PhyRet["over"] and PatRet["over"]}
-            else:
-                return {"over":PhyRet["over"] and PatRet["over"]}
+            return {"timer":self.timer, "adjs":PhyRet["adjs"]+PatRet["adjs"], "vio":PhyRet["vio"], "fit":PatRet["fit"], "cos":PhyRet["adjs"]-PatRet["adjs"], "over": self.__over(PhyRet,PatRet)} if self.exp else {"over":PhyRet["over"] and PatRet["over"]}
         elif self.PhyOpt:
-            return {"timer":self.timer,**(self.PhyOpt(s,iRate))} #adjs,vio,self.over(adjs,vio)
+            assert not self.exp
+            PhyRet = self.PhyOpt(s,iRate) #adjs,vio,self.over(adjs,vio)
+            return {"timer":self.timer,**(PhyRet)} #adjs,vio,self.over(adjs,vio)
         elif self.PatOpt:
-            return {"timer":self.timer,**(self.PatOpt(s,jRate))} #adjs,fit,self.over(adjs,vio)
+            assert not self.exp
+            PatRet = self.PatOpt(s,jRate) #adjs,vio,self.over(adjs,vio)
+            return {"timer":self.timer,**(PatRet)} #adjs,fit,self.over(adjs,vio)
     
     def loop(self, steps=100, iRate=-1, jRate=-1): #an example of loop, but it's recommended to call the __call__ directly
         if steps>0:
@@ -38,10 +60,15 @@ class optm():
                 self(s,iRate,jRate)
                 print(s)
         else:
-            ret,s = [False],0
-            while (not ret[-1]): #the over criterion
-                ret =self(s,iRate,jRate)
-                s=s+1
+            EXOP_BASE_DIR = "./experiment/opts/"
+            self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],0))
+            ret,step,time = {"over":False},0,0
+            while (not ret["over"]): 
+                ret = self(step)
+                step += 1
+                self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],step))
+                if step > 8:
+                    break
         _ = (self.PhyOpt.show() if self.PhyOpt else None, self.PatOpt.show() if self.PatOpt else None)
         
 class PhyOpt():
@@ -54,9 +81,10 @@ class PhyOpt():
         self.exp = exp
         
         self.configVis = config["vis"] if "vis" in config else None
-        if (not exp) and self.configVis and (self.configVis["fiv"] or self.configVis["fih"] or self.configVis["fip"] or self.configVis["fiq"]):
-            from ..Semantic.Fild import fild
-            self.scene.fild = fild(scene,config["grid"],config)
+        if (not exp) and self.configVis:
+            if ("fiv" in self.configVis or "fih" in self.configVis or "fip" in self.configVis or "fiq" in self.configVis):
+                from ..Semantic.Fild import fild
+                self.scene.fild = fild(scene,config["grid"],config)
         self.shows = {"res":[],"syn":[],"pnt":[],"pns":[],"fiv":[],"fih":[],"fip":[],"fiq":[]}
         self.steps = 0
 
@@ -72,20 +100,23 @@ class PhyOpt():
         from moviepy.editor import ImageSequenceClip
         import os
         for nms in self.shows:
-            if len(self.shows[nms]):
-                ImageSequenceClip(self.shows[nms], fps=3).write_videofile(os.path.join(self.scene.imgDir,nms+".mp4"),logger=None)
-    
+            _ = ImageSequenceClip(self.shows[nms], fps=3).write_videofile(os.path.join(self.scene.imgDir,nms+".mp4"),logger=None) if len(self.shows[nms]) else None
+                
     def over(self,adjs,vio):
         return False #vio < 0.001
 
     def __call__(self,s,ir=-1):
         self.timer("phy_opt",1)
-        adjs= self.scene.OBJES.optimizePhy(self.config,self.timer,debug=bool(self.configVis),ut=(self.iRate if ir<0 else ir))
+        adjs = self.scene.OBJES.optimizePhy(self.config,self.timer,debug=bool(self.configVis),ut=(self.iRate if ir<0 else ir))
         self.timer("phy_opt",0)
+        bdjs = adjs.snapshot()
+        self.timer("phy_inf",1)
+        adjs.apply_influence()
+        self.timer("phy_inf",0)
         vio = self.scene.OBJES.violates() if self.exp else None #[SumOfNorm(s.t),SumOfNorm(s.t),SumOfNorm(s.t),......]
         self.draw(s)
         self.steps = max(s,self.steps)
-        return {"adjs":adjs,"vio":vio,"over":self.over(adjs,vio)}
+        return {"adjs":bdjs+adjs,"vio":vio,"over":self.over(adjs,vio)}
 
 
 class PatOpt():
@@ -103,15 +134,16 @@ class PatOpt():
         self.timer = timer
         self.exp = exp
         self.steps = 0
-        from .Plan import plans
-        if self.rand and self.prerec:
-            plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
-            self.__random()
-        elif self.rand:
-            self.__random()
-            plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
-        elif self.prerec:
-            plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        if not exp:
+            from .Plan import plans
+            if self.rand and self.prerec:
+                plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+                self.__random()
+            elif self.rand:
+                self.__random()
+                plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+            elif self.prerec:
+                plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
         self.shows = {"pat":[]}
 
     def __random(self):
@@ -139,10 +171,15 @@ class PatOpt():
             self.timer("pat_rec",0)
         
         self.timer("pat_opt",1)
-        adjs= self.scene.plan.optimize((self.iRate if ir <0 else ir),self.exp)
+        adjs= self.scene.plan.optimize((self.iRate if ir <0 else ir))
+        #print(adjs)
         self.timer("pat_opt",0)
+        bdjs = adjs.snapshot()
+        self.timer("phy_inf",1)
+        adjs.apply_influence()
+        self.timer("phy_inf",0)
         fit = self.scene.plan.update_fit() if self.exp else 0
         self.draw(s)
         self.steps = max(s,self.steps)
-        return {"adjs":adjs,"fit":fit,"over":self.over(adjs,fit)}
+        return {"adjs":bdjs+adjs,"fit":fit,"over":self.over(adjs,fit)}
     

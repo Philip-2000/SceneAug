@@ -10,31 +10,31 @@ def parse(): #using pattern to understand scene
 
     sceneLst = [
         "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
-        "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
-        "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
-        "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
-        "34f5f040-eb63-482b-82cb-9a3914c92c79_LivingDiningRoom-8678",
-        "328ada87-9de8-4283-879d-58bffe5eb37a_Bedroom-5280",
-        "39629e24-b405-420b-8fb0-72cef0238f70_SecondBedroom-1255",
-        "4efedd5d-31d9-46c2-8c26-94ebdd7c0187_MasterBedroom-39695",
+        # "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
+        # "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
+        # "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
+        # "34f5f040-eb63-482b-82cb-9a3914c92c79_LivingDiningRoom-8678",
+        # "328ada87-9de8-4283-879d-58bffe5eb37a_Bedroom-5280",
+        # "39629e24-b405-420b-8fb0-72cef0238f70_SecondBedroom-1255",
+        # "4efedd5d-31d9-46c2-8c26-94ebdd7c0187_MasterBedroom-39695",
     ]
 
     config = {
         "pat":{
             "steps":9,
-            "rate":0.1,
+            "rate":0.5,
             "rerec":False,
             "prerec":True,
-            "rand":True,
+            "rand":False,
             "vis":{
                 "pat":True
             }
         },
         "phy":{
             "steps":9,
-            "rate":0.1,
-            "s4": 2,#[[1,0,1],[1,0,0],[1,0,-1],[0,0,-1],[-1,0,-1],[-1,0,0],[-1,0,1],[0,0,1]],
-            "door":{"expand":1.1,"out":0.2,"in":1.0,},
+            "rate":0.5,
+            "s4": 2,
+            "door":{"expand":1.1,"out":0.3,"in":0.3,},
             "wall":{"bound":0.5,},
             "object":{
                 "Pendant Lamp":[.0,.01,.01],#
@@ -72,18 +72,21 @@ def parse(): #using pattern to understand scene
                 "Single bed":[.2,1.,1.2],#
                 "Bed Frame":[.2,1.,1.2],#
             },
-            "syn":{"T":1.0,"S":0.01,"R":1.0,},
+            "syn":{"T":1.0,"S":0.01,"R":1.0},
             "grid":{"L":5.5,"d":0.1,"b":10,},
             "vis":{
                 "res":{"res":(.5,.5,.5),},
                 "syn":{"t":(.0,.5,.5),"s":(.5,.0,.5),"r":(.5,.5,.0),"res":(.5,.5,.5),},
                 "pnt":{"al":(.0,.0,.0),},
                 "pns":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
-                "fiv":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
-                "fih":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
-                #"fip":{"res":(0.33,0.33,0.33)},
-                "fiq":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
+                # "fiv":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
+                # "fih":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
+                # "fiq":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
+                # #"fip":{"res":(0.33,0.33,0.33)},
             }
+        },
+        "adjs":{
+            "inertia":0.2,"decay":1.0,
         }
     }
     return parser.parse_args(sys.argv[1:]), config, sceneLst
@@ -97,7 +100,7 @@ if __name__ == "__main__": #load="testings",
     ).optimize(
         args.version,
         args.pattern, args.physics,
-        config["phy"]["steps"],
+        -1,#config["phy"]["steps"],
         config
     )
     #O = optm(args.version,S[0],PatFlag=args.pattern,PhyFlag=args.physics,rand=True)

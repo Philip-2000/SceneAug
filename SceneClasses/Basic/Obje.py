@@ -12,14 +12,16 @@ noOriType = ["Pendant Lamp", "Ceiling Lamp", "Round End Table", "Corner/Side Tab
 SCL = True
 def angleNorm(ori): #ori = ori % (2*np.math.pi)  #return ori-2*np.math.pi if 2*np.math.pi-ori < ori else ori
     return min(ori%(2*np.math.pi), ori%(2*np.math.pi)-2*np.math.pi, key=lambda x:abs(x))
-    
+
+def reversedObj(o,j): #reversedObj(bx2d.fromFlat(m.bunches[nid].exp),self.scene[fid].class_index)
+    return o-obje.empty(j)
 class bx2d(): #put those geometrical stuff into this base class
-    def __init__(self,t=np.array([0,0,0]),s=np.array([1,1,1]),o=np.array([0]),b=None): #no semantical information here
+    def __init__(self,t=np.array([.0,.0,.0]),s=np.array([1.,1.,1.]),o=np.array([.0]),b=None): #no semantical information here
         self.translation = t if not b else b.translation
         self.size        = s if not b else b.size
         self.orientation = o if not b else b.orientation
         from ..Operation.Adjs import adj
-        self.adjust = adj(o=self)
+        self.adjust = adj(o=self,call=False)
         
     #region: in/outputs----------#
 

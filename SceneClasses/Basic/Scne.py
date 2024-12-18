@@ -351,7 +351,7 @@ class scneDs():
             from ..Operation.Optm import optm #print(self._dataset[i])
             self._dataset[i].imgDir = os.path.join(BASE_DIR, self._dataset[i].scene_uid)
             os.makedirs(self._dataset[i].imgDir,exist_ok=True)
-            O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,config=config)
+            O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=True,config=config,exp=False)
             O.loop(steps)
         
     def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        

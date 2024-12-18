@@ -12,10 +12,7 @@ if __name__ == "__main__": #load="testings",
     E = exops()
     E()
 
-    #我的意见是，直接把exops实例化出来，把它的第一个exop实例化出来，跑起来行吗，跑动
-
-    #
-
+    
 
     
 

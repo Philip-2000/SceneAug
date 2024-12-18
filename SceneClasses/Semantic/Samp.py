@@ -23,7 +23,7 @@ class samp():
         timer("syn",1)
         self.t = wo+wi+dr+ob
         self.s = np.dot(self.t,self.radial/norm(self.radial))*self.TRANSL
-        self.r = np.cross(self.t,self.radial)[1]/norm(self.radial) #self.tangen
+        self.r = np.cross(self.t,self.radial)[1:2]/norm(self.radial) #self.tangen
         timer("syn",0)
         if self.debug:
             self.component["al"], self.component["wo"], self.component["wi"], self.component["dr"], self.component["ob"] = self.t, wo, wi, dr, ob
@@ -51,11 +51,7 @@ class samps():
         timer("syn",1)
         T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
         if ut>0:
-            if self.debug:
-                from ..Operation.Adjs import adj
-                self.o.adjust = adj(T=T*ut,S=S*ut,R=R*ut,o=self.o)#self.o.adjust["T"], self.o.adjust["S"], self.o.adjust["R"] = T*ut,S*ut,R*ut
-            self.o.adjust()#self.o.translation, self.o.size, self.o.orientation = self.o.translation+T*ut, self.o.size+S*ut, self.o.orientation+R*ut
-        
+            self.o.adjust.update(T*ut,S*ut,R*ut)#self.o.adjust()
         timer("syn",0)
         return T, S, R
     

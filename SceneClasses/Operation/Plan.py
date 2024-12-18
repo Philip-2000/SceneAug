@@ -4,7 +4,18 @@ from copy import deepcopy
 class pla():
     def __init__(self,nids,fits=[0]): #nids should not be empty, even when it is been sent in
         self.fits,self.nids=fits,nids #[(oid,nid),(oid,nid)......]
-    
+
+    def Str(self,s,pm):
+        return "(%s,%d,%d)\n"%(s[self.nids[0][0]].class_name()[:10],self.nids[0][0],self.nids[0][1]) + \
+                "\n".join(
+                        [
+                            " ".join(["\t"]*(pid+1)) + "(%s,%d,%d->(%s,%d,%d))"%(
+                            s[p[0]].class_name()[:10],p[0],p[1],
+                            s[self.searchOid(pm.mid(p[1]))].class_name()[:10],self.searchOid(pm.mid(p[1])),pm.mid(p[1])
+                            ) for pid, p in enumerate(self.nids[1:])
+                        ]
+                    )
+
     def __len__(self):
         return len(self.nids)
     
@@ -36,7 +47,7 @@ class plas(): #it's a recognize plan
         self.myPM = None
 
     def __str__(self):
-        return "\n".join([ "%d\t"%(pp) + "→".join(["(%s,%d,%d)"%(self.scene[p[0]].class_name(),p[0],p[1]) for p in self.plas[pp].nids]) for pp in range(len(self.plas))])
+        return "\n".join([ "%d\t"%(pid) + p.Str(self.scene,self.pm) for pid,p in enumerate(self.plas)])
 
     def __iter__(self):
         return iter(self.plas)
@@ -163,33 +174,42 @@ class plas(): #it's a recognize plan
             self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j,scne=self.scene))
         self.scene.plan=self
 
-    def optimize(self,ir,exp=False): #关键就两个问题，一个是optimize，一个是update fit。
-        self.scene.grp=True
-        j = 0
-        for p in self.plas:
-            if len(p)<=1:
-                continue
-            j += 1
-            for oid,nid in p.nids[1:]:
-                assert self.scene[oid].nid == nid and self.scene[oid].gid == j
-                son = self.scene[oid]
+    def optimize(self, ir): 
+        from ..Basic.Obje import obje
+        self.scene.grp = True
+        g = 0
+        for p in [_ for _ in self.plas if len(_) > 1]:
+            g += 1
+            for i, on in enumerate(reversed(p.nids[1:])):
+                oid, nid = on[0], on[1]
+                if nid == p.nids[-(i+2)][1]:  # it came from spatially recorrect
+                    continue
+                assert self.scene[oid].nid == nid and self.scene[oid].gid == g
+                m = self.pm.nods[self.pm.mid(nid)]
+                fid = p.searchOid(m.idx)
+
+                assert self.scene[fid].nid == m.idx
+
+                exp_fid = self.scene[oid]+(obje.fromFlat(m.bunches[nid].exp,v=True,j=self.scene[oid].class_index))-obje.empty(j=self.scene[fid].class_index))
+                self.scene[fid].adjust.toward(exp_fid, ir)
+                
+                exp_son = self.scene[fid]+obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
+                self.scene[oid].adjust.toward(exp_son, ir)
+                
+                
+            for i, on in enumerate(p.nids[1:]):
+                oid, nid = on[0], on[1]
+                if nid == p.nids[i][1]:  # it came from spatially recorrect
+                    continue
+                assert self.scene[oid].nid == nid and self.scene[oid].gid == g
                 m = self.pm.nods[self.pm.mid(nid)]
                 fid = p.searchOid(m.idx)
                 assert self.scene[fid].nid == m.idx
-                fat = self.scene[fid]
-                fat_son = fat - son #？？？？？
-                fat_son = m.bunches[nid].optimize(fat_son,ir)
-                new_son = fat + fat_son
-                if exp:
-                    from ..Operation.Adjs import adj
-                    son.adjust = adj(T=new_son.translation-son.translation,S=new_son.size-son.size,R=new_son.orientation-son.orientation,o=son)
-                    # son.adjust["T"] = new_son.translation - son.translation
-                    # son.adjust["S"] = new_son.size - son.size
-                    # son.adjust["R"] = new_son.orientation - son.orientation
-                son.adjust()#son.translation,son.size,son.orientation = new_son.translation,new_son.size,new_son.orientation
-        
-        from ..Operation.Adjs import adjs
-        return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
+                exp_son = self.scene[fid] + obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
+                self.scene[oid].adjust.toward(exp_son, ir)
+                
+            from ..Operation.Adjs import adjs
+            return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
     
     def update_fit(self):
         from .Bnch import singleMatch
@@ -200,7 +220,7 @@ class plas(): #it's a recognize plan
             j += 1
             for i,on in enumerate(p.nids[1:]):
                 oid,nid = on[0], on[1]
-                if on[1] == p.nids[i][1]:
+                if on[1] == p.nids[i][1]: #it came from spatially recorrect
                     continue
                 assert self.scene[oid].nid == nid and self.scene[oid].gid == j
                 m = self.pm.nods[self.pm.mid(nid)]

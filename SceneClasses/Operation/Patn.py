@@ -5,6 +5,8 @@ class edge():
         self.startNode = n
         self.endNode = nn
         self.confidence = c
+        self.times = 0
+        self.choose_times = 0
         self.confidenceIn = cc
         nn.source = self
 
@@ -14,6 +16,7 @@ class node():
         self.suffix = suffix
         self.source = None
         self.idx = idx
+        self.chosen_level = 0
         self.edges = []
         self.bunches = {}
 
@@ -39,9 +42,13 @@ class patternManager():
         self.treesDir = os.path.join(self.workDir,"trees/") #self.cnt = len(os.listdir(self.sceneDir))
         self.rootNames=["Dining Table","Coffee Table","King-size Bed","Desk","Dressing Table"]#,"Single bed","Kids Bed"]#
         self.merging = merging(
-            {"Single bed":"King-size Bed", "Kids Bed":"King-size Bed",
+            {"Single bed":"King-size Bed", 
+             "Kids Bed":"King-size Bed",
              "Loveseat Sofa":"Three-seat / Multi-seat Sofa",
-             "Lounge Chair / Cafe Chair / Office Chair":"Dining Chair", "Classic Chinese Chair":"Dining Chair", "Dressing Chair":"Dining Chair", "armchair":"Dining Chair",
+             "Lounge Chair / Cafe Chair / Office Chair":"Dining Chair", 
+             "Classic Chinese Chair":"Dining Chair", 
+             "Dressing Chair":"Dining Chair", 
+             "armchair":"Dining Chair",
              "Corner/Side Table": "Nightstand",
              "Ceiling Lamp":"Pendant Lamp"})
         self.nods = [node("","",0)]#[nod(node("","",0))]
@@ -98,7 +105,7 @@ class patternManager():
         fat.edges.append(edge(fat,self.nods[-1],c,cc))
         return len(self.nods)-1
 
-    def freqInit(self,n):
+    def freqInit(self,n):#筛选出里面有的物体，组成bunch 然后进行分析，每一次向下个分析都有相应的可信度
         from .Bnch import bnch
         from ..Basic.Obje import obje
         for s in self.rootNames:
@@ -128,7 +135,7 @@ class patternManager():
         field= [self.sDs[int(f)] for f in open(self.fieldDir+n.suffix+".txt").readlines() if n.idx in self.sDs[int(f)].OBJES.nids()]
         while 1:
             sheet = {id:{o:bnches() for o in object_types} for id in path}
-            idset = set([e.endNode.idx for e in n.edges])
+            idset = set([e.endNode.idx for e in n.edges])#下一层树的节点的种类
             cnt = 0
             for scene in field:#for f in lstt: assert n.idx in scene.OBJES.nids() #scene = self.sDs[int(f)]
                 blackLists = {id:{o:[] for o in object_types} for id in path}

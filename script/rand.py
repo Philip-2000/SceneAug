@@ -7,7 +7,6 @@ Randomly initialize a scene dataset
     - sample objects from the tree and randomly initialize
 '''
 
-# TODO
 def parse(): 
     import argparse,sys
     parser = argparse.ArgumentParser(prog='Pattern Manager Construction')
@@ -33,12 +32,12 @@ if __name__ == "__main__":
     # randomly sampling
     # create an empty scene dataset
     rand_scene = SDS(None, [], prepare='uncond') # empty dataset
-    wall_list = [[[0, 0], [1, 0], [1, 1], [0, 1]], [[2, 2], [3, 2], [3, 3], [2, 3]]]
-    rand_scene.randSynthesisFromWL(T, wall_list, 5)
+    wall_list = None # TODO
+    rand_scene.randSynthesisFromWL(T, wall_list, scene_num=10, obj_num=[5,9], max_tr=2.0, max_sc=1.2)
 
     # create a scene from npz or json
     rand_scene = SDS(args.dataset, os.listdir(args.dataset), prepare='uncond')
     rand_scene.randDisrupt(0.5)
 
     rand_scene = SDS(args.dataset, os.listdir(args.dataset), prepare='uncond')
-    rand_scene.randSynthesis(T)
+    rand_scene.randSynthesis(T, obj_num=[6,8], max_tr=2.0, max_sc=1.2)

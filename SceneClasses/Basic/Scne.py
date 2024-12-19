@@ -72,30 +72,17 @@ class scne():
         return cls(sceneDict,**kwargs)
     
 
-    # TODO
-    def randDisrupt(self, rand_degree=1): 
+    def randDisrupt(self, rand_degree=1.0): 
         '''
-        disrupt objects, while the room mask remains unchanged
+        Disrupt objects, while the scene background remains unchanged
         '''
-        
         self.OBJES.disruptObject(rand_degree)
                
-        
-    # TODO
-    def randSynthesis(self, objects):
+    def randSynthesis(self, class_labels, num=8, max_tr=2.0, max_sc=1.2):
         '''
-        randomly synthesize objects in an empty scene with given floor plan
+        Randomly synthesize objects, while the scene background remains unchanged
         '''
-        from .Obje import objes
-        scene = {}
-        scene["class_label"] = objects
-        scene["translation"] = 
-        scene["size"] =
-        scene["angle"] =
-        ce = 
-        scene_objs = objes(scene, ce)
-        self.OBJES = scene_objs
-
+        self.OBJES.randGenerateObject(class_labels, num, max_tr, max_sc)
 
     def addObject(self,objec):
         return self.OBJES.addObject(objec)
@@ -330,38 +317,44 @@ class scneDs():
 
     #region: operation------------#
 
-    # TODO
-    def randDisrupt(self, rand_degree=1):
-        '''
-        suppose the scene dataset is not empty
-        '''
+    def randDisrupt(self, rand_degree=1.0):
         for s in self._dataset:
+            s: scne
             s.randDisrupt(rand_degree)
 
-    # TODO
-    def randSynthesis(self, T):
+    def randSynthesis(self, T, obj_num=[6,8], max_tr=2.0, max_sc=1.2):
         '''
-        suppose the scene dataset is not empty
-        sampling objects from the tree for every scene in the dataset
+        Sampling object classlabels from the tree for every scene in the dataset.  
+
+        Args:
+            T: patternManager
+            objnum: list of two integers, the number of objects in each scene will be randomly chosen from this range
+            max_tr: max translation noise
+            max_sc: max scale noise
         '''
+        from ..Operation.Patn import patternManager
+        T: patternManager 
         for s in self._dataset:
-            s.randSynthesis(T)
+            s: scne
+            class_labels = T.sampleClassLabels() # TODO
+            objnum = np.random.randint(obj_num[0], obj_num[1])
+            s.randSynthesis(class_labels, objnum, max_tr, max_sc)
 
 
-    # TODO
-    def randSynthesisFromWL(self, T, wall_list=[[]], num=10):
+    def randSynthesisFromWL(self, T, wall_list=[], scene_num=10, obj_num=[6,8], max_tr=2.0, max_sc=1.2):
         '''
         start with an empty scene dataset
         randomly synthesis n scenes for each wall list
+        wall_list: walls
         '''
-        if not isinstance(wall_list, list) or not all(isinstance(sublist, list) for sublist in wall_list):
-            raise TypeError("wall_list has to be a list of lists")
-        
-        for i in range(num):
-            objs_dict = 
-            scene = scne()
-            scene.randSynthesis(objs_dict)
-            scene.registerWalls()
+        from ..Operation.Patn import patternManager
+        T: patternManager 
+        for i in range(scene_num):
+            scene = scne().empty(keepEmptyWL=True)
+            class_labels = T.sampleClassLabels() # TODO
+            objnum = np.random.randint(obj_num[0], obj_num[1])
+            scene.randSynthesis(class_labels, objnum, max_tr, max_sc)
+            scene.registerWalls(wall_list[i % len(wall_list)]) 
             self._dataset.append(scene)
 
 

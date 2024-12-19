@@ -169,6 +169,9 @@ class bx2d(): #put those geometrical stuff into this base class
     
 class obje(bx2d):
     def __init__(self,t=np.array([0,0,0]),s=np.array([1,1,1]),o=np.array([0]),c=None,i=None,n=None,idx=None,modelId=None,gid=0,scne=None,v=True,b=None):
+        '''
+        c: class label string  n: class label index  i: object index in the scene
+        '''
         super(obje,self).__init__(t,s,o) if b is None else super(obje,self).__init__(b=b)
         self.class_index = object_types.index(n) if n is not None else (i if i is not None else np.argmax(c))
         self.idx, self.v,  self.modelId,  self.scne     =idx,v, modelId,scne#pointer(scne)
@@ -328,6 +331,7 @@ class objes():
         tr,si,oi,cl = scene["translations"],scene["sizes"],scene["angles"],scene["class_labels"]
         self.OBJES=[obje(tr[i]+ce,si[i],oi[i],cl[i],idx=i,scne=scne) for i in range(len(tr))]
         self.scne=scne
+        self.ce=ce
     
     #region: in/outputs----------#
 
@@ -411,10 +415,48 @@ class objes():
         self.OBJES.append(objec)
         return objec.idx
     
-    def disruptObject(self, rand_degree):
-        # TODO
+    def disruptObject(self, rand_degree=1.0):
+        '''
+        Add noise to exist objects' bbox
+        '''
+        assert 0 <= rand_degree <= 1 
+        objs_len = len(self.OBJES)
+        max_trs = max([np.linalg.norm(o.translation) for o in self.OBJES])
+        max_scl = max([np.linalg.norm(o.size) for o in self.OBJES])
+        max_ori = np.pi
+        trs_noise = np.random.normal(self.ce - rand_degree * max_trs, self.ce + rand_degree * max_trs, (objs_len, 3))
+        scl_noise = np.random.normal(self.ce, self.ce + rand_degree * max_scl, (objs_len, 3))
+        ori_noise = np.random.normal(self.ce - rand_degree * max_ori, self.ce + rand_degree * max_ori, (objs_len, 1))
+        for i in range(objs_len):
+            self.OBJES[i].translation = (1-rand_degree) * self.OBJES[i].translation + rand_degree * trs_noise[i]
+            self.OBJES[i].size = (1-rand_degree) * self.OBJES[i].size + rand_degree * scl_noise[i]
+            self.OBJES[i].orientation = (1-rand_degree) * self.OBJES[i].orientation + rand_degree * ori_noise[i]
 
-        pass
+    
+    def randGenerateObject(self, class_labels, num=8, max_tr=2.0, max_sc=1.2):
+        '''
+        class_labels: list of object types
+        num: number of objects in ths scene
+        max_tr: max translation noise
+        max_sc: max scale noise
+        '''
+        self.OBJES = []
+        if num < len(class_labels):
+            len_objs = len(class_labels)
+        else:
+            len_objs = num
+            
+        trs_all = np.random.normal(self.ce - max_tr, self.ce + max_tr, (len_objs, 3))
+        scl_all = np.random.normal(2 - max_sc, max_sc, (len_objs, 3))
+        ori_all = np.random.normal(-np.pi, np.pi, (len_objs, 1))
+
+        for i in range(len_objs):
+            trs = trs_all[i]
+            scl = scl_all[i]
+            ori = ori_all[i]
+            cl = class_labels[i % len(class_labels)]
+            self.addObject(obje(trs, scl, ori, cl, idx=i))
+        
     
     def objectView(self,id,bd=100000,scl=False,maxDis=100000):
         newOBJES = [(self[id] - o) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)

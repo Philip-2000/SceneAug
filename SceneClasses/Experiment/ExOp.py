@@ -278,8 +278,8 @@ class exops():
         self.hypers = []
         self.mods = ["prerec",]#"postrec",
         self.s4s = [2]
-        self.rates =[ 0.1*i for i in range(1,2)]
-        self.devs = [ 0.1*i for i in range(3,4)]
+        self.rates =[ 0.1*i for i in range(1,4)]
+        self.devs = [ 0.1*i for i in range(1,6)]
         self.hypers = [[[[ (mod,rate,s4,dev) for dev in self.devs ] for rate in self.rates] for s4 in self.s4s ] for mod in self.mods] 
         self.exops = [[[[ None for dev in self.devs ] for rate in self.rates]  for s4 in self.s4s ]for mod in self.mods] 
         
@@ -294,10 +294,10 @@ class exops():
                                     "rerec":bool(mod=="rerec"),
                                     "prerec":bool(mod=="prerec"),
                                     "rand":False,
-                                    "rate":{"mode":"exp_dn","r0":rate,"lda":0.5,"rinf":rate/5.0},#{"mode":"static","v":rate},
+                                    "rate":{"mode":"exp_dn","r0":rate*2,"lda":0.5,"rinf":rate/5.0},#{"mode":"static","v":rate},
                                 },
                                 "phy":{
-                                    "rate":{"mode":"exp_up","rinf":rate*4,"lda":1.5,"r0":rate/100.0},#{"mode":"static","v":rate/500},#
+                                    "rate":{"mode":"exp_up","rinf":rate*10,"lda":1.5,"r0":rate/100.0},#{"mode":"static","v":rate/500},#
                                     "s4": s4,
                                     "door":{"expand":0.6,"out":0.1,"in":0.2,},
                                     "wall":{"bound":0.5,},

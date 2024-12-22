@@ -20,6 +20,22 @@ class node():
         self.edges = []
         self.bunches = {}
 
+    def __str__(self):
+        return self.type + " " + str(self.idx)
+    
+    def __getitem__(self,i):
+        return [self.edges[a].endNode for a in range(len(self.edges)) if self.edges[a].endNode.idx == i][0]
+
+    def __call__(self,i):
+        return self.bunches[i]
+    
+    @property
+    def mid(self):
+        m = self.source.startNode
+        while not(self.idx in m.bunches):
+            m = m.source.startNode
+        return m.idx
+
 class merging():
     def __init__(self,d):
         self.d=d
@@ -94,11 +110,14 @@ class patternManager():
                 e = n.edges[0]
         return resStr
 
-    def mid(self,nid):
-        m = self.nods[nid].source.startNode
-        while not(nid in m.bunches):
-            m = m.source.startNode
-        return m.idx
+    def __getitem__(self,i):
+        return self.nods[i]
+
+    # def mid(self,nid):
+    #     m = self.nods[nid].source.startNode
+    #     while not(nid in m.bunches):
+    #         m = m.source.startNode
+    #     return m.idx
 
     def createNode(self,fat,s,c=0.0,cc=0.0):
         self.nods.append(node(s,fat.suffix if len(fat.suffix)>0 else s.replace('/','.'),len(self.nods)))#nod(nn))

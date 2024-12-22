@@ -286,14 +286,8 @@ class obje(bx2d):
     #region: operations----------#
 
         #region: movement--------#
-    # def adjust(self,movement):
-    #     self.translation+=movement
-    #     for i in self.linkIndex:
-    #         self.scne.LINKS[i].adjust(movement)
-        
-    #     if len(self.destIndex) > 1:
-    #         for i in self.destIndex:
-    #             self.scne.LINKS[i].update(self.translation)
+    def align(self):
+        self.orientation[0] = sorted([(i*np.math.pi/2.0, self.orientation[0]-i*np.math.pi/2.0) for i in range(-1,3)],key=lambda x:abs(x[1])%(2*np.math.pi))[0][0]
         #endregion: movement-----#
 
         #region: optField--------#
@@ -357,10 +351,10 @@ class objes():
         return '\n'.join([str(o) for o in self.OBJES])
  
     def draw(self,grp,drawUngroups,d,classText):
-        [self[i].draw(grp,d,text=classText) if (not grp) or drawUngroups or (self[i].gid) else None for i in range(len(self.OBJES))]
+        [self[i].draw(grp,d,text=classText) if self[i].v and ((not grp) or drawUngroups or (self[i].gid)) else None for i in range(len(self.OBJES))]
 
     def drao(self,way,colors):
-        [o.drao(way,colors) for o in self]
+        [o.drao(way,colors) for o in self if o.v and o.gid]
       
     def renderables(self,scene_render,objects_dataset,no_texture,depth):
         import seaborn
@@ -422,14 +416,14 @@ class objes():
         #region: optFields-------#
     def optFields(self,sp,o,config):
         if o: #for o's samples
-            return np.array([oo.optField(sp,config[oo.class_name()]) for oo in [_ for _ in self.OBJES if (_.idx != o.idx)]] ).sum(axis=0)
+            return np.array([oo.optField(sp,config[oo.class_name()]) for oo in [_ for _ in self.OBJES if (_.idx != o.idx) and _.v and _.gid]] ).sum(axis=0)
         else: #for field
-            A = np.array([oo.optField(sp,config[oo.class_name()])[0] for oo in self.OBJES])
+            A = np.array([oo.optField(sp,config[oo.class_name()])[0] for oo in [_ for _ in self.OBJES if _.v and _.gid]])
             return  A.sum(axis=0), np.array([(norm(a)**2)/2.0 for a in A] ).sum(axis=0)
         
     def optimizePhy(self,config,timer,debug=False,ut=-1):
         #print(ut)
-        for o in self.OBJES:
+        for o in [_ for _ in self.OBJES if _.v and _.gid]:
             o.optimizePhy(config,timer,debug,ut)
         from ..Operation.Adjs import adjs
         #from ..Experiment.ExOp import EXOP_BASE_DIR
@@ -437,7 +431,7 @@ class objes():
         return adjs(self)#[o.optimizePhy(config,timer,debug,ut) for o in self.OBJES]
     
     def violates(self):
-        return sum([o.violate() for o in self])/float(len(self))
+        return sum([o.violate() for o in self if o.v and o.gid])/float(len(self))
         #endregion: optFields----#
 
     #endregion: operations-------#

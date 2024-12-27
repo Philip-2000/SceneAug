@@ -29,6 +29,8 @@ class expn():
     def randomize(self, s, dev, hint=None):
         from copy import deepcopy
         t = deepcopy(s)
+        a,b = t.randomize(dev,hint)
+        return t, b
         diff = []
         for o in t.OBJES:
             dT = (np.random.randn((3)) if hint is None else hint[:3] + np.random.randn((3))*0.05) * dev* 0.1

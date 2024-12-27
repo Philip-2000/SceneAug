@@ -20,6 +20,22 @@ class node():
         self.edges = []
         self.bunches = {}
 
+    def __str__(self):
+        return self.type + " " + str(self.idx)
+    
+    def __getitem__(self,i):
+        return [self.edges[a].endNode for a in range(len(self.edges)) if self.edges[a].endNode.idx == i][0] if i > 0 else np.random.choice([self.edges[a].endNode for a in range(len(self.edges))])
+
+    def __call__(self,i):
+        return self.bunches[i]
+    
+    @property
+    def mid(self):
+        m = self.source.startNode
+        while not(self.idx in m.bunches):
+            m = m.source.startNode
+        return m.idx
+
 class merging():
     def __init__(self,d):
         self.d=d
@@ -72,34 +88,31 @@ class patternManager():
         else:
             assert not os.path.exists(os.path.join(self.treesDir,self.version+".js"))
     
-    def __str__(self):
-        assert self.version == "tmp" #only for temporary patterns, for debugging
-        resStr = "rootNames:"+str(self.rootNames)+"\n"
-        for e in self.nods[0].edges:
-            lev = 0
-            while 1:
-                n = e.endNode
-                m = self.nods[n.idx].source.startNode
-                while not(n.idx in m.bunches):
-                    m = m.source.startNode
+    # def mid(self,nid):
+    #     m = self.nods[nid].source.startNode
+    #     while not(nid in m.bunches):
+    #         m = m.source.startNode
+    #     return m.idx
 
-                nodeStr = ".".join(["\t"]*lev) + "%s nid=%d c=%.2f cc=%.2f from (%s mid=%d): %s"%(n.type,n.idx,e.confidence,e.confidenceIn,m.type,m.idx,str(m.bunches[n.idx]))
+    #region: in/outputs----------#
+        #region: inputs----------#
+    def loadTre(self,dct,id=0):
+        from .Bnch import bnch
+        if id == 0:
+            self.nods += [None for _ in dct[1:]] #nod(None)
+        suf = "" if id == 0 else self.nods[id].suffix+"+"
+        for b in dct[id]["buncs"]:
+            self.nods[id].bunches[int(b)] = bnch(None,np.array(dct[id]["buncs"][b][0]),np.array(dct[id]["buncs"][b][1]))
+        for f in dct[id]["edges"]:
+            e = f[0]
+            self.nods[e] = node(dct[e]["type"],suf+dct[id]["type"],e)
+            self.nods[id].edges.append(edge(self.nods[id],self.nods[e],c=f[1],cc=f[2]))
+            self.loadTre(dct,e)
+            if id>0:
+                suf += "--"+dct[e]["type"]
+        #endregion: inputs-------#
 
-                resStr += nodeStr + "\n"
-                
-                lev += 1
-                assert len(n.edges)<=1
-                if len(n.edges)==0:
-                    break
-                e = n.edges[0]
-        return resStr
-
-    def mid(self,nid):
-        m = self.nods[nid].source.startNode
-        while not(nid in m.bunches):
-            m = m.source.startNode
-        return m.idx
-
+        #region: construction----#
     def createNode(self,fat,s,c=0.0,cc=0.0):
         self.nods.append(node(s,fat.suffix if len(fat.suffix)>0 else s.replace('/','.'),len(self.nods)))#nod(nn))
         fat.edges.append(edge(fat,self.nods[-1],c,cc))
@@ -178,35 +191,32 @@ class patternManager():
                 self.freq(e.endNode,ex,lev+1)#,(path if (e.endNode.type in noOriType) else path+[e.endNode.idx])
         self.Q = self.Q + [e for e in n.edges] if self.maxDepth == -1 else self.Q
 
-    def loadTre(self,dct,id=0):
-        from .Bnch import bnch
-        if id == 0:
-            self.nods += [None for _ in dct[1:]] #nod(None)
-        suf = "" if id == 0 else self.nods[id].suffix+"+"
-        for b in dct[id]["buncs"]:
-            self.nods[id].bunches[int(b)] = bnch(None,np.array(dct[id]["buncs"][b][0]),np.array(dct[id]["buncs"][b][1]))
-        for f in dct[id]["edges"]:
-            e = f[0]
-            self.nods[e] = node(dct[e]["type"],suf+dct[id]["type"],e)
-            self.nods[id].edges.append(edge(self.nods[id],self.nods[e],c=f[1],cc=f[2]))
-            self.loadTre(dct,e)
-            if id>0:
-                suf += "--"+dct[e]["type"]
-
-    def storeTree(self):
-        #if len(name) > 0:
-        import yaml,json,inspect
-        from .Bnch import giveup,DEN,SIGMA2
-        lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
-                "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
-        open(os.path.join(self.treesDir,self.version+".js"),"w").write("var dat="+json.dumps(lst)+";")#open(os.path.join(self.treesDir,self.version+".json"),"w").write(json.dumps(lst))
-        yaml.dump({"merging":self.merging.d,"rootNames":self.rootNames,"maxDepth":self.maxDepth,"scaled":self.scaled,"DEN":DEN,"SIGMA2":SIGMA2,"giveup":('\n'.join(inspect.getsource(giveup).split('\n')[1:-1]))},open(os.path.join(self.treesDir,self.version+".yaml"),"w"))
-
     def construct(self,maxDepth,scaled,sDs):
         self.maxDepth,self.scaled,self.sDs = maxDepth,scaled,sDs
         self.freqInit(self.nods[0])
         self.storeTree()
         self.draw()
+        #endregion: construction-#
+
+        #region: presentation----#
+    def __str__(self):
+        assert self.version == "tmp" #only for temporary patterns, for debugging
+        resStr = "rootNames:"+str(self.rootNames)+"\n"
+        for e in self.nods[0].edges:
+            lev = 0
+            while 1:
+                n = e.endNode
+                m = self.nods[n.idx].source.startNode
+                while not(n.idx in m.bunches):
+                    m = m.source.startNode
+                nodeStr = ".".join(["\t"]*lev) + "%s nid=%d c=%.2f cc=%.2f from (%s mid=%d): %s"%(n.type,n.idx,e.confidence,e.confidenceIn,m.type,m.idx,str(m.bunches[n.idx]))
+                resStr += nodeStr + "\n"
+                lev += 1
+                assert len(n.edges)<=1
+                if len(n.edges)==0:
+                    break
+                e = n.edges[0]
+        return resStr
 
     def draw(self,all=False,lim=5):
         import json
@@ -233,3 +243,54 @@ class patternManager():
             info[path[0].idx] = path[1].idx if len(path)>1 else 0
 
         open(self.imgDir+self.version+"/info.js","w").write("var info="+json.dumps(info)+";")
+
+    def storeTree(self):
+        #if len(name) > 0:
+        import yaml,json,inspect
+        from .Bnch import giveup,DEN,SIGMA2
+        lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
+                "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
+        open(os.path.join(self.treesDir,self.version+".js"),"w").write("var dat="+json.dumps(lst)+";")#open(os.path.join(self.treesDir,self.version+".json"),"w").write(json.dumps(lst))
+        yaml.dump({"merging":self.merging.d,"rootNames":self.rootNames,"maxDepth":self.maxDepth,"scaled":self.scaled,"DEN":DEN,"SIGMA2":SIGMA2,"giveup":('\n'.join(inspect.getsource(giveup).split('\n')[1:-1]))},open(os.path.join(self.treesDir,self.version+".yaml"),"w"))
+        #endregion: presentation-#
+
+    #endregion: in/outputs-------#
+
+    #region: utilize-------------#
+    def __getitem__(self,i):
+        return self.nods[i]
+
+    def random_path(self, I=-1):
+        i = I if I > 0 else np.random.randint(1,1+len(self[0].edges))
+        path = [i]
+        while 1:
+            j = self[path[-1]][-1]
+            if j:
+                path.append(j)
+            else:
+                return path
+
+    def random_paths(self,p):
+        A = np.random.choice([i for i in range(1,1+len(self[0].edges))],size=p,replace=False)
+        return [self.random_path(a) for a in A]
+    
+    def exp_object(self,i,s,d=.0,t=None):
+        from ..Basic.Obje import obje, object_types
+        mid = self[i].mid
+        if mid > 0:
+            fid = s(mid).idx
+            son = s[fid] + obje.fromFlat(self[fid].bunches[i].sample(d),j=object_types.index(self[i].type))
+        else:
+            v = np.concatenate([t, self[fid].bunches[i].exp[3:6], [(np.random.randint(-1,3))*np.math.pi/2.0]], axis=0)
+            son = obje.fromFlat(v,j=object_types.index(self[i].type))
+        s.addObject(son)
+
+    def random_scene(self,nm,centers,d=0):
+        from ..Basic.Scne import scne
+        s, paths = scne.empty(nm=nm), self.random_paths(len(centers))
+        for j, path in enumerate(paths):
+            for i in path:
+                self.exp_object(i,s,d,centers[j])
+        return s
+    #endregion: utilize----------#
+

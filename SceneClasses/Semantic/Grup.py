@@ -64,6 +64,18 @@ class grup():
         self.size = np.array([np.max(cs[:,0]),1.0,np.max(cs[:,1])])-self.translation
         self.update()
 
+    def move(self, t=np.array([0.0,0.0,0.0]), s=np.array([0.0,0.0,0.0]), o=np.array([0.0])):
+        self.adjust(self.translation+t, self.scale+s, self.orientation+o)
+        # rTrans,t[1],s[1] = {}, 0.0, 1.0
+        # for i in self.objIdList:
+        #     rTrans[i] = [matrix(-self.orientation)@(self.scne[i].translation-self.translation)/self.scale,fTheta(self.scne[i].orientation-self.orientation)]
+        # self.translation,self.scale, self.orientation=t,s,o
+        # for i in self.objIdList:
+        #     self.scne[i].setTransformation(matrix(o)@(rTrans[i][0]*s)+t,fTheta(rTrans[i][1]+o))
+        # cs = np.array([self.scne[i].corners2() for i in self.objIdList]).reshape((-1,2))
+        # self.size = np.array([np.max(cs[:,0]),1.0,np.max(cs[:,1])])-self.translation
+        # self.update()
+
     def draw(self):
         from matplotlib import pyplot as plt
         scl = [1.0,0.7,0.4,0.1]

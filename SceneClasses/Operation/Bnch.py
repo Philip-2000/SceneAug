@@ -18,8 +18,8 @@ class bnch():
     def __str__(self):
         return "("+",".join(["%.3f±%.3f"%(self.exp[i],self.dev[i],) for i in range(len(self.exp))])+")"
 
-    def sample(self):
-        return self.exp + np.random.randn(self.exp.shape[-1])*(self.dev**(0.5))/5#np.array([5,1,5,5,1,5,5])
+    def sample(self,d=-1):
+        return self.exp + np.random.randn(self.exp.shape[-1])*((self.dev if d<0 else d)**(0.5))/5#np.array([5,1,5,5,1,5,5])
 
     def diff(self,obj): #self.diff(obj)
         from ..Basic.Obje import angleNorm
@@ -133,3 +133,73 @@ class bnches():
             self.bunches.append(bnch(obj))
             return len(self.bunches)-1
         return -1
+
+class bnch_node():
+    def __init__(self, oid, nid, fid, scene):
+        self.oid = oid
+        self.nid = nid
+        self.fid = fid
+        self.child_id = []
+        self.o = scene[oid]
+        self.norm = scene[oid].adjust.norm()
+        #print(self.norm)
+        self.I,self.J = nid,oid
+
+    
+    def Str(self, tree, lev):
+        return ".".join(["\t"]*lev)+"(%d %d %s)"%(self.nid, self.oid, tree.scene[self.oid].class_name()) + ("\n" if len(self.child_id) else "") + "\n".join([tree[i].Str(tree,lev+1) for i in self.child_id])
+
+    def upward(self, tree):
+        if len(self.child_id):
+            self.I,self.J = self.nid,self.oid
+            for cid in self.child_id:
+                if tree[cid].norm > self.norm:
+                    self.norm = tree[cid].norm
+                    self.I,self.J = cid, tree[cid].oid
+            if self.I != self.nid:
+                from ..Basic.Obje import obje
+                #print("assert")
+                self.o = tree[self.I].o+(obje.fromFlat(tree.pm[self.nid].bunches[self.I].exp,j=tree.scene[tree[self.I].oid].class_index)-obje.empty(j=tree.scene[self.oid].class_index))
+                #print(self.o)
+
+    def downward(self, tree, ir):
+        from ..Basic.Obje import obje
+        exp_son = tree.scene[tree[self.fid].oid] + obje.fromFlat(tree.pm[self.fid].bunches[self.nid].exp, j=tree.scene[self.oid].class_index) if self.fid else self.o
+        tree.scene[self.oid].adjust.toward(exp_son, ir)
+        [tree[cid].downward(tree, ir) for cid in self.child_id]
+
+class bnch_tree():
+    def __init__(self, pla, pm, scene):
+        self.scene, self.root, self.pm = scene, pla.nids[0][1], pm
+        self.nodes = { self.root:bnch_node(pla.nids[0][0], self.root, 0, scene) }
+        for i, (oid, nid) in enumerate(pla.nids[1:]):
+            if pla.nids[i][1] == nid:
+                scene[oid].v = False
+            else:
+                self.nodes[nid] = bnch_node(oid, nid, pm[nid].mid, scene)
+                self.nodes[pm[nid].mid].child_id.append(nid)#print(self)
+
+    def __str__(self):
+        return self.nodes[self.root].Str(self, 0)
+            
+    def __getitem__(self, nid):
+        return self.nodes[nid]
+    
+    def __call__(self, oid):
+        return [self.nodes[nid] for nid in self.nodes if self.nodes[nid].oid == oid][0]
+    
+    def __len__(self):
+        return len(self.nodes)
+    
+    def __iter__(self):
+        return iter(sorted(self.nodes.items(), key= lambda x:x[0]))
+    
+    def optimize(self, ir):
+        for nid, nod in sorted(self.nodes.items(), key= lambda x:-x[0]):
+            nod.upward(self)
+        #print(self)
+        #print(self.pm[self[self.root].nid])
+        #print(self[self.root].o)
+        self[self.root].o.align(self.pm[self[self.root].nid])
+        self[self.root].downward(self, ir)
+        return {n.oid:n.J for n in self.nodes.values()}

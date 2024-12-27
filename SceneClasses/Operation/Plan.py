@@ -11,7 +11,7 @@ class pla():
                         [
                             " ".join(["\t"]*(pid+1)) + "(%s,%d,%d->(%s,%d,%d))"%(
                             s[p[0]].class_name()[:10],p[0],p[1],
-                            s[self.searchOid(pm.mid(p[1]))].class_name()[:10],self.searchOid(pm.mid(p[1])),pm.mid(p[1])
+                            s[self.searchOid(pm[p[1]].mid)].class_name()[:10],self.searchOid(pm[p[1]].mid),pm[p[1]].mid
                             ) for pid, p in enumerate(self.nids[1:])
                         ]
                     )
@@ -33,12 +33,61 @@ class pla():
     def occupied(self):
         return [a[0] for a in self.nids]
 
+    def utilize(self, g, scene, pm):
+        from ..Semantic.Link import objLink
+        from ..Semantic.Grup import grup
+        scene[self.nids[0][0]].nid = self.nids[0][1]
+        scene[self.nids[0][0]].gid = g
+        for i, (oid,nid) in enumerate(self.nids[1:]):
+            scene[oid].nid,scene[oid].gid = nid, g
+            scene.LINKS.append(objLink(oid,self.nids[i][0],len(scene.LINKS),scene,"lightblue"))
+            scene.LINKS.append(objLink(oid,self.searchOid(pm[nid].mid),len(scene.LINKS),scene,"pink"))
+
+        scene.GRUPS.append(grup([on[0] for on in self.nids],{"sz":scene.roomMask.shape[-1],"rt":16},g,scne=scene))
+
+    def optimize(self,g,scene,pm,ir): #print(self.Str(scene,pm))
+        from .Bnch import bnch_tree
+        return bnch_tree(self,pm,scene).optimize(ir) #bt = bnch_tree(self,pm,scene) #print(bt) return bt.optimize(ir)
+
+    # def optimizes(self,g,scene,pm,ir):
+    #     return self.optimizes(g,scene,pm,ir)
+    #     from ..Basic.Obje import obje
+    #     for i, (oid,nid) in enumerate(reversed(self.nids[1:])):
+    #         if nid == self.nids[-(i+2)][1]:  # it came from spatially recorrect
+    #             scene[oid].v = False
+    #         else:
+    #             m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
+    #             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
+    #             if fid == self.nids[0][0]:            
+    #                 exp_fid = scene[oid]+(obje.fromFlat(m.bunches[nid].exp,j=scene[oid].class_index)-obje.empty(j=scene[fid].class_index))
+    #                 scene[fid].adjust.toward(exp_fid, ir)
+    #                 #exp_son = scene[fid]+obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
+    #                 #scene[oid].adjust.toward(exp_son, ir)
+    #     scene[self.nids[0][0]].align()
+    #     for i, (oid,nid) in enumerate(self.nids[1:]):
+    #         if nid == self.nids[i][1]:  # it came from spatially recorrect
+    #             scene[oid].v = False
+    #         else:
+    #             m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
+    #             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
+    #             exp_son = scene[fid] + obje.fromFlat(m.bunches[nid].exp, j=scene[oid].class_index)
+    #             scene[oid].adjust.toward(exp_son, ir)
+
+    def update_fit(self, g, scene, pm):
+        from .Bnch import singleMatch
+        for i,(oid,nid) in enumerate(self.nids[1:]):
+            if nid == self.nids[i][1]: #it came from spatially recorrect
+                continue
+            m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
+            assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
+            loss = m.bunches[nid].loss(scene[fid] - scene[oid])
+            self.fits[i+1] = singleMatch(loss,None,None,None,None)
 
 class plas(): #it's a recognize plan
     def __init__(self,scene=None,pm=None,base=None):
         if base is None:
             self.scene,self.pm=scene,pm
-            self.plas = [pla([(o.idx, [ed.endNode.idx for ed in pm.nods[0].edges if ed.endNode.type == pm.merging[o.class_name()]].pop() )]) for o in scene.OBJES if (pm.merging[o.class_name()] in pm.rootNames)]
+            self.plas = [pla([(o.idx, [ed.endNode.idx for ed in pm[0].edges if ed.endNode.type == pm.merging[o.class_name()]].pop() )]) for o in scene.OBJES if (pm.merging[o.class_name()] in pm.rootNames)]
         else:
             self.scene,self.pm=base.scene,base.pm
             self.plas = deepcopy(base.plas)
@@ -63,11 +112,11 @@ class plas(): #it's a recognize plan
         for p in self.plas:
             newNids, fid = {0:0},0
             for oid,nid in p.nids:
-                o,mid = self.scene[oid], self.pm.mid(nid)#m.idx
+                o,mid = self.scene[oid], self.pm[nid].mid#m.idx
                 O = obje(o.translation,np.array([1,1,1]),o.orientation,i=0) if p.nids.index((oid,nid))==0 else self.scene[p.searchOid(mid)]
-                fid = pm.createNode(pm.nods[fid],self.pm.merging[o.class_name()],1,1)
+                fid = pm.createNode(pm[fid],self.pm.merging[o.class_name()],1,1)
                 #pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,O.rela(o,self.pm.scaled).flat(),np.abs(O.rela(o,self.pm.scaled).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
-                pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,(O-o).flat(),np.abs((O-o).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
+                pm[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,(O-o).flat(),np.abs((O-o).flat()-self.pm[mid].bunches[nid].exp)), fid
         return pm
 
     def diff(self,scene,ref=None,v=0):
@@ -92,8 +141,8 @@ class plas(): #it's a recognize plan
         from .Bnch import singleMatch
         self.occupied = deepcopy(list(chain(*[p.occupied() for p in self.plas])))
         cs=0
-        for ed in self.pm.nods[p.nids[-1][1]].edges:
-            m = self.pm.nods[self.pm.mid(ed.endNode.idx)]
+        for ed in self.pm[p.nids[-1][1]].edges:
+            m = self.pm[self.pm[ed.endNode.idx].mid]
             a = self.scene[p.searchOid(m.idx)]
             self.printIds()
             losses = [(oo,m.bunches[ed.endNode.idx].loss(a-oo)) for oo in [o for o in self.scene.OBJES if (self.pm.merging[o.class_name()]==ed.endNode.type and (o.idx not in self.occupied and o.idx not in [on[0] for on in p.nids] ))]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
@@ -117,7 +166,7 @@ class plas(): #it's a recognize plan
             for oolosses in sorted(losses,key=lambda x:x[1]):
                 oo,loss = oolosses[0],oolosses[1]#[0] 
                 #print(oo.idx)
-                v = singleMatch(loss,ed.confidence,ed.confidenceIn,self.pm.nods[p.nids[-1][1]].edges.index(ed),cs)
+                v = singleMatch(loss,ed.confidence,ed.confidenceIn,self.pm[p.nids[-1][1]].edges.index(ed),cs)
                 selections.append(pla.extend(p,oo.idx,ed.endNode.idx,v)) 
                 break
             cs += ed.confidence
@@ -148,89 +197,21 @@ class plas(): #it's a recognize plan
         return newPlas
 
     def utilize(self,clear=True,forShow=False):
-        from ..Semantic.Link import objLink
-        from ..Semantic.Grup import grup
         if clear:
             self.scene.LINKS.clear()
             self.scene.GRUPS.clear()
             for o in self.scene.OBJES:
                 o.gid,o.nid=0,0
-        self.scene.grp=True
-        j = 0
-        for p in self.plas:
-            if len(p)<=1 and not forShow:
-                continue
-            j += 1
-            self.scene[p.nids[0][0]].nid = p.nids[0][1]
-            self.scene[p.nids[0][0]].gid = j
-            for oid,nid in p.nids[1:]:
-                self.scene[oid].nid = nid
-                self.scene[oid].gid = j
-                self.scene.LINKS.append(objLink(oid,p.nids[p.nids.index((oid,nid))-1][0],len(self.scene.LINKS),self.scene,"lightblue"))
-                
-                m = self.pm.nods[self.pm.mid(nid)]#print(m.idx)#print(p.searchOid(m.idx))
-                self.scene.LINKS.append(objLink(oid,p.searchOid(m.idx),len(self.scene.LINKS),self.scene,"pink"))
+        self.scene.grp, self.scene.plan = True,self
+        [p.utilize(g+1,self.scene,self.pm) for g,p in enumerate([p for p in self.plas if len(p)>1 or forShow])]
 
-            self.scene.GRUPS.append(grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j,scne=self.scene))
-        self.scene.plan=self
-
-    def optimize(self, ir): 
-        from ..Basic.Obje import obje
-        self.scene.grp = True
-        g = 0
-        for p in [_ for _ in self.plas if len(_) > 1]:
-            g += 1
-            for i, on in enumerate(reversed(p.nids[1:])):
-                oid, nid = on[0], on[1]
-                if nid == p.nids[-(i+2)][1]:  # it came from spatially recorrect
-                    continue
-                assert self.scene[oid].nid == nid and self.scene[oid].gid == g
-                m = self.pm.nods[self.pm.mid(nid)]
-                fid = p.searchOid(m.idx)
-
-                assert self.scene[fid].nid == m.idx
-
-                exp_fid = self.scene[oid]+(obje.fromFlat(m.bunches[nid].exp,j=self.scene[oid].class_index)-obje.empty(j=self.scene[fid].class_index))
-                self.scene[fid].adjust.toward(exp_fid, ir)
-                
-                exp_son = self.scene[fid]+obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
-                self.scene[oid].adjust.toward(exp_son, ir)
-                
-                
-            for i, on in enumerate(p.nids[1:]):
-                oid, nid = on[0], on[1]
-                if nid == p.nids[i][1]:  # it came from spatially recorrect
-                    continue
-                assert self.scene[oid].nid == nid and self.scene[oid].gid == g
-                m = self.pm.nods[self.pm.mid(nid)]
-                fid = p.searchOid(m.idx)
-                assert self.scene[fid].nid == m.idx
-                exp_son = self.scene[fid] + obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
-                self.scene[oid].adjust.toward(exp_son, ir)
-
+    def optimize(self, ir):
+        Is = [p.optimize(g+1,self.scene,self.pm,ir) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
         from ..Operation.Adjs import adjs
-        return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
+        return adjs(self.scene.OBJES), Is#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
     
     def update_fit(self):
-        from .Bnch import singleMatch
-        j = 0
-        for p in self.plas:
-            if len(p)<=1:
-                continue
-            j += 1
-            for i,on in enumerate(p.nids[1:]):
-                oid,nid = on[0], on[1]
-                if on[1] == p.nids[i][1]: #it came from spatially recorrect
-                    continue
-                assert self.scene[oid].nid == nid and self.scene[oid].gid == j
-                m = self.pm.nods[self.pm.mid(nid)]
-                fid = p.searchOid(m.idx)
-                assert self.scene[fid].nid == m.idx
-                loss = m.bunches[nid].loss(self.scene[fid] - self.scene[oid])
-                v = singleMatch(loss,None,None,None,None)
-
-                p.fits[i+1] = v
-
+        [p.update_fit(g+1,self.scene,self.pm) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
         self.fit = sum([sum(p.fits) for p in self.plas])
         return self.fit
 
@@ -360,7 +341,7 @@ class plans():
                             jN = self.currentPlas.plas[t].nids[onJd]
                             delete=False
                             for nid in nids:
-                                if (jN[1] in self.pm.nods[nid].bunches):
+                                if (jN[1] in self.pm[nid].bunches):
                                     self.currentPlas.plas[t].nids.pop(onJd)
                                     self.currentPlas.plas[t].fits.pop(onJd)
                                     delete=True
@@ -458,7 +439,7 @@ class plans():
                         onJd = onId+1
                         while onJd < len(self.currentPlas.plas[t].nids):
                             jN = self.currentPlas.plas[t].nids[onJd]
-                            if (jN[1] in self.pm.nods[nid].bunches):
+                            if (jN[1] in self.pm[nid].bunches):
                                 self.currentPlas.plas[t].nids.pop(onJd)
                             else:
                                 onJd += 1

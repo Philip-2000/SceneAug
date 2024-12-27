@@ -16,17 +16,7 @@ class exop():
         self.dirname = os.path.join(EXOP_BASE_DIR,expName,dirName)
         print(self.dirname)
         os.makedirs(self.dirname,exist_ok=True) #
-        
-    def __randomize(self,t):
-        import numpy as np
-        from ..Operation.Adjs import adjs,adj
-        for o in t.OBJES:
-            o.adjust = adj(T=np.random.randn((3))*self.dev,S=np.random.randn((3))*self.dev * 0.1,R=np.random.randn((1))*self.dev,o=o)#o.adjust()
-        return adjs(t.OBJES)
     
-    def debugdraw(self,s,step):
-        s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+.png"%(s.scene_uid[:10],step))#return #
-
     def __call__(self):
         if self.task==2: #2:experiment, 1:process and visualize, 0:load and visualize
             from ..Operation.Optm import optm
@@ -54,9 +44,10 @@ class exop():
                         break
 
                 #print(step,time)
-            self.save()
-        self.visualize()
+            #self.save()
+        #self.visualize()
 
+    #region: buffer
     def store(self,ret,s,steps):
         assert steps == len(self.origin[s.scene_uid[:10]])
         ret["timer"]= ret["timer"].dct()
@@ -76,7 +67,10 @@ class exop():
             self.origin= json.load(open(os.path.join(self.dirname,n+".json"),"r"))
         else:
             self.plots = json.load(open(os.path.join(self.dirname,n+".json"),"r"))
+    #endregion: buffer
 
+    #region: visualize
+        #region: visualize plots
     def visualize_box(self,key,content,boxes):
         from matplotlib import pyplot as plt
         import os, numpy as np
@@ -143,7 +137,9 @@ class exop():
         if self.task>=0: #save this plot if it is not visualized by exops
             plt.savefig(os.path.join(self.dirname,key+"-his.png"))
             plt.clf()
-
+        #endregion: visualize plots    
+    
+        #region: organize data to plot
     def organize_metrics(self,key):
         #（1）vio（2）fit（3）adjs（4）cos:pat's trend and phy's trend（5）diff：adjust's trend and noise's trend
 
@@ -234,7 +230,9 @@ class exop():
             gap = self.plots[key]["gap"]
         if self.task > -1: #only lines are visualized by exops
             self.visualize_bar(key,hs,gap)
-        
+        #endregion: organize data to plot
+
+        #region: visualize main
     def visualize(self,keys=["time","steps","vio","fit","adjs","cos","diff"]):
         if self.task > 0: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized by exops
             self.load("origin")
@@ -244,12 +242,23 @@ class exop():
             _ = self.organize_steps(key) if key in ["time","steps"] else self.organize_metrics(key)
         if self.task >= 1: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized by exops
             self.save("plots")
+        #endregion: visualize main
+    #endregion: visualize
 
+    #region: util
+    def debugdraw(self,s,step):
+        s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+.png"%(s.scene_uid[:10],step))#return #
+        
+    def __randomize(self,t):
+        a,b = t.randomize(dev=self.dev)
+        return a
+    #endregion: util
 class exops():
     def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="test",UIDS=[]):
         self.UIDS = UIDS
         if len(UIDS)==0:
             self.UIDS = [
+                "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",
                 "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
                 "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
                 "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
@@ -258,7 +267,6 @@ class exops():
                 "328ada87-9de8-4283-879d-58bffe5eb37a_Bedroom-5280",
                 "39629e24-b405-420b-8fb0-72cef0238f70_SecondBedroom-1255",
                 "4efedd5d-31d9-46c2-8c26-94ebdd7c0187_MasterBedroom-39695",
-                "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",
                 "0ead178d-e4db-4b93-a9d0-0a8ee617d879_LivingRoom-18781",
                 "001ef085-8b13-48ec-b4e4-4a0dc1230390_KidsRoom-1704",
                 "1c70b531-095e-44aa-9284-6585b89c4d56_DiningRoom-78405",
@@ -278,8 +286,8 @@ class exops():
         self.hypers = []
         self.mods = ["prerec",]#"postrec",
         self.s4s = [2]
-        self.rates =[ 0.1*i for i in range(1,2)]
-        self.devs = [ 0.1*i for i in range(3,4)]
+        self.rates =[ 0.1*i for i in range(1,2)] #4)] #
+        self.devs = [ 0.1*i for i in range(5,6)] #(1,6)] #
         self.hypers = [[[[ (mod,rate,s4,dev) for dev in self.devs ] for rate in self.rates] for s4 in self.s4s ] for mod in self.mods] 
         self.exops = [[[[ None for dev in self.devs ] for rate in self.rates]  for s4 in self.s4s ]for mod in self.mods] 
         
@@ -289,65 +297,18 @@ class exops():
                 for s,s4 in enumerate(self.s4s):
                     for r,rate in enumerate(self.rates):
                         for d,dev in enumerate(self.devs):
-                            config = {
-                                "pat":{
-                                    "rerec":bool(mod=="rerec"),
-                                    "prerec":bool(mod=="prerec"),
-                                    "rand":False,
-                                    "rate":{"mode":"exp_dn","r0":rate,"lda":0.5,"rinf":rate/5.0},#{"mode":"static","v":rate},
-                                },
-                                "phy":{
-                                    "rate":{"mode":"exp_up","rinf":rate*4,"lda":1.5,"r0":rate/100.0},#{"mode":"static","v":rate/500},#
-                                    "s4": s4,
-                                    "door":{"expand":0.6,"out":0.1,"in":0.2,},
-                                    "wall":{"bound":0.5,},
-                                    "object":{
-                                        "Pendant Lamp":[.0,.01,.01,False],#
-                                        "Ceiling Lamp":[.0,.01,.01,False],#
-                                        "Bookcase / jewelry Armoire":[.2,1., .9,True],#
-                                        "Round End Table":[.0,.5, .5,False],#
-                                        "Dining Table":[.0,.5, .5,False],#
-                                        "Sideboard / Side Cabinet / Console table":[.0,.9, .9,True],#
-                                        "Corner/Side Table":[.0,.9, .9,True],#
-                                        "Desk":[.0,.9, .9,True],#
-                                        "Coffee Table":[.0,1.,1.1,False],#
-                                        "Dressing Table":[.0,.9, .9,True],#
-                                        "Children Cabinet":[.2,1., .9,True],#
-                                        "Drawer Chest / Corner cabinet":[.2,1., .9,True],#
-                                        "Shelf":[.2,1., .9,True],#
-                                        "Wine Cabinet":[.2,1., .9,True],#
-                                        "Lounge Chair / Cafe Chair / Office Chair":[.0,.5, .5,False],#
-                                        "Classic Chinese Chair":[.0,.5, .5,False],#
-                                        "Dressing Chair":[.0,.5, .5,False],#
-                                        "Dining Chair":[.0,.5, .5,False],#
-                                        "armchair":[.0,.5, .5,False],#
-                                        "Barstool":[.0,.5, .5,False],#
-                                        "Footstool / Sofastool / Bed End Stool / Stool":[.0,.5, .5,False],#
-                                        "Three-seat / Multi-seat Sofa":[.2,1., .9,True],#
-                                        "Loveseat Sofa":[.2,1., .9,True],#
-                                        "L-shaped Sofa":[.0,.6, .9,True],#
-                                        "Lazy Sofa":[.2,1., .9,True],#
-                                        "Chaise Longue Sofa":[.2,1., .9,True],#
-                                        "Wardrobe":[.2,1., .9,True],#
-                                        "TV Stand":[.2,1., .9,True],#
-                                        "Nightstand":[.0,.5, .5,True],#
-                                        "King-size Bed":[.2,1.,1.2,True],#
-                                        "Kids Bed":[.2,1.,1.2,True],#
-                                        "Bunk Bed":[.2,1.,1.2,True],#
-                                        "Single bed":[.2,1.,1.2,True],#
-                                        "Bed Frame":[.2,1.,1.2,True],#
-                                    },
-                                    "syn":{"T":1.1,"S":0.1,"R":1.0,},
-                                },
-                                "adjs":{
-                                    "inertia":0.,"decay":1.0,
-                                }
-                            }
+                            from ..Operation.Optm import default_optm_config as config_template
+                            config = config_template
+                            config["pat"]["rate"] = {"mode":"exp_dn","r0":rate*2,"lda":0.5,"rinf":rate/5.0}
+                            config["pat"]["rerec"] = bool(mod=="rerec")
+                            config["pat"]["prerec"] = bool(mod=="prerec")
+                            config["phy"]["rate"] = {"mode":"exp_up","rinf":rate*10,"lda":1.5,"r0":rate/100.0}
+                            config["phy"]["s4"] = s4
                             dirName = "%s %.2f %.3f %d"%(mod,dev,rate,s4)
                             Exop = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,mod=mod,dev=dev,config=config,task=self.task)
                             Exop()
 
-        self.visualize()
+        #self.visualize()
             
     def load(self):
         for m,mod in enumerate(self.mods):

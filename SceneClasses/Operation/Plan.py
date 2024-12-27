@@ -45,29 +45,33 @@ class pla():
 
         scene.GRUPS.append(grup([on[0] for on in self.nids],{"sz":scene.roomMask.shape[-1],"rt":16},g,scne=scene))
 
-    def optimize(self,g,scene,pm,ir):
-        from ..Basic.Obje import obje
-        for i, (oid,nid) in enumerate(reversed(self.nids[1:])):
-            if nid == self.nids[-(i+2)][1]:  # it came from spatially recorrect
-                scene[oid].v = False
-            else:
-                m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
-                assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
-                if fid == self.nids[0][0]:            
-                    exp_fid = scene[oid]+(obje.fromFlat(m.bunches[nid].exp,j=scene[oid].class_index)-obje.empty(j=scene[fid].class_index))
-                    scene[fid].adjust.toward(exp_fid, ir)
-                    #exp_son = scene[fid]+obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
-                    #scene[oid].adjust.toward(exp_son, ir)
-        scene[self.nids[0][0]].align()
-                
-        for i, (oid,nid) in enumerate(self.nids[1:]):
-            if nid == self.nids[i][1]:  # it came from spatially recorrect
-                scene[oid].v = False
-            else:
-                m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
-                assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
-                exp_son = scene[fid] + obje.fromFlat(m.bunches[nid].exp, j=scene[oid].class_index)
-                scene[oid].adjust.toward(exp_son, ir)
+    def optimize(self,g,scene,pm,ir): #print(self.Str(scene,pm))
+        from .Bnch import bnch_tree
+        return bnch_tree(self,pm,scene).optimize(ir) #bt = bnch_tree(self,pm,scene) #print(bt) return bt.optimize(ir)
+
+    # def optimizes(self,g,scene,pm,ir):
+    #     return self.optimizes(g,scene,pm,ir)
+    #     from ..Basic.Obje import obje
+    #     for i, (oid,nid) in enumerate(reversed(self.nids[1:])):
+    #         if nid == self.nids[-(i+2)][1]:  # it came from spatially recorrect
+    #             scene[oid].v = False
+    #         else:
+    #             m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
+    #             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
+    #             if fid == self.nids[0][0]:            
+    #                 exp_fid = scene[oid]+(obje.fromFlat(m.bunches[nid].exp,j=scene[oid].class_index)-obje.empty(j=scene[fid].class_index))
+    #                 scene[fid].adjust.toward(exp_fid, ir)
+    #                 #exp_son = scene[fid]+obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
+    #                 #scene[oid].adjust.toward(exp_son, ir)
+    #     scene[self.nids[0][0]].align()
+    #     for i, (oid,nid) in enumerate(self.nids[1:]):
+    #         if nid == self.nids[i][1]:  # it came from spatially recorrect
+    #             scene[oid].v = False
+    #         else:
+    #             m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
+    #             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
+    #             exp_son = scene[fid] + obje.fromFlat(m.bunches[nid].exp, j=scene[oid].class_index)
+    #             scene[oid].adjust.toward(exp_son, ir)
 
     def update_fit(self, g, scene, pm):
         from .Bnch import singleMatch
@@ -78,8 +82,6 @@ class pla():
             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
             loss = m.bunches[nid].loss(scene[fid] - scene[oid])
             self.fits[i+1] = singleMatch(loss,None,None,None,None)
-
-
 
 class plas(): #it's a recognize plan
     def __init__(self,scene=None,pm=None,base=None):
@@ -204,9 +206,9 @@ class plas(): #it's a recognize plan
         [p.utilize(g+1,self.scene,self.pm) for g,p in enumerate([p for p in self.plas if len(p)>1 or forShow])]
 
     def optimize(self, ir):
-        [p.optimize(g+1,self.scene,self.pm,ir) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
+        Is = [p.optimize(g+1,self.scene,self.pm,ir) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
         from ..Operation.Adjs import adjs
-        return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
+        return adjs(self.scene.OBJES), Is#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
     
     def update_fit(self):
         [p.update_fit(g+1,self.scene,self.pm) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]

@@ -4,7 +4,7 @@ default_optm_config = {
         "rerec":False,
         "prerec":True,
         "rand":False, #/5.0
-        "rate":{"mode":"exp_dn","r0":0.1*6,"lda":0.5,"rinf":0.1},#{"mode":"static","v":rate},
+        "rate":{"mode":"exp_dn","r0":0.9,"lda":0.5,"rinf":0.4},#{"mode":"static","v":0.8}, #
         "vis":{ "pat":True }
     },
     "phy":{
@@ -48,7 +48,7 @@ default_optm_config = {
             "Single bed":[.2,1.,1.2,True],#
             "Bed Frame":[.2,1.,1.2,True],#
         },
-        "syn":{"T":1.1,"S":0.1,"R":1.0,},
+        "syn":{"T":1.1,"S":0.35,"R":1.0,},
         "grid":{"L":5.5,"d":0.1,"b":10,},
         "vis":{
             "res":{"res":(.5,.5,.5),},
@@ -61,9 +61,7 @@ default_optm_config = {
             # #"fip":{"res":(0.33,0.33,0.33)},
         }
     },
-    "adjs":{
-        "inertia":0.0,"decay":20.0,
-    }
+    "adjs":{"inertia":0.0,"decay":20.0,}
 }
 
 class optm():
@@ -79,20 +77,16 @@ class optm():
         _           = None if rand < 0    else self.__random(rand)
 
     def __random(self,rand):
-        self.dev = rand
-        import numpy as np
-        from ..Operation.Adjs import adjs,adj
-        Rs = np.random.randn(len(self.scene.OBJES),7)#np.load(EXOP_BASE_DIR+"debug/%s-rand.npy"%(self.scene.scene_uid[:10]))#
-        for i,o in enumerate(self.scene.OBJES): #o.adjust = adj(T=np.zeros((3)),S=np.zeros((3)),R=np.zeros((1)),o=o) if o.idx else adj(T=o.direction()*self.dev,S=np.zeros((3)),R=np.zeros((1)),o=o)
-            o.adjust = adj(T=Rs[i,:3]*self.dev,S=Rs[i,3:6]*self.dev * 0.1,R=Rs[i,6:]*self.dev,o=o)#o.adjust()
-        np.save(EXOP_BASE_DIR+"debug/%s-rand.npy"%(self.scene.scene_uid[:10]), Rs)
-        return adjs(self.scene.OBJES)
+        import numpy as np,os
+        hint = None#np.load(os.path.join(self.scene.imgDir,"rand.npy"))#
+        a,b = self.scene.randomize(dev=rand,hint=hint)
+        np.save(os.path.join(self.scene.imgDir,"rand.npy"), b)
+        return a
         
     def __over(self,ad,fit,vio):
         return False#ad.Norm()<0.1 and self.PatOpt.over(fit) and self.PhyOpt.over(vio)
     
     def __call__(self, s): #timer, adjs, vio, fit, cos(PhyAdjs,PatAdjs), Over
-
         if self.PhyOpt and self.PatOpt:
             self.timer("all",1)
             self.timer("accum",1) #from .Adjs import adjs #ad = adjs(self.scene.OBJES) #print("zero") #print(ad)
@@ -127,10 +121,13 @@ class optm():
             PatRet = self.PatOpt(s) #adjs,vio,self.over(adjs,vio)
             return {"timer":self.timer,**(PatRet)} #adjs,fit,self.over(adjs,vio)
     
-    def loop(self, steps=100, iRate=-1, jRate=-1, pbar=None): #an example of loop, but it's recommended to call the __call__ directly
+    def loop(self, steps=100, pbar=None): #an example of loop, but it's recommended to call the __call__ directly
+        from ..Operation.Adjs import adj
+        for o in self.scene.OBJES:
+            o.adjust = adj(o=o,call=False)
         if steps>0:
             for s in range(steps):
-                self(s,iRate,jRate)
+                self(s)
                 if pbar:
                     pbar.set_description("optimizing %s %d:"%(self.scene.scene_uid[:20], s))
         else:
@@ -224,15 +221,10 @@ class PatOpt():
                 plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
         self.shows = {"pat":[]}
 
-    def __random(self):
-        for o in self.scene.OBJES:
-            if o.idx % 2 == 0:
-                o.translation -= 0.8*o.direction()
-
-    def draw(self,s):
+    def draw(self,s, Js):
         if not self.exp:
             if "pat" in self.configVis:# and (nms[:2] != "fi"):#
-                self.shows["pat"].append(self.scene.drao("pat", self.configVis["pat"],s))
+                self.shows["pat"].append(self.scene.drao("pat", self.configVis["pat"],s,Js))
 
     def show(self):
         for nms in [nms for nms in self.shows if len(self.shows[nms])]:
@@ -243,23 +235,15 @@ class PatOpt():
     def over(self,fit):
         return False#adjs.norm() < 0.1
     
-    def __call__(self,s,ir=-1):
-        # if self.rerec:
-        #     self.timer("pat_rec",1)
-        #     from .Plan import plans
-        #     plans(self.scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
-        #     self.timer("pat_rec",0)
-        
+    def __call__(self,s,ir=-1):        
         self.timer("pat_opt",1)
-        adjs= self.scene.plan.optimize((self.iRate(s) if ir <0 else ir))
-        #print(adjs)
+        adjs, Js= self.scene.plan.optimize((self.iRate(s) if ir <0 else ir))
         self.timer("pat_opt",0)
         bdjs = adjs.snapshot()
         self.timer("phy_inf",1)
         adjs.apply_influence()
         self.timer("phy_inf",0)
-        #fit = self.scene.plan.update_fit() if self.exp else 0
-        self.draw(s)
+        self.draw(s,Js)
         self.steps = max(s,self.steps)
         return {"adjs":bdjs+adjs}
     

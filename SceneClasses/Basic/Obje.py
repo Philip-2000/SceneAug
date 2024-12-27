@@ -170,7 +170,7 @@ class bx2d(): #put those geometrical stuff into this base class
     #endregion: operations-------#
     
 class obje(bx2d):
-    def __init__(self,t=np.array([0,0,0]),s=np.array([1,1,1]),o=np.array([0]),c=None,i=None,n=None,idx=None,modelId=None,gid=0,scne=None,v=True,b=None):
+    def __init__(self,t=np.array([.0,.0,.0]),s=np.array([1.,1.,1.]),o=np.array([.0]),c=None,i=None,n=None,idx=None,modelId=None,gid=0,scne=None,v=True,b=None):
         super(obje,self).__init__(t,s,o) if b is None else super(obje,self).__init__(b=b)
         self.class_index = object_types.index(n) if n is not None else (i if i is not None else np.argmax(c))
         self.idx, self.v,  self.modelId,  self.scne     =idx,v, modelId,scne#pointer(scne)
@@ -219,7 +219,7 @@ class obje(bx2d):
 
         #region: presentation----#
     def __str__(self):
-        return "%d %s\t"%(self.idx, self.class_name()[:10]) + (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
+        return "%d %s\t"%(self.idx, self.class_name()[:10]) #+ (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
 
     def toObjectJson(self, rid=0):
         return {**(super(obje,self).toBoxJson()), "id":self.scne.scene_uid if self.scne.scene_uid else ""+"_"+str(self.idx), "type":"Object", "modelId":self.modelId, "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False}
@@ -286,8 +286,20 @@ class obje(bx2d):
     #region: operations----------#
 
         #region: movement--------#
-    def align(self):
-        self.orientation[0] = sorted([(i*np.math.pi/2.0, self.orientation[0]-i*np.math.pi/2.0) for i in range(-1,3)],key=lambda x:abs(x[1])%(2*np.math.pi))[0][0]
+    def align(self,node=None):
+        #print(self)
+        #self.orientation[0] = angleNorm(self.orientation[0]) 
+        self.orientation[0] = sorted([(i*np.math.pi/2.0, self.orientation[0]-i*np.math.pi/2.0) for i in range(-1,3)],key=lambda x:abs(angleNorm(x[1])))[0][0]
+        #print(self.idx)
+        #print(self.class_name())
+        #print(self.nid)
+        #print(node.idx) node.type == self.class_name() and 
+        if node:# and False:
+            assert node.source.startNode.idx == 0 and node.idx in node.source.startNode.bunches
+            self.size = node.source.startNode.bunches[node.idx].exp[3:6]
+            #print(self.orientation[0])
+            #self.adjust.toward(bx2d(t=self.translation,s=node.source.startNode.bunches[node.idx].exp[3:6],o=self.orientation),0.5)
+        #print(self.orientation[0])
         #endregion: movement-----#
 
         #region: optField--------#
@@ -357,8 +369,10 @@ class objes():
         [o.drao(way,colors) for o in self if o.v and o.gid]
       
     def renderables(self,scene_render,objects_dataset,no_texture,depth):
-        import seaborn
-        [scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
+        import seaborn,tqdm
+        #[scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
+        for o in tqdm.tqdm([_ for _ in self.OBJES if _.v and _.gid]):
+            scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth))
       
     def exportAsSampleParams(self,c):
         c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
@@ -411,6 +425,13 @@ class objes():
         newOBJES = [(self[id] - o) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
         return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
     
+    def randomize(self, dev, hint=None):
+        import numpy as np
+        from ..Operation.Adjs import adjs,adj
+        Rs = np.random.randn(len(self),7) if hint is None else hint
+        for i,o in enumerate(self.OBJES): #o.adjust = adj(T=np.zeros((3)),S=np.zeros((3)),R=np.zeros((1)),o=o) if o.idx else adj(T=o.direction()*self.dev,S=np.zeros((3)),R=np.zeros((1)),o=o)
+            o.adjust = adj(T=Rs[i,:3]*dev,S=Rs[i,3:6]*dev * 0.1,R=Rs[i,6:]*dev,o=o)#o.adjust()
+        return adjs(self.OBJES), Rs
         #endregion: basic--------#
     
         #region: optFields-------#

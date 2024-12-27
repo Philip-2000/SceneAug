@@ -8,8 +8,8 @@ def parse(): #using pattern to understand scene
     parser.add_argument('-p','--physics',action="store_true",default=True)
 
     sceneLst = [
-        "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
         "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",
+        "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
         "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
         "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
         "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
@@ -21,7 +21,9 @@ def parse(): #using pattern to understand scene
 
     from SceneClasses.Operation.Optm import default_optm_config as config_template
     #edit the config_template
-    config_template["phy"]["vis"], config_template["pat"]["vis"] = {}, {}
+    config_template["phy"]["s4"] = 4
+    config_template["phy"]["vis"], config_template["pat"]["vis"] = {"res":{"res":(.5,.5,.5),},}, {}#{"pat":True}
+    config_template["adjs"] = {"decay":200.0,'inertia':0.0}
     return parser.parse_args(sys.argv[1:]), config_template, sceneLst
 
 if __name__ == "__main__": #load="testings",
@@ -34,7 +36,7 @@ if __name__ == "__main__": #load="testings",
         args.version,
         args.pattern, args.physics,
         -1,#config["phy"]["steps"],
-        config, 0.5
+        config, 1.5
     )
     #O = optm(args.version,S[0],PatFlag=args.pattern,PhyFlag=args.physics,rand=True)
     

@@ -250,11 +250,8 @@ class exop():
         s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+.png"%(s.scene_uid[:10],step))#return #
         
     def __randomize(self,t):
-        import numpy as np
-        from ..Operation.Adjs import adjs,adj
-        for o in t.OBJES:
-            o.adjust = adj(T=np.random.randn((3))*self.dev,S=np.random.randn((3))*self.dev * 0.1,R=np.random.randn((1))*self.dev,o=o)#o.adjust()
-        return adjs(t.OBJES)
+        a,b = t.randomize(dev=self.dev)
+        return a
     #endregion: util
 class exops():
     def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="test",UIDS=[]):
@@ -262,21 +259,21 @@ class exops():
         if len(UIDS)==0:
             self.UIDS = [
                 "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",
-                # "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
-                # "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
-                # "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
-                # "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
-                # "34f5f040-eb63-482b-82cb-9a3914c92c79_LivingDiningRoom-8678",
-                # "328ada87-9de8-4283-879d-58bffe5eb37a_Bedroom-5280",
-                # "39629e24-b405-420b-8fb0-72cef0238f70_SecondBedroom-1255",
-                # "4efedd5d-31d9-46c2-8c26-94ebdd7c0187_MasterBedroom-39695",
-                # "0ead178d-e4db-4b93-a9d0-0a8ee617d879_LivingRoom-18781",
-                # "001ef085-8b13-48ec-b4e4-4a0dc1230390_KidsRoom-1704",
-                # "1c70b531-095e-44aa-9284-6585b89c4d56_DiningRoom-78405",
-                # "1e6211be-ba2f-4dc0-9206-c5dcd4ae85be_LivingDiningRoom-3184",
-                # "05a80889-128e-40b0-8375-fea9856931b8_LivingDiningRoom-64430",
-                # "1e442945-e065-4453-b056-ddbb916e5c7c_SecondBedroom-1995",
-                # "5e6f0a50-b34c-45a8-8e31-55c7d9adad2d_MasterBedroom-92088"
+                "0acdfc7d-6f8f-4f27-a1dd-e4180759caf5_LivingDiningRoom-41487",
+                "0de89e0a-723c-4297-8d99-3f9c2781ff3b_LivingDiningRoom-18932",
+                "1a5bd12f-4877-405c-bb58-9c6bfcc0fb62_LivingRoom-53927",
+                "1befc228-9a81-4936-b6a1-7e1b67cee2d7_Bedroom-352",
+                "34f5f040-eb63-482b-82cb-9a3914c92c79_LivingDiningRoom-8678",
+                "328ada87-9de8-4283-879d-58bffe5eb37a_Bedroom-5280",
+                "39629e24-b405-420b-8fb0-72cef0238f70_SecondBedroom-1255",
+                "4efedd5d-31d9-46c2-8c26-94ebdd7c0187_MasterBedroom-39695",
+                "0ead178d-e4db-4b93-a9d0-0a8ee617d879_LivingRoom-18781",
+                "001ef085-8b13-48ec-b4e4-4a0dc1230390_KidsRoom-1704",
+                "1c70b531-095e-44aa-9284-6585b89c4d56_DiningRoom-78405",
+                "1e6211be-ba2f-4dc0-9206-c5dcd4ae85be_LivingDiningRoom-3184",
+                "05a80889-128e-40b0-8375-fea9856931b8_LivingDiningRoom-64430",
+                "1e442945-e065-4453-b056-ddbb916e5c7c_SecondBedroom-1995",
+                "5e6f0a50-b34c-45a8-8e31-55c7d9adad2d_MasterBedroom-92088"
             ]
         self.num=0 #self.num=512, self.UIDS = []
         self.task = task #2:experiment, 1:process and visualize, 0:load and visualize

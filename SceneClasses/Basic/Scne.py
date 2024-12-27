@@ -80,6 +80,12 @@ class scne():
         wls.scne=self
         self.WALLS = wls
 
+    def registerObjes(self,obs):
+        for o in obs.OBJES:
+            o.scne=self
+        obs.scne=self
+        self.OBJES = obs
+
     def registerSpces(self,sps):
         for s in sps.SPCES:
             s.scne=self
@@ -91,12 +97,18 @@ class scne():
     def __str__(self):
         return str(self.OBJES)+'\n'+str(self.WALLS)
 
-    def drao(self,suffix,config,ts):#,lim=-1
+    def drao(self,suffix,config,ts,Js=None):#,lim=-1
         from matplotlib import pyplot as plt
         import os
         plt.figure(figsize=(50, 40))
         _ = self.fild.draw(suffix,config,ts) if suffix[:2]=="fi" else self.OBJES.drao(suffix, config)
         if suffix=="pat":
+            from ..Semantic.Link import objLink
+            self.LINKS = []
+            for jss in Js:
+                for oid,J in jss.items():
+                    if oid != J: #print(oid,J)
+                        self.LINKS.append(objLink(oid,J,len(self.LINKS),self,"black"))
             [li.draw() for li in self.LINKS]
         
         if suffix not in ["fih","fip","fiq"]: #these three images don't go through the matplotlib-2D pipeline, "fih" and "fiq" is from PIL, and "fip" is from pyplot-3d
@@ -137,9 +149,9 @@ class scne():
         from PIL import Image, ImageDraw
         Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
 
-    def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0):     #class top2down():
+    def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0,sz=192, rt=25.):     #class top2down():
         self.OBJES.renderables(scene_render,objects_dataset,no_texture,depth)
-        scene_render.add(self.WALLS.renderable_floor(depth=depth)) #depth is positive
+        scene_render.add(self.WALLS.renderable_floor(depth=depth,sz=sz,rt=rt)) #depth is positive
         [scene_render.add(w.renderable(height=height)) for w in self.WALLS]
         return scene_render.renderables
 
@@ -202,6 +214,9 @@ class scne():
             img1.rectangle(g.imgSpaceBbox(), fill ="white",outline="gray",width=2)
         img1.line([((L>>1,L>>1) if len(self.GRUPS)==1 else self.GRUPS[1].imgSpaceCe()),self.GRUPS[0].imgSpaceCe()],fill ="white",width=15)
         self.roomMask = np.array(img).astype(np.float32)
+
+    def randomize(self, **kwargs):
+        return self.OBJES.randomize(**kwargs)
     #endregion: operations-------#
 
 import tqdm

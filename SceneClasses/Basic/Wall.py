@@ -4,9 +4,9 @@ EPS = 0.001#WALLSTATUS = True
 class wall():
     def __init__(self, p, q, n, w1, w2, idx, v=True, spaceIn=False, sig=-1, scene=None, array=None):
         #global WALLSTATUS
-        if v and abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) > 0.01: #assert abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) < 0.01
+        if n and v and abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) > 0.01: #assert abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) < 0.01
             print("not straight %d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
-        if (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]-
+        if n and (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]-
             #print(traceback.format_stack())
             print("not right-hand %d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
             raise NotImplementedError
@@ -14,7 +14,7 @@ class wall():
         self.idx=idx
         self.p=np.copy(p)
         self.q=np.copy(q)
-        self.n=np.copy(n)
+        self.n=np.copy(n) if n else np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
         self.length=(((self.p-self.q)**2).sum())**0.5
         self.w1=w1
         self.w2=w2
@@ -142,7 +142,10 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     def __init__(self, Walls=[], c_e=0, scne=None, c=[0,0], a=[2.0,2.0], printLog=False, name="", flex=1.2, drawFolder="", keepEmptyWL = False, cont=[]):
         #print(keepEmptyWL)
         if len(Walls)>0: #Walls[j][2] is z, Walls[j][3] is x
-            self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scene=scne,array=self) for j in range(len(Walls))]
+            try:
+                self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,np.array([Walls[j][3],0,Walls[j][2]]),(j-1)%len(Walls),(j+1)%len(Walls),j,scene=scne,array=self) for j in range(len(Walls))]
+            except:
+                self.WALLS = [wall(two23(Walls[j][:2])-c_e,two23(Walls[(j+1)%len(Walls)][:2])-c_e,None,(j-1)%len(Walls),(j+1)%len(Walls),j,scene=scne,array=self) for j in range(len(Walls))]
         else:#if a[0]<0 or a[1]<0:print(a)
             self.WALLS = [wall(two23([c[0]+a[0]-2*a[0]*int((i+1)%4>1),c[1]+a[1]-2*a[1]*int(i%4>1)]),two23([c[0]+a[0]-2*a[0]*int(i%4<2),c[1]+a[1]-2*a[1]*int((i+1)%4>1)]),two23([(2.0-i)*(i%2),(-1.0+i)*(1-i%2)]),(i-1)%4,(i+1)%4,i,array=self) for i in range(4)] if not keepEmptyWL else []
         self.LOGS = []
@@ -287,12 +290,11 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         img = Image.new("L",(sz,sz)) 
         img1 = ImageDraw.Draw(img)  
         img1.polygon([ (w.p[0]*rt+(sz>>1), w.p[2]*rt+(sz>>1)) for w in self.WALLS], fill ="white")  
-        self.scne.roomMask = np.array(img).astype(np.float32)
+        self.scne.roomMask = np.array(img).astype(np.float32)#img.save("./roommask.png")
         return img.load() #self.scne.roomMask,
 
-    def renderable_floor(self,depth=0):
+    def renderable_floor(self,depth=0, sz=192, rt=25.):
         from simple_3dviz import Lines
-        sz,rt = 192, 25.
         pixels,points = self.draftRoomMask(sz*2+1,rt),[]
         for i in range(-sz,sz+1):
             out = True #

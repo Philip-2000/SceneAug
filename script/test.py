@@ -1,3 +1,15 @@
+from matplotlib import pyplot as plt
+import sys,numpy as np
+def f1(s):
+        return 0.2+(0.9-0.2)*np.exp(-0.4*s)
+def f2(s):
+        return 0.001 + (1.0-0.001)*(1-np.exp(-1.5*s)) 
+s = np.array([i for i in range(36)])
+plt.plot(s,f1(s))
+plt.plot(s,f2(s)+f1(s))
+plt.show()
+sys.exit(0)
+
 from SceneClasses.Operation.Patn import patternManager as PM #this file is only for running or testing something. 
 from SceneClasses.Basic.Scne import scne           #Only for developers. So we didn't set argument parser
 from SceneClasses.Operation.Plan import plans 

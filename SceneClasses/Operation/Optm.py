@@ -4,13 +4,13 @@ default_optm_config = {
         "rerec":False,
         "prerec":True,
         "rand":False, #/5.0
-        "rate":{"mode":"exp_dn","r0":0.9,"lda":0.5,"rinf":0.4},#{"mode":"static","v":0.8}, #
+        "rate":{"mode":"exp_dn","r0":0.9,"lda":0.2,"rinf":0.4},#{"mode":"static","v":0.8}, #
         "vis":{ "pat":True }
     },
     "phy":{
-        "rate":{"mode":"exp_up","rinf":0.1*10,"lda":1.5,"r0":0.1/100.0},#{"mode":"static","v":rate/500},#
-        "s4": 2,
-        "door":{"expand":0.6,"out":0.1,"in":0.2,},
+        "rate":{"mode":"exp_up","rinf":0.1*10,"lda":0.5,"r0":0.1/100.0},#{"mode":"static","v":rate/500},#
+        "s4": 4,
+        "door":{"expand":0.8,"in":0.5,"rt":2.0}, #"out":0.1,
         "wall":{"bound":0.5,},
         "object":{
             "Pendant Lamp":[.0,.01,.01,False],#
@@ -42,23 +42,23 @@ default_optm_config = {
             "Wardrobe":[.2,1., 1.,True],#
             "TV Stand":[.2,1., 1.,True],#
             "Nightstand":[.0,.5, .5,True],#
-            "King-size Bed":[.2,1.,1.2,True],#
-            "Kids Bed":[.2,1.,1.2,True],#
-            "Bunk Bed":[.2,1.,1.2,True],#
-            "Single bed":[.2,1.,1.2,True],#
-            "Bed Frame":[.2,1.,1.2,True],#
+            "King-size Bed":[.2,1.2,1.2,True],#
+            "Kids Bed":[.2,1.2,1.2,True],#
+            "Bunk Bed":[.2,1.2,1.2,True],#
+            "Single bed":[.2,1.2,1.2,True],#
+            "Bed Frame":[.2,1.2,1.2,True],#
         },
-        "syn":{"T":1.1,"S":0.35,"R":1.0,},
+        "syn":{"T":1.1,"S":0.6,"R":1.0,},
         "grid":{"L":5.5,"d":0.1,"b":10,},
         "vis":{
             "res":{"res":(.5,.5,.5),},
             "syn":{"t":(.0,.5,.5),"s":(.5,.0,.5),"r":(.5,.5,.0),"res":(.5,.5,.5),},
-            "pnt":{"al":(.0,.0,.0),},
             "pns":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
             # "fiv":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
             # "fih":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
             # "fiq":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
             # #"fip":{"res":(0.33,0.33,0.33)},
+            # #"pnt":{"al":(.0,.0,.0),},
         }
     },
     "adjs":{"inertia":0.0,"decay":20.0,}
@@ -78,22 +78,21 @@ class optm():
 
     def __random(self,rand):
         import numpy as np,os
-        hint = None#np.load(os.path.join(self.scene.imgDir,"rand.npy"))#
-        a,b = self.scene.randomize(dev=rand,hint=hint)
+        a,b = self.scene.randomize(dev=rand,cen=True,hint=np.load(os.path.join(self.scene.imgDir,"rand.npy")))#None)#
         np.save(os.path.join(self.scene.imgDir,"rand.npy"), b)
         return a
         
     def __over(self,ad,fit,vio):
         return False#ad.Norm()<0.1 and self.PatOpt.over(fit) and self.PhyOpt.over(vio)
     
-    def __call__(self, s): #timer, adjs, vio, fit, cos(PhyAdjs,PatAdjs), Over
+    def __call__(self, s, debugdraw=None): #timer, adjs, vio, fit, cos(PhyAdjs,PatAdjs), Over
         if self.PhyOpt and self.PatOpt:
             self.timer("all",1)
             self.timer("accum",1) #from .Adjs import adjs #ad = adjs(self.scene.OBJES) #print("zero") #print(ad)
-            #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d--.png"%(self.scene.scene_uid[:10],s))#return #
+            debugdraw(self.scene,s,"--") if debugdraw else None #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d--.png"%(self.scene.scene_uid[:10],s))#return #
             PatRet = self.PatOpt(s) #adjs,fit,self.over(adjs,vio)
             #print("no") #print(PhyRet["adjs"])
-            #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d-.png"%(self.scene.scene_uid[:10],s))#return #
+            debugdraw(self.scene,s,"-") if debugdraw else None ##self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d-.png"%(self.scene.scene_uid[:10],s))#return #
             PhyRet = self.PhyOpt(s) #adjs,vio,self.over(adjs,vio)
             #print("yes")#print(PatRet["adjs"])
             self.timer("all",0)
@@ -122,14 +121,12 @@ class optm():
             return {"timer":self.timer,**(PatRet)} #adjs,fit,self.over(adjs,vio)
     
     def loop(self, steps=100, pbar=None): #an example of loop, but it's recommended to call the __call__ directly
-        from ..Operation.Adjs import adj
-        for o in self.scene.OBJES:
-            o.adjust = adj(o=o,call=False)
+        [o.adjust.clear() for o in self.scene.OBJES]
         if steps>0:
             for s in range(steps):
                 self(s)
                 if pbar:
-                    pbar.set_description("optimizing %s %d:"%(self.scene.scene_uid[:20], s))
+                    pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], s))
         else:
             #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],0))
             ret,step = {"over":False},0
@@ -138,8 +135,8 @@ class optm():
                 step += 1
                 #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],step))
                 if pbar:
-                    pbar.set_description("optimizing %s %d:"%(self.scene.scene_uid[:20], step))
-                if step > 17:
+                    pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], step))
+                if step > 16:
                     break
         _ = (self.PhyOpt.show() if self.PhyOpt else None, self.PatOpt.show() if self.PatOpt else None)
 
@@ -237,7 +234,7 @@ class PatOpt():
     
     def __call__(self,s,ir=-1):        
         self.timer("pat_opt",1)
-        adjs, Js= self.scene.plan.optimize((self.iRate(s) if ir <0 else ir))
+        adjs, Js= self.scene.plan.optimize((self.iRate(s) if ir <0 else ir),s)
         self.timer("pat_opt",0)
         bdjs = adjs.snapshot()
         self.timer("phy_inf",1)

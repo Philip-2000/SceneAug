@@ -1,4 +1,5 @@
 EXOP_BASE_DIR = "./experiment/opts/"
+DEBUG_FILTER = ["","+"]
 class exop():
     def __init__(self,pmVersion,dataset,UIDS,num,expName,dirName,mod,dev,config,task):
         from ..Basic.Scne import scneDs as SDS
@@ -27,25 +28,27 @@ class exop():
                     plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
                     adjs0 = self.__randomize(s)
                 elif self.mod == "postrec":
+                    raise Exception("Forbid to use postrec")
                     adjs0 = self.__randomize(s)
                     plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
 
                 OP = optm(pmVersion=self.pmVersion,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True)
-                s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s.png"%(s.scene_uid[:10]))
+                self.debugdraw(s,0,"")#s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s.png"%(s.scene_uid[:10]))
                 step = 0
                 ret = {"over":False}
+                [o.adjust.clear() for o in s.OBJES]
                 while (not ret["over"]): #the over criterion
-                    ret = OP(step) #timer, adjs, vio, fit, cos, over
+                    ret = OP(step,self.debugdraw) #timer, adjs, vio, fit, cos, over
                     ret["diff"] = adjs0 - ret["adjs"]
                     self.store(ret,s,step)
-                    self.debugdraw(s,step)
+                    self.debugdraw(s,step,"+")#self.debugdraw(s,step)
                     step += 1
                     if step > 33:
                         break
 
                 #print(step,time)
-            #self.save()
-        #self.visualize()
+            self.save()
+        self.visualize()
 
     #region: buffer
     def store(self,ret,s,steps):
@@ -58,8 +61,11 @@ class exop():
         self.plots[key][ele] = value
 
     def save(self,n="origin"):
+        from moviepy.editor import ImageSequenceClip
         import json,os
         open(os.path.join(self.dirname,n+".json"),"w").write(json.dumps(self.origin if n == "origin" else self.plots))
+        for s in self.sDs:
+            _ = ImageSequenceClip([os.path.join(EXOP_BASE_DIR,"debug","%s-%d%s.png"%(s.scene_uid[:10],i,"+")) for i in range(1,33)],fps=3).write_videofile(os.path.join(EXOP_BASE_DIR,"%s.mp4"%(s.scene_uid[:10])),logger=None) if "+" in DEBUG_FILTER and n=="origin" else None
 
     def load(self,n="origin"):
         import json,os
@@ -246,11 +252,11 @@ class exop():
     #endregion: visualize
 
     #region: util
-    def debugdraw(self,s,step):
-        s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+.png"%(s.scene_uid[:10],step))#return #
+    def debugdraw(self,s,step,suffix):
+        s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d%s.png"%(s.scene_uid[:10],step,suffix)) if suffix in DEBUG_FILTER else None#return #
         
     def __randomize(self,t):
-        a,b = t.randomize(dev=self.dev)
+        a,b = t.randomize(dev=self.dev,cen=True)
         return a
     #endregion: util
 class exops():
@@ -289,7 +295,7 @@ class exops():
         self.rates =[ 0.1*i for i in range(1,2)] #4)] #
         self.devs = [ 0.1*i for i in range(5,6)] #(1,6)] #
         self.hypers = [[[[ (mod,rate,s4,dev) for dev in self.devs ] for rate in self.rates] for s4 in self.s4s ] for mod in self.mods] 
-        self.exops = [[[[ None for dev in self.devs ] for rate in self.rates]  for s4 in self.s4s ]for mod in self.mods] 
+        self.exops = [[[[ None for dev in self.devs ] for rate in self.rates]  for s4 in self.s4s ] for mod in self.mods] 
         
     def __call__(self):
         if self.task==2: #2:experiment, 1:process and visualize, 0:load and visualize
@@ -297,12 +303,11 @@ class exops():
                 for s,s4 in enumerate(self.s4s):
                     for r,rate in enumerate(self.rates):
                         for d,dev in enumerate(self.devs):
-                            from ..Operation.Optm import default_optm_config as config_template
-                            config = config_template
-                            config["pat"]["rate"] = {"mode":"exp_dn","r0":rate*2,"lda":0.5,"rinf":rate/5.0}
+                            from ..Operation.Optm import default_optm_config as config
+                            config["pat"]["rate"] = {"mode":"exp_dn","r0":rate*9,"lda":0.5,"rinf":rate*4}#{"mode":"exp_dn","r0":rate*2,"lda":0.5,"rinf":rate/5.0}
                             config["pat"]["rerec"] = bool(mod=="rerec")
                             config["pat"]["prerec"] = bool(mod=="prerec")
-                            config["phy"]["rate"] = {"mode":"exp_up","rinf":rate*10,"lda":1.5,"r0":rate/100.0}
+                            config["phy"]["rate"] = {"mode":"exp_up","rinf":rate*10,"lda":1.5,"r0":rate/100.0}#{"mode":"exp_up","rinf":rate*10,"lda":1.5,"r0":rate/100.0}
                             config["phy"]["s4"] = s4
                             dirName = "%s %.2f %.3f %d"%(mod,dev,rate,s4)
                             Exop = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,mod=mod,dev=dev,config=config,task=self.task)

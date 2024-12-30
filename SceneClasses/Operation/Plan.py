@@ -45,33 +45,12 @@ class pla():
 
         scene.GRUPS.append(grup([on[0] for on in self.nids],{"sz":scene.roomMask.shape[-1],"rt":16},g,scne=scene))
 
-    def optimize(self,g,scene,pm,ir): #print(self.Str(scene,pm))
+    def optimize(self,g,scene,pm,ir,s): #print(self.Str(scene,pm))
         from .Bnch import bnch_tree
-        return bnch_tree(self,pm,scene).optimize(ir) #bt = bnch_tree(self,pm,scene) #print(bt) return bt.optimize(ir)
-
-    # def optimizes(self,g,scene,pm,ir):
-    #     return self.optimizes(g,scene,pm,ir)
-    #     from ..Basic.Obje import obje
-    #     for i, (oid,nid) in enumerate(reversed(self.nids[1:])):
-    #         if nid == self.nids[-(i+2)][1]:  # it came from spatially recorrect
-    #             scene[oid].v = False
-    #         else:
-    #             m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
-    #             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
-    #             if fid == self.nids[0][0]:            
-    #                 exp_fid = scene[oid]+(obje.fromFlat(m.bunches[nid].exp,j=scene[oid].class_index)-obje.empty(j=scene[fid].class_index))
-    #                 scene[fid].adjust.toward(exp_fid, ir)
-    #                 #exp_son = scene[fid]+obje.fromFlat(m.bunches[nid].exp, j=self.scene[oid].class_index)
-    #                 #scene[oid].adjust.toward(exp_son, ir)
-    #     scene[self.nids[0][0]].align()
-    #     for i, (oid,nid) in enumerate(self.nids[1:]):
-    #         if nid == self.nids[i][1]:  # it came from spatially recorrect
-    #             scene[oid].v = False
-    #         else:
-    #             m, fid = pm[pm[nid].mid], self.searchOid(pm[nid].mid) #m, fid = pm.nods[pm.mid(nid)], self.searchOid(pm.mid(nid))
-    #             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
-    #             exp_son = scene[fid] + obje.fromFlat(m.bunches[nid].exp, j=scene[oid].class_index)
-    #             scene[oid].adjust.toward(exp_son, ir)
+        return bnch_tree(self,pm,scene).optimize(ir,s) 
+        # bt = bnch_tree(self,pm,scene)
+        # print(bt)
+        # return bt.optimize(ir)
 
     def update_fit(self, g, scene, pm):
         from .Bnch import singleMatch
@@ -205,8 +184,9 @@ class plas(): #it's a recognize plan
         self.scene.grp, self.scene.plan = True,self
         [p.utilize(g+1,self.scene,self.pm) for g,p in enumerate([p for p in self.plas if len(p)>1 or forShow])]
 
-    def optimize(self, ir):
-        Is = [p.optimize(g+1,self.scene,self.pm,ir) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
+    def optimize(self, ir, s):
+        #_ = self.optinit() if s==0 else None
+        Is = [p.optimize(g+1,self.scene,self.pm,ir,s) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
         from ..Operation.Adjs import adjs
         return adjs(self.scene.OBJES), Is#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
     
@@ -214,6 +194,50 @@ class plas(): #it's a recognize plan
         [p.update_fit(g+1,self.scene,self.pm) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
         self.fit = sum([sum(p.fits) for p in self.plas])
         return self.fit
+    
+    def __getitem__(self, k):
+        return self.plas[k]
+
+    def __iter__(self):
+        return iter(self.plas)
+    
+    def optinit(self):
+        #this operation is right after the randomization, so it's operation could be regarded as the part of the randomization
+        #during ExOp, this operation is recorded with the randomization result to be the so called, "ground truth"
+        #but however, during real utilization where we want to optimize a real scene, we can also use this function to find a better initialization state
+        #so the thing is a little bit complex anyway
+        import numpy as np
+        xs,zs = [w.p[0] for w in self.scene.WALLS],[w.p[2] for w in self.scene.WALLS]
+        assert abs(np.max(xs)+np.min(xs))<0.01 and abs(np.max(zs)+np.min(zs))<0.01
+        if len([p for p in self.plas if len(p)>1]) == 1:
+            p = [p for p in self.plas if len(p)>1][0]
+            walls = sorted(self.scene.WALLS,key=lambda x:(x.p[0]+x.q[0])) if np.max(xs) > np.max(zs) else sorted(self.scene.WALLS,key=lambda x:(x.p[2]+x.q[2]))
+            wmax,wmin = walls[-1],walls[0]
+            c = (wmax.center()*(wmax.length+1.0) + wmin.center()*(wmin.length+1.0))/(wmax.length + wmin.length + 2.0)#np.array([np.max(xs), 0.0, (wmax.p[2]+wmax.q[2])/2.0])
+            M = self.scene[p.nids[0][0]].translation.copy() - c 
+            [self.scene[oid].adjust.update(T=-M, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p.nids ]
+        elif len([p for p in self.plas if len(p)>1]) == 2:
+            p1,p2 = [p for p in self.plas if len(p)>1]
+            hint = [2,3,1,4,5] #I'm done with it ok? this hint is only for 'losy', I would never coding like this shit if I don't have to finish papers
+            walls = sorted(self.scene.WALLS,key=lambda x:(x.p[0]+x.q[0])) if np.max(xs) > np.max(zs) else sorted(self.scene.WALLS,key=lambda x:(x.p[2]+x.q[2]))
+            wmax,wmin = walls[-1],walls[0]
+            if (wmin.length > wmax.length) ^ (hint.index(p1.nids[0][1])>hint.index(p2.nids[0][1])): #wmin's area is larger than wmax's 
+                p1,p2 = p2,p1 #then p1 should be at wmax, p2 at wmin 
+            # if np.max(xs) > np.max(zs):
+            #     c1,c2 = wmax.center() * 0.4, wmin.center()*0.4 #np.array([np.max(xs)*0.3, 0.0, (wmax.p[2]+wmax.q[2])/2.0]), np.array([np.min(xs)*0.3, 0.0, (wmin.p[2]+wmin.q[2])/2.0])
+            # else:
+            #     c1,c2 = wmax.center() * 0.4, wmin.center()*0.4 #np.array([(wmax.p[0]+wmax.q[0])*0.5, 0.0, np.max(zs)*0.3]), np.array([(wmin.p[0]+wmin.q[0])*0.5, 0.0, np.min(zs)*0.3])
+            #print(wmax, wmax.center(), wmax.center()*0.5)
+            #print(wmin, wmin.center(), wmin.center()*0.5)
+            
+
+            M1,M2 = self.scene[p1.nids[0][0]].translation.copy() - wmax.center() * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)), self.scene[p2.nids[0][0]].translation.copy() - wmin.center()*((wmin.length+1.0)/(wmax.length + wmin.length + 2.0))
+            [self.scene[oid].adjust.update(T=-M1, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p1.nids]
+            [self.scene[oid].adjust.update(T=-M2, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p2.nids]
+        else:
+            raise Exception("plas.optinit: the number of groups is not 1 or 2")
+        from .Adjs import adjs
+        return adjs(self.scene.OBJES)
 
 class plans():
     def __init__(self,scene,pm,v=0):

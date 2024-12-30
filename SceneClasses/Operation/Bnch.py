@@ -149,23 +149,20 @@ class bnch_node():
     def Str(self, tree, lev):
         return ".".join(["\t"]*lev)+"(%d %d %s)"%(self.nid, self.oid, tree.scene[self.oid].class_name()) + ("\n" if len(self.child_id) else "") + "\n".join([tree[i].Str(tree,lev+1) for i in self.child_id])
 
-    def upward(self, tree):
-        if len(self.child_id):
-            self.I,self.J = self.nid,self.oid
-            for cid in self.child_id:
-                if tree[cid].norm > self.norm:
-                    self.norm = tree[cid].norm
-                    self.I,self.J = cid, tree[cid].oid
-            if self.I != self.nid:
-                from ..Basic.Obje import obje
-                #print("assert")
-                self.o = tree[self.I].o+(obje.fromFlat(tree.pm[self.nid].bunches[self.I].exp,j=tree.scene[tree[self.I].oid].class_index)-obje.empty(j=tree.scene[self.oid].class_index))
-                #print(self.o)
+    def upward(self, tree): #an elder version of upwards, only considering the largest impact from all its children
+        self.I,self.J = self.nid,self.oid
+        for cid in self.child_id:
+            if tree[cid].norm > self.norm:
+                self.norm = tree[cid].norm
+                self.I,self.J = cid, tree[cid].oid
+        if self.I != self.nid:
+            from ..Basic.Obje import obje
+            self.o = tree[self.I].o+(obje.fromFlat(tree.pm[self.nid].bunches[self.I].exp,j=tree.scene[tree[self.I].oid].class_index)-obje.empty(j=tree.scene[self.oid].class_index))
 
     def downward(self, tree, ir):
         from ..Basic.Obje import obje
         exp_son = tree.scene[tree[self.fid].oid] + obje.fromFlat(tree.pm[self.fid].bunches[self.nid].exp, j=tree.scene[self.oid].class_index) if self.fid else self.o
-        tree.scene[self.oid].adjust.toward(exp_son, ir)
+        tree.scene[self.oid].adjust.toward(exp_son, ir)# if self.fid else ir*0.5)
         [tree[cid].downward(tree, ir) for cid in self.child_id]
 
 class bnch_tree():
@@ -194,12 +191,69 @@ class bnch_tree():
     def __iter__(self):
         return iter(sorted(self.nodes.items(), key= lambda x:x[0]))
     
-    def optimize(self, ir):
+    def optimize(self, ir, s):
         for nid, nod in sorted(self.nodes.items(), key= lambda x:-x[0]):
-            nod.upward(self)
-        #print(self)
-        #print(self.pm[self[self.root].nid])
-        #print(self[self.root].o)
-        self[self.root].o.align(self.pm[self[self.root].nid])
+            _ = bnch_effects(nod, self) if len(nod.child_id) else None #nod.upward(self) #
+        self[self.root].o.align(self.pm[self[self.root].nid],s)
         self[self.root].downward(self, ir)
         return {n.oid:n.J for n in self.nodes.values()}
+
+def bnch_effects(node, tree):
+    class bnch_effect():
+        def __init__(self, parent, child=None, expect=None):
+            if child: #this effect is from other 
+                from ..Basic.Obje import obje
+                self.o = child.o + (obje.fromFlat(expect,j=child.o.class_index)-obje.empty(j=parent.o.class_index))
+                self.move   = self.o.translation - parent.o.translation
+                self.squeeze= self.move @ (parent.o.translation - child.o.translation) > 0 #True for the same direction, means the child is repelling the parent
+                self.W   = child.o.adjust.norm()
+            else: #this effect is from my self
+                self.o = parent.o
+                self.move   = parent.o.adjust.T
+                self.squeeze= (parent.o.adjust.S).sum() < 0 #
+                self.W   = parent.o.adjust.norm()
+
+    threshold, squeeze = 0.01, False
+    effects = [ bnch_effect(node) ]
+    for cid in node.child_id:
+        effects.append(bnch_effect(node, tree[cid], tree.pm[node.nid].bunches[cid].exp))
+        if effects[-1].W > threshold:
+            squeeze = squeeze or effects[-1].squeeze
+    #print(self.node.o.class_name(),squeeze)
+    
+    if squeeze:
+        # if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
+        #     print("squeeze",node.o.class_name(),[e.W for e in effects if e.W > threshold and e.squeeze == squeeze])
+        #calculate the sum and absolute sum of e.move on x-axis and z-axis
+        X,Z,X_abs,Z_abs,W,flats = 0,0,0,0,0.01,np.zeros_like(node.o.flat()) 
+        for e in [e for e in effects if e.W > threshold and e.squeeze == squeeze]:
+            X += e.move[0]
+            Z += e.move[2]
+            X_abs += abs(e.move[0])
+            Z_abs += abs(e.move[2])
+            flats += e.o.flat() * e.W
+            W += e.W
+        from ..Basic.Obje import obje
+        node.o = (obje.fromFlat(flats/W,j=node.o.class_index))
+
+        # print("squeeze",node.o.class_name(),X,Z,X_abs,Z_abs)
+        
+        if X_abs > abs(X) + 0.05 or Z_abs > abs(Z) + 0.05 or True: #conflict occurs
+            if (X_abs-abs(X)) > (Z_abs-abs(Z)): #conflict larger on x-axis
+                # print("conflict",node.o.class_name(),X,Z,X_abs,Z_abs,"x")
+                yes = np.abs(node.o.matrix(-1) @ np.array([(X_abs-abs(X))*.5,.0,.0])) #align the x-axis conflict to self.node.o's coordinate
+            else: #conflict larger on z-axis 
+                # print("conflict",node.o.class_name(),X,Z,X_abs,Z_abs,"z")
+                yes = np.abs(node.o.matrix(-1) @ np.array([.0,.0,(Z_abs-abs(Z))*.5]))
+            # print(node.o.size,yes,node.o.size-yes)
+            node.o.size -= yes
+    else:
+        # if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
+            # print("expand",node.o.class_name())
+        W,flats = 0.01,np.zeros_like(node.o.flat()) 
+        for e in [e for e in effects if e.W > threshold and e.squeeze == squeeze]:
+            flats += e.o.flat() * e.W
+            W += e.W
+        if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
+            from ..Basic.Obje import obje
+            node.o = (obje.fromFlat(flats/W,j=node.o.class_index))

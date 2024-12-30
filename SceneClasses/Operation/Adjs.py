@@ -27,6 +27,10 @@ class adj():
 
     def __sub__(self, a):
         return self.normed() @ a.normed()
+    
+    def clear(self):
+        self.T, self.S, self.R = np.array([.0, .0, .0]), np.array([.0, .0, .0]), np.array([.0])
+        self.t, self.s, self.r = np.array([.0, .0, .0]), np.array([.0, .0, .0]), np.array([.0])
 
     def Flat(self):
         return np.concatenate([self.T, self.S, self.R])

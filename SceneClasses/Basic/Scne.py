@@ -19,7 +19,6 @@ class scne():
         self.imgDir = imgDir
         import os
         os.makedirs(self.imgDir,exist_ok=True)
-
         self.OBJES=objes(scene,ce,self)
         
         self.roomMask = scene["room_layout"][0] if rmm else np.zeros((64,64))
@@ -362,7 +361,7 @@ class scneDs():
         BASE_DIR = os.path.join(".","pattern","opts")
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar: #range(len(self)):#
-            pbar.set_description("optimizing %s:"%(self._dataset[i].scene_uid[:20]))
+            pbar.set_description("optimizing %s"%(self._dataset[i].scene_uid[:20]))
             from ..Operation.Optm import optm #print(self._dataset[i])
             self._dataset[i].imgDir = os.path.join(BASE_DIR, self._dataset[i].scene_uid)
             os.makedirs(self._dataset[i].imgDir,exist_ok=True)

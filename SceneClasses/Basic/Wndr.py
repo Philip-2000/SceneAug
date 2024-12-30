@@ -99,7 +99,7 @@ class door(wndr):
         A,a = self.block + np.array([1,0,1]), self.block + np.array([-0.7,0,10])
         plt.plot( [A[0],a[0]], [-A[2],-a[2]], marker="*", color="black")
 
-    def getOptArea(self,config):
+    def __getOptArea(self,config): #an old version of optField, which shouldn't be used anymore
         if self.optArea is None:
             from shapely.geometry import Polygon
             WI = np.cross(self.w.n,np.array([0,1,0]))*self.width*0.5*config["expand"]
@@ -110,10 +110,26 @@ class door(wndr):
             self.optArea, self.LI, self.RI = Polygon([[LO[0],LO[2]],[LI[0],LI[2]],[RI[0],RI[2]],[RO[0],RO[2]]]), LI, RI
 
     def optField(self,sp,config):
-        self.getOptArea(config)
-        from shapely.geometry import Point
-        return min(self.LI - sp.transl, self.RI-sp.transl, key=lambda x:norm(x)) if self.optArea.contains(Point(sp.transl[0],sp.transl[2])) else np.array([0,0,0])
-    
+        # self.__getOptArea(config)
+        # from shapely.geometry import Point
+        # return min(self.LI - sp.transl, self.RI-sp.transl, key=lambda x:norm(x)) if self.optArea.contains(Point(sp.transl[0],sp.transl[2])) else np.array([0,0,0])
+        from .Obje import bx2d
+        newSelf = bx2d(t=self.center, s=np.array([self.width*0.5*config["expand"], 1, config["in"]]), o=self.block.orientation)
+        try: #for object samples
+            X0Z, A0C = newSelf-sp.transl, newSelf.matrix(-1)@(-sp.radial) / newSelf.size
+            X0Z[1],A0C[1] = 0,0
+            if norm(X0Z) > 1.0 or X0Z[2] < 0.0:
+                return np.array([.0,.0,.0])
+            #[F,0,H]= { √(A²+C²-(AZ-CX)²)-AX-CZ }/{ A²+C² }  [A,0,C]
+            F0H = (np.sqrt(norm(A0C)**2 - (np.cross(A0C,X0Z)[1])**2) - A0C@X0Z)/(norm(A0C)**2) * A0C
+            return ((newSelf + F0H) - newSelf.translation)*config["rt"]#transform this field back to the world
+        except: #for field:
+            X0Z = newSelf-sp.transl
+            X0Z[1] = 0
+            n = norm(X0Z)
+            v = ((newSelf + (X0Z if norm(X0Z)<0.000001 else X0Z*(max(1-n,0.0)/n))) - newSelf.translation) if X0Z[2] > 0.0 else np.array([.0,.0,.0])
+            return v*config["rt"], 0.0 # door field can't have potential
+        
 class wndrs():
     def __init__(self,wls,cont=None,c_e=0):
         try: #for numpy.npz, those ori is in [z,x] and arctan is 

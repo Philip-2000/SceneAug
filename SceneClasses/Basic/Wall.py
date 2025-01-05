@@ -4,9 +4,9 @@ EPS = 0.001#WALLSTATUS = True
 class wall():
     def __init__(self, p, q, n, w1, w2, idx, v=True, spaceIn=False, sig=-1, scene=None, array=None):
         #global WALLSTATUS
-        if n and v and abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) > 0.01: #assert abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) < 0.01
+        if n is not None and v and abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) > 0.01: #assert abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) < 0.01
             print("not straight %d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
-        if n and (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]-
+        if n is not None and (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]-
             #print(traceback.format_stack())
             print("not right-hand %d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
             raise NotImplementedError
@@ -14,7 +14,7 @@ class wall():
         self.idx=idx
         self.p=np.copy(p)
         self.q=np.copy(q)
-        self.n=np.copy(n) if n else np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
+        self.n=np.copy(n) if n is not None else np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
         self.length=(((self.p-self.q)**2).sum())**0.5
         self.w1=w1
         self.w2=w2
@@ -55,6 +55,9 @@ class wall():
     #endregion: in/outputs------#
 
     #region: properties---------#
+    def center(self):
+        return (self.p+self.q)/2
+
     def distance(self,P):
         return (P-self.p)@(self.n), (P-self.p)@(self.n)*self.n
 
@@ -125,12 +128,25 @@ class wall():
         #endregion: movement----#
 
         #region: optFields----------#
-    def modulateField(self,minVec,config): #field, out
-        return minVec, (minVec@self.n > 0)
-        #return (minVec, True) if (minVec@self.n > 0) else (minVec * np.clip(2.0-norm(minVec),0.0,2.0), False)
+    # def modulateField(self,minVec,config): #field, out
+    #     return minVec, (minVec@self.n > 0)
+    #     #return (minVec, True) if (minVec@self.n > 0) else (minVec * np.clip(2.0-norm(minVec),0.0,2.0), False)
 
-    def field(self,sp,config): #field, out
-        return self.modulateField(-self.minVec(sp.transl),config)
+    # def fields(self,sp,config): #field, out
+    #     return self.modulateField(-self.minVec(sp.transl),config)
+
+    def field(self,sp,config): #w_o, w_i, out
+        minVec = -self.minVec(sp.transl)
+        projectedVec = max(minVec@(-sp.o.direction()),0.0)*(-sp.o.direction())
+        w_i = projectedVec * np.clip(1.0-norm(projectedVec)/config["bound"],0.0,1.0)
+        # if norm(w_i) > 0.01 and sp.TRANSL[2] == -1:
+        #     print(sp.o)
+        #     print(sp.o.direction())
+        #     print(-sp.o.direction())
+        #     print(minVec)
+        #     print(projectedVec)
+        #     print(w_i)
+        return minVec, w_i if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]), (minVec@self.n > 0)
         #endregion: optFields-------#
 
     #endregion: operations------#
@@ -156,6 +172,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         self.drawFolder = drawFolder
         from .Wndr import wndrs
         self.windoors = wndrs(self,cont,c_e)
+        self.other={}
 
     #region: magics--------------#
     def __getitem__(self, idx):
@@ -569,40 +586,23 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
 
     #region: optFields-----------#
     def optFields(self,sp,config):
-        wo, wi, dr = np.array([9.,9.,9.]), np.array([9.,9.,9.]), self.windoors.optFields(sp,config["door"])
+        wo, wi, dr = np.array([9.,9.,9.]), np.array([0.,0.,0.]), self.windoors.optFields(sp,config["door"])
         for w in self:
-            field, out = w.field(sp,config["wall"])
-            wo,wi = min(field,wo,key=lambda x:norm(x)) if out else wo, min(field,wi,key=lambda x:norm(x)) if not out else wi
+            w_o, w_i, out = w.field(sp,config["wall"])
+            wo,wi = min(w_o,wo,key=lambda x:norm(x)) if out else wo, max(w_i,wi,key=lambda x:norm(x)) if not out else wi
 
-        from shapely.geometry import Point        
-    #     if self.shape().contains(Point(sp.transl[0],sp.transl[2])):
-    #         if norm(wi)>0.1:
-
-
-    # # def modulateField(self,minVec,config): #field, out
-    # #     return (minVec, True) if (minVec@self.n > 0) else (minVec * np.clip(2.0-norm(minVec),0.0,2.0), False)
-
-    # # def field(self,sp,config): #field, out
-    # #     return self.modulateField(-self.minVec(sp.transl),config)
-    # #             #
-    #             print(wi)
-    #             for w in self:
-                    
-    #                 minVec = -self.minVec(sp.transl)
-                    
-
-    #                 field, out = w.field(sp,config["wall"])
-    #                 if not out:
-    #                     print(field)
-    #             assert False
-        WI, wi = wi, wi * np.clip(1.0-norm(wi)/config["wall"]["bound"],0.0,1.0)
+        from shapely.geometry import Point
         try: #for object samples
-            a = sp.TRANSL[2]
-            return (np.array([.0,.0,.0]),wi if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]),dr) if self.shape().contains(Point(sp.transl[0],sp.transl[2])) else (wo,np.array([.0,.0,.0]),dr)
+            if self.shape().contains(Point(sp.transl[0],sp.transl[2])): #inside
+                return (np.array([.0,.0,.0]),wi,dr)
+            else:#outside
+                return (wo,np.array([.0,.0,.0]),dr)
         except: #for fields
-            #print("fuck")
-            if self.shape().contains(Point(sp.transl[0],sp.transl[2])):
+            raise Exception("WI and wi calculation is out of date")
+            WI, wi = wi, wi * np.clip(1.0-norm(wi)/config["wall"]["bound"],0.0,1.0)
+            if self.shape().contains(Point(sp.transl[0],sp.transl[2])): #inside
                 return ((np.array([.0,.0,.0]),0), (wi,((min(norm(WI),config["wall"]["bound"]))**2)/2.0), dr)
-            else:
+            else: #outside
                 return ((wo,(norm(wo)**2)/2.0), (np.array([.0,.0,.0]),0),dr)
+
     #endregion: optFields--------#

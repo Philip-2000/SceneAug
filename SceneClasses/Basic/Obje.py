@@ -93,10 +93,10 @@ class bx2d(): #put those geometrical stuff into this base class
 
     #region: properties----------#
     def direction(self):
-        return np.array([np.math.sin(self.orientation),0,np.math.cos(self.orientation)])
+        return np.array([np.math.sin(self.orientation[0]),0,np.math.cos(self.orientation[0])])
 
     def matrix(self,u=1): #u=-1: transform others into my co-ordinates; u=1 or unset:transform mine into the world's co-ordinate
-        return np.array([[np.math.cos(self.orientation),0,np.math.sin(self.orientation*u)],[0,1,0],[-np.math.sin(self.orientation*u),0,np.math.cos(self.orientation)]])
+        return np.array([[np.math.cos(self.orientation[0]),0,np.math.sin(self.orientation[0]*u)],[0,1,0],[-np.math.sin(self.orientation[0]*u),0,np.math.cos(self.orientation[0])]])
 
     def corners3(self):
         seeds = np.array([[1,0,1],[1,0,-1],[-1,0,-1],[-1,0,1]])
@@ -219,7 +219,7 @@ class obje(bx2d):
 
         #region: presentation----#
     def __str__(self):
-        return "%d %s\t"%(self.idx, self.class_name()[:10]) #+ (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
+        return "%d %s\t"%(self.idx, self.class_name()[:10]) + (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
 
     def toObjectJson(self, rid=0):
         return {**(super(obje,self).toBoxJson()), "id":self.scne.scene_uid if self.scne.scene_uid else ""+"_"+str(self.idx), "type":"Object", "modelId":self.modelId, "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False}
@@ -230,15 +230,20 @@ class obje(bx2d):
     def renderable(self,objects_dataset,color_palette,no_texture=True,depth=0):
         from simple_3dviz import Mesh
         from simple_3dviz.renderables.textured_mesh import TexturedMesh
-        furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
+        if abs(self.size[1]) > 1e-5:
+            furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
+        else:
+            furniture = objects_dataset.get_closest_furniture_to_2dbox(self.class_name(), np.array([self.size[0],self.size[2]]))
         try:
             raw_mesh = Mesh.from_file(furniture.raw_model_path, color=color_palette[self.class_index, :]) if no_texture else TexturedMesh.from_file(furniture.raw_model_path)
         except:
             print(furniture.raw_model_path)
             assert 1==0
         raw_mesh.scale(furniture.scale)
+        if abs(self.size[1]) < 1e-5:
+            self.size[1] = (raw_mesh.bbox[1][1] - raw_mesh.bbox[0][1])/2
         self.translation[1] = self.translation[1] if ("Lamp" in self.class_name()) else self.size[1] - depth
-        raw_mesh.affine_transform(t=-(raw_mesh.bbox[0] + raw_mesh.bbox[1])/2)
+        raw_mesh.affine_transform(t=-(raw_mesh.bbox[0]+raw_mesh.bbox[1])/2)
         raw_mesh.affine_transform(R=self.matrix(-1), t=self.translation)
         return raw_mesh
         
@@ -286,20 +291,11 @@ class obje(bx2d):
     #region: operations----------#
 
         #region: movement--------#
-    def align(self,node=None):
-        #print(self)
-        #self.orientation[0] = angleNorm(self.orientation[0]) 
+    def align(self,node=None,s=0):
         self.orientation[0] = sorted([(i*np.math.pi/2.0, self.orientation[0]-i*np.math.pi/2.0) for i in range(-1,3)],key=lambda x:abs(angleNorm(x[1])))[0][0]
-        #print(self.idx)
-        #print(self.class_name())
-        #print(self.nid)
-        #print(node.idx) node.type == self.class_name() and 
         if node:# and False:
             assert node.source.startNode.idx == 0 and node.idx in node.source.startNode.bunches
-            self.size = node.source.startNode.bunches[node.idx].exp[3:6]
-            #print(self.orientation[0])
-            #self.adjust.toward(bx2d(t=self.translation,s=node.source.startNode.bunches[node.idx].exp[3:6],o=self.orientation),0.5)
-        #print(self.orientation[0])
+            self.size = node.source.startNode.bunches[node.idx].exp[3:6] * (max(0.9-0.05*s,0.5)) + self.size * (1.0-max(0.9-0.1*s,0.5)) #put this before the " *0.5 ": # 
         #endregion: movement-----#
 
         #region: optField--------#
@@ -370,9 +366,9 @@ class objes():
       
     def renderables(self,scene_render,objects_dataset,no_texture,depth):
         import seaborn,tqdm
-        #[scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
-        for o in tqdm.tqdm([_ for _ in self.OBJES if _.v and _.gid]):
-            scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth))
+        [scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
+        # for o in tqdm.tqdm([_ for _ in self.OBJES if _.v and _.gid]):
+        #     scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth))
       
     def exportAsSampleParams(self,c):
         c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])
@@ -425,13 +421,19 @@ class objes():
         newOBJES = [(self[id] - o) for o in self.OBJES if (o.idx != id and o.nid == -1)] # and not(o.class_name() in noPatternType)
         return sorted(newOBJES,key=lambda x:(x.translation**2).sum())[:min(len(newOBJES),bd)]
     
-    def randomize(self, dev, hint=None):
+    def randomize(self, dev, hint=None, cen=False):
         import numpy as np
         from ..Operation.Adjs import adjs,adj
         Rs = np.random.randn(len(self),7) if hint is None else hint
         for i,o in enumerate(self.OBJES): #o.adjust = adj(T=np.zeros((3)),S=np.zeros((3)),R=np.zeros((1)),o=o) if o.idx else adj(T=o.direction()*self.dev,S=np.zeros((3)),R=np.zeros((1)),o=o)
             o.adjust = adj(T=Rs[i,:3]*dev,S=Rs[i,3:6]*dev * 0.1,R=Rs[i,6:]*dev,o=o)#o.adjust()
-        return adjs(self.OBJES), Rs
+        if not cen or self.scne.plan is None:
+            return adjs(self.OBJES), Rs
+        else:
+            A = adjs(self.OBJES)
+            B = self.scne.plan.optinit()
+            return A+B,Rs
+
         #endregion: basic--------#
     
         #region: optFields-------#

@@ -9,6 +9,7 @@ class samp():
         self.t, self.s, self.r = np.array([.0,.0,.0]), np.array([.0,.0,.0]), np.array([.0])
 
     def __update(self,o):
+        self.o = o
         self.transl = o + self.TRANSL
         self.radial = self.transl - o.translation
 
@@ -23,7 +24,7 @@ class samp():
         timer("ofield",0)
         timer("syn",1)
         self.t = wo+wi+dr+ob
-        self.s = np.dot(self.t,self.radial/norm(self.radial))*self.TRANSL
+        self.s = np.dot(self.t,self.radial/norm(self.radial))*np.abs(self.TRANSL)
         self.r =-np.cross(self.t,self.radial)[1:2]/norm(self.radial) #self.tangen
         timer("syn",0)
         if self.debug:
@@ -50,7 +51,11 @@ class samps():
     def __call__(self, config, timer, ut=-1):
         [s(self.o,config,timer) for s in self]
         timer("syn",1)
-        T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
+        #T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
+        T = np.sum([_.t*norm(_.t) for _ in self],axis=0)/np.sum([norm(_.t) for _ in self]+[1e-6]) *config["syn"]["T"]
+        S = np.average([_.s for _ in self],axis=0)*config["syn"]["S"]
+        R = np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
+        
         if ut>-1e-5:
             self.o.adjust.update(T*ut,S*ut,R*ut)#self.o.adjust()
         timer("syn",0)

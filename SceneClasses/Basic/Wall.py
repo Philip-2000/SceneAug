@@ -172,6 +172,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         self.drawFolder = drawFolder
         from .Wndr import wndrs
         self.windoors = wndrs(self,cont,c_e)
+        self.other={}
 
     #region: magics--------------#
     def __getitem__(self, idx):

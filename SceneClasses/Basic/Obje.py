@@ -93,10 +93,10 @@ class bx2d(): #put those geometrical stuff into this base class
 
     #region: properties----------#
     def direction(self):
-        return np.array([np.math.sin(self.orientation),0,np.math.cos(self.orientation)])
+        return np.array([np.math.sin(self.orientation[0]),0,np.math.cos(self.orientation[0])])
 
     def matrix(self,u=1): #u=-1: transform others into my co-ordinates; u=1 or unset:transform mine into the world's co-ordinate
-        return np.array([[np.math.cos(self.orientation),0,np.math.sin(self.orientation*u)],[0,1,0],[-np.math.sin(self.orientation*u),0,np.math.cos(self.orientation)]])
+        return np.array([[np.math.cos(self.orientation[0]),0,np.math.sin(self.orientation[0]*u)],[0,1,0],[-np.math.sin(self.orientation[0]*u),0,np.math.cos(self.orientation[0])]])
 
     def corners3(self):
         seeds = np.array([[1,0,1],[1,0,-1],[-1,0,-1],[-1,0,1]])
@@ -219,7 +219,7 @@ class obje(bx2d):
 
         #region: presentation----#
     def __str__(self):
-        return "%d %s\t"%(self.idx, self.class_name()[:10]) #+ (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
+        return "%d %s\t"%(self.idx, self.class_name()[:10]) + (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
 
     def toObjectJson(self, rid=0):
         return {**(super(obje,self).toBoxJson()), "id":self.scne.scene_uid if self.scne.scene_uid else ""+"_"+str(self.idx), "type":"Object", "modelId":self.modelId, "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False}
@@ -230,18 +230,20 @@ class obje(bx2d):
     def renderable(self,objects_dataset,color_palette,no_texture=True,depth=0):
         from simple_3dviz import Mesh
         from simple_3dviz.renderables.textured_mesh import TexturedMesh
-        if len(self.size) == 3:
+        if abs(self.size[1]) > 1e-5:
             furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
         else:
-            furniture = objects_dataset.get_closest_furniture_to_2dbox(self.class_name(), self.size)
+            furniture = objects_dataset.get_closest_furniture_to_2dbox(self.class_name(), np.array([self.size[0],self.size[2]]))
         try:
             raw_mesh = Mesh.from_file(furniture.raw_model_path, color=color_palette[self.class_index, :]) if no_texture else TexturedMesh.from_file(furniture.raw_model_path)
         except:
             print(furniture.raw_model_path)
             assert 1==0
         raw_mesh.scale(furniture.scale)
+        if abs(self.size[1]) < 1e-5:
+            self.size[1] = (raw_mesh.bbox[1][1] - raw_mesh.bbox[0][1])/2
         self.translation[1] = self.translation[1] if ("Lamp" in self.class_name()) else self.size[1] - depth
-        raw_mesh.affine_transform(t=-(raw_mesh.bbox[0] + raw_mesh.bbox[1])/2)
+        raw_mesh.affine_transform(t=-(raw_mesh.bbox[0]+raw_mesh.bbox[1])/2)
         raw_mesh.affine_transform(R=self.matrix(-1), t=self.translation)
         return raw_mesh
         
@@ -364,9 +366,9 @@ class objes():
       
     def renderables(self,scene_render,objects_dataset,no_texture,depth):
         import seaborn,tqdm
-        #[scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
-        for o in tqdm.tqdm([_ for _ in self.OBJES if _.v and _.gid]):
-            scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth))
+        [scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
+        # for o in tqdm.tqdm([_ for _ in self.OBJES if _.v and _.gid]):
+        #     scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth))
       
     def exportAsSampleParams(self,c):
         c["translations"] = np.array([o.translation for o in self.OBJES if (o.gid >= 1 or (not self.grp))])

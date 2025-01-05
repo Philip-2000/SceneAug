@@ -196,13 +196,17 @@ class bnch_tree():
             _ = bnch_effects(nod, self) if len(nod.child_id) else None #nod.upward(self) #
         self[self.root].o.align(self.pm[self[self.root].nid],s)
         self[self.root].downward(self, ir)
+        # if self[self.root].o.class_name() == "Coffee Table":
+        #     print(s)
+        #     print(self[self.root].o.orientation)
+        #     print(self.scene[self[self.root].oid])
         return {n.oid:n.J for n in self.nodes.values()}
 
 def bnch_effects(node, tree):
+    from ..Basic.Obje import obje, angleNorm
     class bnch_effect():
         def __init__(self, parent, child=None, expect=None):
             if child: #this effect is from other 
-                from ..Basic.Obje import obje
                 self.o = child.o + (obje.fromFlat(expect,j=child.o.class_index)-obje.empty(j=parent.o.class_index))
                 self.move   = self.o.translation - parent.o.translation
                 self.squeeze= self.move @ (parent.o.translation - child.o.translation) > 0 #True for the same direction, means the child is repelling the parent
@@ -225,7 +229,7 @@ def bnch_effects(node, tree):
         # if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
         #     print("squeeze",node.o.class_name(),[e.W for e in effects if e.W > threshold and e.squeeze == squeeze])
         #calculate the sum and absolute sum of e.move on x-axis and z-axis
-        X,Z,X_abs,Z_abs,W,flats = 0,0,0,0,0.01,np.zeros_like(node.o.flat()) 
+        X,Z,X_abs,Z_abs,W,flats,flatos = 0,0,0,0,1e-6,np.zeros_like(node.o.flat()), []
         for e in [e for e in effects if e.W > threshold and e.squeeze == squeeze]:
             X += e.move[0]
             Z += e.move[2]
@@ -233,6 +237,24 @@ def bnch_effects(node, tree):
             Z_abs += abs(e.move[2])
             flats += e.o.flat() * e.W
             W += e.W
+            flatos.append((e.o.flat()[-1],e.W))
+
+        flato,ws = None,0
+        for o,w in flatos:
+            if flato is None:
+                flato = o
+                ws = w
+            else:
+                #find the nearest o toward flato among [o,o+2pi,o-2pi]
+                if abs(o-flato) > abs(o+2*np.pi-flato):
+                    o += 2*np.pi
+                elif abs(o-flato) > abs(o-2*np.pi-flato):
+                    o -= 2*np.pi
+                flato = (flato*ws+o*w)/(ws+w)
+                ws += w
+        flats[-1] = angleNorm(flato)*W
+
+
         from ..Basic.Obje import obje
         node.o = (obje.fromFlat(flats/W,j=node.o.class_index))
 
@@ -250,10 +272,27 @@ def bnch_effects(node, tree):
     else:
         # if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
             # print("expand",node.o.class_name())
-        W,flats = 0.01,np.zeros_like(node.o.flat()) 
+        W,flats,flatos = 1e-6,np.zeros_like(node.o.flat()),[] 
         for e in [e for e in effects if e.W > threshold and e.squeeze == squeeze]:
             flats += e.o.flat() * e.W
             W += e.W
+            flatos.append((e.o.flat()[-1],e.W))
+
+        flato,ws = None,0
+        for o,w in flatos:
+            if flato is None:
+                flato = o
+                ws = w
+            else:
+                #find the nearest o toward flato among [o,o+2pi,o-2pi]
+                if abs(o-flato) > abs(o+2*np.pi-flato):
+                    o += 2*np.pi
+                elif abs(o-flato) > abs(o-2*np.pi-flato):
+                    o -= 2*np.pi
+                flato = (flato*ws+o*w)/(ws+w)
+                ws += w
+
         if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
+            flats[-1] = angleNorm(flato)*W
             from ..Basic.Obje import obje
             node.o = (obje.fromFlat(flats/W,j=node.o.class_index))

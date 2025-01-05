@@ -12,7 +12,14 @@ class linear_shdl():
 
     def __call__(self,s):
         return max(self.v+self.k*s,0)
-    
+
+class hamonic_shdl():
+    def __init__(self,T,a,mode):
+        self.T, self.a = T,a
+
+    def __call__(self,s):
+        return self.T/(1+self.a*s)
+
 class quad_shdl():
     def __init__(self,k,v,mode):
         self.k, self.v = k,v
@@ -39,6 +46,8 @@ def shdl_factory(**kwargs):
         return static_shdl(**kwargs)
     elif kwargs["mode"] == "linear":
         return linear_shdl(**kwargs)
+    elif kwargs["mode"] == "hamonic":
+        return hamonic_shdl(**kwargs)
     elif kwargs["mode"] == "quad":
         return quad_shdl(**kwargs)
     elif kwargs["mode"] == "exp_dn":

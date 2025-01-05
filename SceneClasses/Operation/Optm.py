@@ -1,7 +1,7 @@
 from ..Experiment.ExOp import EXOP_BASE_DIR
 default_optm_config = {
     "pat":{
-        "rerec":False,
+        #"rerec":False,
         "prerec":True,
         "rand":False, #/5.0
         "rate":{"mode":"exp_dn","r0":0.9,"lda":0.2,"rinf":0.4},#{"mode":"static","v":0.8}, #
@@ -10,7 +10,7 @@ default_optm_config = {
     "phy":{
         "rate":{"mode":"exp_up","rinf":0.1*10,"lda":0.5,"r0":0.1/100.0},#{"mode":"static","v":rate/500},#
         "s4": 4,
-        "door":{"expand":0.8,"in":0.5,"rt":2.0}, #"out":0.1,
+        "door":{"expand":0.8,"in":0.5,"rt":1.0}, #"out":0.1,
         "wall":{"bound":0.5,},
         "object":{
             "Pendant Lamp":[.0,.01,.01,False],#
@@ -64,12 +64,44 @@ default_optm_config = {
     "adjs":{"inertia":0.0,"decay":20.0,}
 }
 
+class optm_mcmc():
+    def __init__(self,pmVersion,scene):
+        self.scene=scene
+        from SceneClasses.Operation.Patn import patternManager as PM 
+        from .Shdl import shdl_factory
+        self.PM = PM(pmVersion)
+        self.E,self.T = -1e3, shdl_factory(T=1e4,a=0.1,mode="hamonic")
+
+    def __eval(self):
+        from .Plan import plans
+        from ..Experiment.Tmer import tme
+        fit,_,__ = plans(self.scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        _, vio = self.scene.OBJES.optimizePhy(default_optm_config["phy"],tme()), self.scene.OBJES.violates()
+        return fit - 100*vio
+
+    def __call__(self,T):
+        import random, numpy as np
+        from .Adjs import adj
+        I = random.choice([o.idx for o in self.scene.OBJES if o.v])
+        self.scene.OBJES[I].adjust = adj(np.random.normal(0,1,3),np.random.normal(0,0.01,3),np.random.normal(0,1,1),self.scene.OBJES[I])
+        E = self.__eval()
+        if E > self.E  or np.random.rand() < np.exp((E-self.E)/T):#if the result is bette, accept it; if it is worse, still accept it with a probability of exp(-deltaE/T) 
+            self.state = E
+        else: #if this modification is not accepted, undo it
+            a = self.scene.OBJES[I].adjust
+            self.scene.OBJES[I].adjust = adj(-a.T,-a.S,-a.R,self.scene.OBJES[I])
+
+    def loop(self):
+        for t in range(1000):
+            self(self.T(t))
+
+
 class optm():
     def __init__(self,pmVersion=None,scene=None,PatFlag=False,PhyFlag=True,rand=-1,config={},exp=False):
         self.scene = scene
         from ..Experiment.Tmer import tmer,tme
         self.timer = tmer() if exp else tme()
-        self.exp = exp
+        self.exp, self.state = exp, -1e3
         from . import Adjs
         Adjs.INERTIA, Adjs.DECAY_RATE = config["adjs"]["inertia"], config["adjs"]["decay"]
         self.PatOpt = None if not PatFlag else PatOpt(pmVersion,scene,self.timer,config=config["pat"],exp=exp) 
@@ -136,7 +168,7 @@ class optm():
                 #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],step))
                 if pbar:
                     pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], step))
-                if step > 16:
+                if step > 3:
                     break
         _ = (self.PhyOpt.show() if self.PhyOpt else None, self.PatOpt.show() if self.PatOpt else None)
 
@@ -197,8 +229,8 @@ class PatOpt():
         from .Shdl import shdl_factory
         self.PM = PM(pmVersion)
         self.scene = scene
-        self.rerec = False if "rerec"  not in config else config["rerec"]
-        self.prerec=(False if "prerec" not in config else config["prerec"]) and not self.rerec
+        #self.rerec = False if "rerec"  not in config else config["rerec"]
+        self.prerec=(False if "prerec" not in config else config["prerec"])# and not self.rerec
         self.rand  = False if "rand"   not in config else config["rand"]
         self.iRate = shdl_factory(**config["rate"])
         self.configVis = config["vis"] if "vis" in config else None
@@ -206,16 +238,16 @@ class PatOpt():
         self.timer = timer
         self.exp = exp
         self.steps = 0
-        if not exp:
-            from .Plan import plans
-            if self.rand and self.prerec:
+        if not exp: # exp did random by itself (because it has to record the result of randomization) , not from us
+            if self.prerec: #for recognition: when we know how the original scene is, we use recognition
+                from .Plan import plans
                 plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
-                self.__random()
-            elif self.rand:
-                self.__random()
-                plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
-            elif self.prerec:
-                plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+                if self.rand:
+                    self.__random()
+            else: #for rearrangement: when we don't know how the original scene is, we use rearrangement to guess how the semantic of the objects are
+                from .Syth_Rarg import rarg
+                rarg(self.PM,scene,v=0).uncond(use=True,utilize=True,move=False,draw=False)
+
         self.shows = {"pat":[]}
 
     def draw(self,s, Js):

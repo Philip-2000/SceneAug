@@ -24,6 +24,7 @@ def parse(): #using pattern to understand scene
     #edit the config_template
     config_template["phy"]["vis"], config_template["pat"]["vis"] = {"res":{"res":(.5,.5,.5),},}, {}#{"pat":True}
     config_template["adjs"] = {"decay":200.0,'inertia':0.0}
+    config_template["pat"]["prerec"] = False
     return parser.parse_args(sys.argv[1:]), config_template, sceneLst
 
 if __name__ == "__main__": #load="testings",

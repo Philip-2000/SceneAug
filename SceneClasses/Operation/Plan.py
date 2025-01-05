@@ -235,7 +235,8 @@ class plas(): #it's a recognize plan
             [self.scene[oid].adjust.update(T=-M1, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p1.nids]
             [self.scene[oid].adjust.update(T=-M2, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p2.nids]
         else:
-            raise Exception("plas.optinit: the number of groups is not 1 or 2")
+            print(self.scene)
+            raise Exception(self.scene.scene_uid +  "plas.optinit: the number of groups is %d not 1 or 2"%(len([p for p in self.plas if len(p)>1])))
         from .Adjs import adjs
         return adjs(self.scene.OBJES)
 

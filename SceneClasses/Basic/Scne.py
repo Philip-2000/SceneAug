@@ -94,7 +94,7 @@ class scne():
 
         #region: presentation----#
     def __str__(self):
-        return str(self.OBJES)+'\n'+str(self.WALLS)
+        return self.scene_uid+'\n'+str(self.OBJES)+'\n'+str(self.WALLS)
 
     def drao(self,suffix,config,ts,Js=None):#,lim=-1
         from matplotlib import pyplot as plt
@@ -318,8 +318,8 @@ class scneDs():
 
     #region: operation------------#
 
-    def synthesis(self,syth,cond,T):
-        from ..Operation.Syth import agmt,gnrt,copl,rarg
+    def synthesis(self,syth,cond,T,**kwargs):
+        from ..Operation.Syth import agmt,gnrt,copl
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("%s-%s, %s "%(syth,cond,self._dataset[i].scene_uid[:20]))
@@ -329,6 +329,7 @@ class scneDs():
             elif syth == "copl":
                 S = copl(T,self._dataset[i],v=V)
             elif syth == "rarg":
+                from ..Operation.Syth_Rarg import rarg
                 S = rarg(T,self._dataset[i],v=V)
             elif syth == "agmt":
                 S = agmt(T,self._dataset[i],v=V)
@@ -337,7 +338,7 @@ class scneDs():
                 S.scene.scene_uid += str(i)
                 S.augment(cnt=1,draw=True)
             elif cond == "uncond":
-                S.uncond(draw=True)
+                S.uncond(**kwargs)
             elif cond == "textcond":
                 S.textcond(draw=True)
             elif cond == "roomcond":
@@ -400,7 +401,7 @@ class scneDs():
                 Titles = titles("condition",*(childCons[ci])) if vl > 0 else titles("condition",*([{"fake":"c"}]) )
                 indx = indexes.next(None,Titles)
                 while indx:
-                    lst = cons( **(indx.dict) ) if vl > 0 else [i for i in range(len(self))] #--enumerating the scenes of this condition
+                    lst = cons.subset( **(indx.dict) ) if vl > 0 else [i for i in range(len(self))] #--enumerating the scenes of this condition
                     if "OSA" in metrics:
                         for i in lst:
                             OSA[i] = OSA[i] if OSA[i]>0 else self[i].outOfBoundaries()[0]
@@ -463,7 +464,7 @@ class scneDs():
             
                     indx = indexes.next(None,Titles)
                     while indx:        
-                        lst = cons( **(indx.dict) )
+                        lst = cons.subset( **(indx.dict) )
                         #print(lst)
                         for i in lst:
                             for j in lst:

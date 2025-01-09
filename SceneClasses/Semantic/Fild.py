@@ -4,7 +4,7 @@ class sam():
     def __init__(self,scene,transl,idx,config):
         self.transl = transl
         self.idx = (int(idx[0]*config["grid"]["b"]),int(idx[1]*config["grid"]["b"]))
-        wop, wip, self.dr = scene.WALLS.optFields(self,config)
+        wop, wip, self.dr = scene.WALLS.optFields(self, None, config)
         self.wo, self.wop, self.wi, self.wip = wop[0], wop[1], wip[0], wip[1]
         self.ob, self.obp = scene.OBJES.optFields(self, None, config["object"])
         # self.res_p = self.wo + self.wi
@@ -28,14 +28,19 @@ class sam():
         from matplotlib import pyplot as plt
         if way == "fiv":
             A = 0.33#0.001
-            st,ed = [self.transl[0], self.transl[2]], [self.transl[0]+self.ob[0]*A, self.transl[2]+self.ob[2]*A]
-            plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["ob"], linewidth=0.5)
-            st,ed = [ed[0],ed[1]],[ed[0]+self.wo[0]*A, ed[1]+self.wo[2]*A]
-            plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["wo"], linewidth=0.5)
-            st,ed = [ed[0],ed[1]],[ed[0]+self.wi[0]*A, ed[1]+self.wi[2]*A]
-            plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["wi"], linewidth=0.5)
-            st,ed = [ed[0],ed[1]], [ed[0]+self.dr[0]*A, ed[1]+self.dr[2]*A]
-            plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["dr"], linewidth=0.5)
+            st,ed = [self.transl[0], self.transl[2]], [self.transl[0], self.transl[2]]
+            if "ob" in colors:
+                st,ed = [ed[0],ed[1]],[ed[0]+self.ob[0]*A, ed[1]+self.ob[2]*A]
+                plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["ob"], linewidth=0.5)
+            if "wo" in colors:
+                st,ed = [ed[0],ed[1]],[ed[0]+self.wo[0]*A, ed[1]+self.wo[2]*A]
+                plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["wo"], linewidth=0.5)
+            if "wi" in colors:
+                st,ed = [ed[0],ed[1]],[ed[0]+self.wi[0]*A, ed[1]+self.wi[2]*A]
+                plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["wi"], linewidth=0.5)
+            if "dr" in colors:
+                st,ed = [ed[0],ed[1]], [ed[0]+self.dr[0]*A, ed[1]+self.dr[2]*A]
+                plt.plot( [st[0],ed[0]], [-st[1],-ed[1]], color=colors["dr"], linewidth=0.5)
         elif way == "fih":
             cl = min(norm(self.wo)/6.,1.0) * np.array(colors["wo"]) + min(norm(self.wi)/.5,1.0) * np.array(colors["wi"]) + min(norm(self.ob)/2.,1.0) * np.array(colors["ob"])
             c = (int(cl[0] * 255.0),int(cl[1] * 255.0),int(cl[2] * 255.0))

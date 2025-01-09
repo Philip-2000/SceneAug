@@ -57,7 +57,7 @@ class wndr():
     def __str__(self):
         return "center:[%.3f,%.3f] with width=%.3f height=%.3f±%.3f on wall %d"%(self.center[0],self.center[2],self.width,self.center[1],self.height/2.0,self.w.idx) + (":[%.3f±%.3f,%.3f]"%(self.center[0],self.width/2.0,self.center[2]) if abs(self.w.n[2])<0.0001 else (":[%.3f,%.3f±%.3f]"%(self.center[0],self.center[2],self.width/2.0) if abs(self.w.n[0])<0.0001 else "") ) 
 
-    def optField(self,sp,config):
+    def optField(self,sp,o,config):
         return np.array([0,0,0])
     
     def toTensor(self):
@@ -109,26 +109,41 @@ class door(wndr):
             RI = self.center + WI + self.w.n*config["in"]
             self.optArea, self.LI, self.RI = Polygon([[LO[0],LO[2]],[LI[0],LI[2]],[RI[0],RI[2]],[RO[0],RO[2]]]), LI, RI
 
-    def optField(self,sp,config):
+    def optField(self,sp,o,config):
         # self.__getOptArea(config)
         # from shapely.geometry import Point
         # return min(self.LI - sp.transl, self.RI-sp.transl, key=lambda x:norm(x)) if self.optArea.contains(Point(sp.transl[0],sp.transl[2])) else np.array([0,0,0])
         from .Obje import bx2d
         newSelf = bx2d(t=self.center, s=np.array([self.width*0.5*config["expand"], 1, config["in"]]), o=self.block.orientation)
-        try: #for object samples
+        if o: #for object samples
             X0Z, A0C = newSelf-sp.transl, newSelf.matrix(-1)@(-sp.radial) / newSelf.size
             X0Z[1],A0C[1] = 0,0
-            if norm(X0Z) > 1.0 or X0Z[2] < 0.0:
+            if norm(X0Z) > 1.0:# or X0Z[2] < 0.0:
                 return np.array([.0,.0,.0])
             #[F,0,H]= { √(A²+C²-(AZ-CX)²)-AX-CZ }/{ A²+C² }  [A,0,C]
             F0H = (np.sqrt(norm(A0C)**2 - (np.cross(A0C,X0Z)[1])**2) - A0C@X0Z)/(norm(A0C)**2) * A0C
+            M0N = X0Z + F0H
+            if M0N[2] < 0.0:
+                M0N[2] = -M0N[2]
+            F0H = M0N - X0Z
             return ((newSelf + F0H) - newSelf.translation)*config["rt"]#transform this field back to the world
-        except: #for field:
+        else: #for field:
             X0Z = newSelf-sp.transl
             X0Z[1] = 0
+            A0C = X0Z
+            if norm(X0Z) > 1.0:# or X0Z[2] < 0.0:
+                return np.array([.0,.0,.0])
+            #[F,0,H]= { √(A²+C²-(AZ-CX)²)-AX-CZ }/{ A²+C² }  [A,0,C]
+            F0H = (np.sqrt(norm(A0C)**2 - (np.cross(A0C,X0Z)[1])**2) - A0C@X0Z)/(norm(A0C)**2) * A0C
+            M0N = X0Z + F0H
+            if M0N[2] < 0.0:
+                M0N[2] = -M0N[2]
+            F0H = M0N - X0Z
+            return ((newSelf + F0H) - newSelf.translation)*config["rt"]#transform this field back to the world
+            X0Z[1] = 0##
             n = norm(X0Z)
-            v = ((newSelf + (X0Z if norm(X0Z)<0.000001 else X0Z*(max(1-n,0.0)/n))) - newSelf.translation) if X0Z[2] > 0.0 else np.array([.0,.0,.0])
-            return v*config["rt"], 0.0 # door field can't have potential
+            #v = ((newSelf + (X0Z if n<0.000001 else X0Z*(max(1-n,0.0)/n))) - newSelf.translation)
+            return v*config["rt"] # door field can't have potential
         
 class wndrs():
     def __init__(self,wls,cont=None,c_e=0):
@@ -147,8 +162,8 @@ class wndrs():
         import torch
         return torch.cat([wd.toTensor(fmt) for wd in self]+[wndr.empty(v=False).tensor(format)]*(length-len(self)),axis=0).reshape((1,length,-1))
 
-    def optFields(self,sp,config):
-        return np.array([wr.optField(sp,config) for wr in self.WNDRS]).sum(axis=0)
+    def optFields(self,sp,o,config):
+        return np.array([wr.optField(sp,o,config) for wr in self.WNDRS]).sum(axis=0)
     
     def __str__(self):
         return '\n'.join([str(wd) for wd in self])

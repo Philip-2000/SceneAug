@@ -10,7 +10,7 @@ default_optm_config = {
     "phy":{
         "rate":{"mode":"exp_up","rinf":0.1*10,"lda":0.5,"r0":0.1/100.0},#{"mode":"static","v":rate/500},#
         "s4": 4,
-        "door":{"expand":0.8,"in":0.5,"rt":1.0}, #"out":0.1,
+        "door":{"expand":1.0,"in":0.5,"rt":2.0}, #"out":0.1,
         "wall":{"bound":0.5,},
         "object":{
             "Pendant Lamp":[.0,.01,.01,False],#
@@ -53,7 +53,7 @@ default_optm_config = {
         "vis":{
             "res":{"res":(.5,.5,.5),},
             "syn":{"t":(.0,.5,.5),"s":(.5,.0,.5),"r":(.5,.5,.0),"res":(.5,.5,.5),},
-            "pns":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
+            "pns":{"wo":(1.0,0,0),"wi":(0,0,1.0),"ob":(.33,.33,.33),"dr":(0,1.0,0),},
             # "fiv":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
             # "fih":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
             # "fiq":{"wo":(1.0,0,0),"wi":(0,0,1.0),"dr":(.33,.33,.33),"ob":(0,1.0,0),},
@@ -75,7 +75,7 @@ class optm_mcmc():
     def __eval(self):
         from .Plan import plans
         from ..Experiment.Tmer import tme
-        fit,_,__ = plans(self.scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        fit,_,__ = plans(self.scene,self.PM,v=0).recognize(use=False,draw=False,show=False)
         _, vio = self.scene.OBJES.optimizePhy(default_optm_config["phy"],tme()), self.scene.OBJES.violates()
         return fit - 100*vio
 
@@ -85,7 +85,7 @@ class optm_mcmc():
         I = random.choice([o.idx for o in self.scene.OBJES if o.v])
         self.scene.OBJES[I].adjust = adj(np.random.normal(0,1,3),np.random.normal(0,0.01,3),np.random.normal(0,1,1),self.scene.OBJES[I])
         E = self.__eval()
-        if E > self.E  or np.random.rand() < np.exp((E-self.E)/T):#if the result is bette, accept it; if it is worse, still accept it with a probability of exp(-deltaE/T) 
+        if E > self.E or np.random.rand() < np.exp((E-self.E)/T):#if the result is bette, accept it; if it is worse, still accept it with a probability of exp(-deltaE/T) 
             self.state = E
         else: #if this modification is not accepted, undo it
             a = self.scene.OBJES[I].adjust
@@ -97,10 +97,10 @@ class optm_mcmc():
 
 
 class optm():
-    def __init__(self,pmVersion=None,scene=None,PatFlag=False,PhyFlag=True,rand=-1,config={},exp=False):
+    def __init__(self,pmVersion=None,scene=None,PatFlag=False,PhyFlag=True,rand=-1,config={},exp=False, timer=None):
         self.scene = scene
-        from ..Experiment.Tmer import tmer,tme
-        self.timer = tmer() if exp else tme()
+        from ..Experiment.Tmer import tme
+        self.timer = tme() if timer is None else timer
         self.exp, self.state = exp, -1e3
         from . import Adjs
         Adjs.INERTIA, Adjs.DECAY_RATE = config["adjs"]["inertia"], config["adjs"]["decay"]
@@ -108,41 +108,54 @@ class optm():
         self.PhyOpt = None if not PhyFlag else PhyOpt(scene,self.timer,config=config["phy"],exp=exp)
         _           = None if rand < 0    else self.__random(rand)
 
-    def __random(self,rand):
+        self.over_bounds, self.over_states, self.over_len = {"ads":0.5,"vios":2.0,"fits":35.0}, {"ads":[],"vios":[],"fits":[]}, 4
+        self.error_bounds = {"vios":10.0,"fits":80.0}
+
+    def __random(self,rand,use=True):
         import numpy as np,os
-        a,b = self.scene.randomize(dev=rand,cen=True,hint=np.load(os.path.join(self.scene.imgDir,"rand.npy")))#None)#
+        a,b = self.scene.randomize(dev=rand,cen=True,hint=np.load(os.path.join(self.scene.imgDir,"rand.npy")) if use else None)#
         np.save(os.path.join(self.scene.imgDir,"rand.npy"), b)
         return a
         
     def __over(self,ad,fit,vio):
-        return False#ad.Norm()<0.1 and self.PatOpt.over(fit) and self.PhyOpt.over(vio)
-    
+        import numpy as np
+        self.over_states["ads"].append(ad.Norm())
+        self.over_states["vios"].append(vio)
+        self.over_states["fits"].append(fit)
+        
+        if fit > self.error_bounds["fits"]*4 or vio > self.error_bounds["vios"]:
+            print("initial error: fit=%f, vio=%f"%(fit,vio))
+            return None
+        if len(self.over_states["ads"]) > self.over_len:
+            if fit > self.error_bounds["fits"] or vio > self.error_bounds["vios"]:
+                print("error: fit=%f, vio=%f"%(fit,vio))
+                return None
+            self.over_states["ads"].pop(0)
+            self.over_states["vios"].pop(0)
+            self.over_states["fits"].pop(0)
+        return False if len(self.over_states["ads"]) < self.over_len else bool(np.array(self.over_states["ads"]).mean() < self.over_bounds["ads"] and np.array(self.over_states["vios"]).mean() < self.over_bounds["vios"] and np.array(self.over_states["fits"]).mean() < self.over_bounds["fits"])
+        
     def __call__(self, s, debugdraw=None): #timer, adjs, vio, fit, cos(PhyAdjs,PatAdjs), Over
         if self.PhyOpt and self.PatOpt:
-            self.timer("all",1)
-            self.timer("accum",1) #from .Adjs import adjs #ad = adjs(self.scene.OBJES) #print("zero") #print(ad)
+            self.timer("",1) #from .Adjs import adjs #ad = adjs(self.scene.OBJES) #print("zero") #print(ad)
             debugdraw(self.scene,s,"--") if debugdraw else None #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d--.png"%(self.scene.scene_uid[:10],s))#return #
             PatRet = self.PatOpt(s) #adjs,fit,self.over(adjs,vio)
             #print("no") #print(PhyRet["adjs"])
             debugdraw(self.scene,s,"-") if debugdraw else None ##self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d-.png"%(self.scene.scene_uid[:10],s))#return #
             PhyRet = self.PhyOpt(s) #adjs,vio,self.over(adjs,vio)
             #print("yes")#print(PatRet["adjs"])
-            self.timer("all",0)
-            self.timer("accum",0)
+            self.timer("",0)
             
-            fit = self.scene.plan.update_fit() if self.exp else 0
+            fit,fitmax = self.scene.plan.update_fit() if self.exp else (0,0)
+            #print(fit)
             #,"over":self.over(adjs,fit)
             vio = self.scene.OBJES.violates() if self.exp else None
             ad = PhyRet["adjs"]+PatRet["adjs"]
             #,"over":self.over(adjs,vio))
             
-            return {"timer":self.timer,
-                    "adjs":ad,
-                    "vio":vio,
-                    "fit":fit,
-                    "cos":PhyRet["adjs"]-PatRet["adjs"],
-                    "over": self.__over(ad,fit,vio)
-                } if self.exp else {"over": self.__over(ad,fit,vio)}
+            return {"adj":ad, "vio":vio, "fit":fitmax-fit,
+                    "over": self.__over(ad,fitmax-fit,vio)
+                } if self.exp else {"over": self.__over(ad,fitmax-fit,vio)}
         elif self.PhyOpt:
             assert not self.exp
             PhyRet = self.PhyOpt(s) #adjs,vio,self.over(adjs,vio)
@@ -161,15 +174,29 @@ class optm():
                     pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], s))
         else:
             #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],0))
-            ret,step = {"over":False},0
-            while (not ret["over"]): 
-                ret = self(step)
-                step += 1
-                #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],step))
-                if pbar:
-                    pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], step))
-                if step > 3:
+            # ret,step = {"over":False},0
+            # while (not ret["over"]): 
+            #     ret = self(step)
+            #     step += 1
+            #     #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d.png"%(self.scene.scene_uid[:10],step))
+            #     if pbar:
+            #         pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], step))
+            #     if step > 0:
+            #         break
+
+            while True:
+                ret,step = {"over":False},0
+                #[o.adjust.clear() for o in s.OBJES]
+                while (ret["over"] is False) and step <= 20: #the over criterion
+                    assert ret["over"] is False and ret["over"] is not None
+                    ret = self(step)
+                    step += 1
+                if ret["over"] is not None and step <= 20:
                     break
+                else:
+                    print("restart",self.scene.scene_uid)
+                    adjs0 = self.randomize(s,use=False)
+        
         _ = (self.PhyOpt.show() if self.PhyOpt else None, self.PatOpt.show() if self.PatOpt else None)
 
 class PhyOpt():
@@ -212,16 +239,16 @@ class PhyOpt():
         adjs = self.scene.OBJES.optimizePhy(self.config,self.timer,debug=bool(self.configVis),ut=(self.iRate(s) if ir<0 else ir))
         self.timer("phy_opt",0)
         #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d-snp.png"%(self.scene.scene_uid[:10],s))#return #
-        bdjs = adjs.snapshot()
-        self.timer("phy_inf",1)
+        #bdjs = adjs.snapshot()
+        #self.timer("phy_inf",1)
         #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d-inf.png"%(self.scene.scene_uid[:10],s))#return #
-        adjs.apply_influence()
+        #adjs.apply_influence()
         #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+inf.png"%(self.scene.scene_uid[:10],s))#return #
-        self.timer("phy_inf",0)
+        #self.timer("phy_inf",0)
         #vio = self.scene.OBJES.violates() if self.exp else None #[SumOfNorm(s.t),SumOfNorm(s.t),SumOfNorm(s.t),......]
         self.draw(s)
         self.steps = max(s,self.steps)
-        return {"adjs":bdjs+adjs}
+        return {"adjs":adjs}# bdjs+adjs} #
 
 class PatOpt():
     def __init__(self,pmVersion,scene,timer,config={},exp=False):
@@ -268,11 +295,11 @@ class PatOpt():
         self.timer("pat_opt",1)
         adjs, Js= self.scene.plan.optimize((self.iRate(s) if ir <0 else ir),s)
         self.timer("pat_opt",0)
-        bdjs = adjs.snapshot()
-        self.timer("phy_inf",1)
-        adjs.apply_influence()
-        self.timer("phy_inf",0)
+        # bdjs = adjs.snapshot()
+        # self.timer("phy_inf",1)
+        # adjs.apply_influence()
+        # self.timer("phy_inf",0)
         self.draw(s,Js)
         self.steps = max(s,self.steps)
-        return {"adjs":bdjs+adjs}
+        return {"adjs":adjs}#bdjs+adjs}#
     

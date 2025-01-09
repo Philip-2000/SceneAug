@@ -137,8 +137,14 @@ class wall():
 
     def field(self,sp,config): #w_o, w_i, out
         minVec = -self.minVec(sp.transl)
-        projectedVec = max(minVec@(-sp.o.direction()),0.0)*(-sp.o.direction())
-        w_i = projectedVec * np.clip(1.0-norm(projectedVec)/config["bound"],0.0,1.0)
+        try: #for object samples
+            projectedVec = max(minVec@(-sp.o.direction()),0.0)*(-sp.o.direction())
+            w_i = projectedVec * np.clip(1.0-norm(projectedVec)/config["bound"],0.0,1.0)
+            return minVec, w_i if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]), (minVec@self.n > 0)
+        except: #for field sams
+            projectedVec = minVec
+            w_i = projectedVec * np.clip(1.0-norm(projectedVec)/config["bound"],0.0,1.0)
+            return minVec, w_i, (minVec@self.n > 0)
         # if norm(w_i) > 0.01 and sp.TRANSL[2] == -1:
         #     print(sp.o)
         #     print(sp.o.direction())
@@ -146,7 +152,6 @@ class wall():
         #     print(minVec)
         #     print(projectedVec)
         #     print(w_i)
-        return minVec, w_i if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]), (minVec@self.n > 0)
         #endregion: optFields-------#
 
     #endregion: operations------#
@@ -585,24 +590,29 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     #endregion: bullshits--------#
 
     #region: optFields-----------#
-    def optFields(self,sp,config):
-        wo, wi, dr = np.array([9.,9.,9.]), np.array([0.,0.,0.]), self.windoors.optFields(sp,config["door"])
-        for w in self:
-            w_o, w_i, out = w.field(sp,config["wall"])
-            wo,wi = min(w_o,wo,key=lambda x:norm(x)) if out else wo, max(w_i,wi,key=lambda x:norm(x)) if not out else wi
+    def optFields(self,sp,o,config):
+        if o: #for object samples
+            wo, wi, dr = np.array([9.,9.,9.]), np.array([0.,0.,0.]), self.windoors.optFields(sp,o,config["door"])
+            for w in self:
+                w_o, w_i, out = w.field(sp,config["wall"])
+                wo,wi = min(w_o,wo,key=lambda x:norm(x)) if out else wo, max(w_i,wi,key=lambda x:norm(x)) if not out else wi
 
-        from shapely.geometry import Point
-        try: #for object samples
+            from shapely.geometry import Point
             if self.shape().contains(Point(sp.transl[0],sp.transl[2])): #inside
                 return (np.array([.0,.0,.0]),wi,dr)
             else:#outside
                 return (wo,np.array([.0,.0,.0]),dr)
-        except: #for fields
-            raise Exception("WI and wi calculation is out of date")
-            WI, wi = wi, wi * np.clip(1.0-norm(wi)/config["wall"]["bound"],0.0,1.0)
+        else: #for field samples
+            wo, wi, dr = np.array([9.,9.,9.]), np.array([0.,0.,0.]), self.windoors.optFields(sp,o,config["door"])
+            for w in self:
+                w_o, w_i, out = w.field(sp,config["wall"])
+                wo,wi = min(w_o,wo,key=lambda x:norm(x)) if out else wo, max(w_i,wi,key=lambda x:norm(x)) if not out else wi
+
+            from shapely.geometry import Point
             if self.shape().contains(Point(sp.transl[0],sp.transl[2])): #inside
-                return ((np.array([.0,.0,.0]),0), (wi,((min(norm(WI),config["wall"]["bound"]))**2)/2.0), dr)
-            else: #outside
-                return ((wo,(norm(wo)**2)/2.0), (np.array([.0,.0,.0]),0),dr)
+                return (np.array([.0,.0,.0]),0.0),(wi,(norm(wi)**2)/2.0),dr
+            else:#outside
+                return (wo,(norm(wo)**2)/2.0),(np.array([.0,.0,.0]),0.0),dr
+
 
     #endregion: optFields--------#

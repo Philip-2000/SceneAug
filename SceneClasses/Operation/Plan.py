@@ -46,11 +46,8 @@ class pla():
         scene.GRUPS.append(grup([on[0] for on in self.nids],{"sz":scene.roomMask.shape[-1],"rt":16},g,scne=scene))
 
     def optimize(self,g,scene,pm,ir,s): #print(self.Str(scene,pm))
-        from .Bnch import bnch_tree
+        from .Bnch import bnch_tree # bt = bnch_tree(self,pm,scene) print(bt) return bt.optimize(ir)
         return bnch_tree(self,pm,scene).optimize(ir,s) 
-        # bt = bnch_tree(self,pm,scene)
-        # print(bt)
-        # return bt.optimize(ir)
 
     def update_fit(self, g, scene, pm):
         from .Bnch import singleMatch
@@ -193,7 +190,7 @@ class plas(): #it's a recognize plan
     def update_fit(self):
         [p.update_fit(g+1,self.scene,self.pm) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
         self.fit = sum([sum(p.fits) for p in self.plas])
-        return self.fit
+        return self.fit, sum([len(p.fits) for p in self.plas])*15.0
     
     def __getitem__(self, k):
         return self.plas[k]

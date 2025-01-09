@@ -1,81 +1,95 @@
 from matplotlib import pyplot as plt
 import json,os,numpy as np
 EXOP_BASE_DIR = "./experiment/opts/"
-DEBUG_FILTER = []#["","+"]
+DEBUG_FILTER = []#"","+"] #
 class exop():
     def __init__(self,pmVersion,dataset,UIDS,num,expName,dirName,dev,config,task):
-        from ..Basic.Scne import scneDs as SDS
-        self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False, cen=False, wl=True, windoor=True)
-        self.pmVersion = pmVersion
-        from SceneClasses.Operation.Patn import patternManager as PM 
-        self.PM = PM(pmVersion)
+        self.task = task #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized the exops
+        if task == 2:
+            from ..Basic.Scne import scneDs as SDS
+            self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False, cen=False, wl=True, windoor=True)
+            self.pmVersion = pmVersion
+            self.config = config
         self.dev = dev
-        self.config = config
-        self.mod = "prerec"
-        self.origin = {s.scene_uid[:10]:[] for s in self.sDs}#the original results
-        self.plots = {"fit":{},"vio":{},"adjs":{},"cos":{},"diff":{},"time":{},"steps":{}} #"the data for plots"
-        self.task = task #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized by exops
-        self.dirname = os.path.join(EXOP_BASE_DIR,expName,dirName)
+        self.dirname,self.seeds,self.S = os.path.join(EXOP_BASE_DIR,expName,dirName), os.path.join(EXOP_BASE_DIR,expName,dirName,"seeds"),True
         print(self.dirname)
         os.makedirs(self.dirname,exist_ok=True) #
+        os.makedirs(self.seeds,exist_ok=True) #
+
+        from .RsOp import rsops
+        self.res = rsops(UIDS,self.dirname)
+        #self.origin = {s.scene_uid[:10]:[] for s in self.sDs}#the original results
+        #self.plots = {"fit":{},"vio":{},"adjs":{},"diff":{},"time":{},"steps":{}} #"the data for plots"
     
     def __call__(self):
-        if self.task==2: #2:experiment, 1:process and visualize, 0:load and visualize
-            from ..Operation.Optm import optm
-            from ..Operation.Plan import plans
-            for s in self.sDs:
-                
-                if self.mod == "prerec":
-                    plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
-                    adjs0 = self.__randomize(s)
-                elif self.mod == "postrec":
-                    raise Exception("Forbid to use postrec")
-                    adjs0 = self.__randomize(s)
-                    plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
+        if self.task==2:            #2:experiment, 
+            self.experiment()
+            self.res.save("origin")
+        if self.task>=1:            #1:process the original data from experiment to data points on plots
+            self.res.load("origin")
+            self.res.to_plot()
+            self.res.save("plot")
+        if self.task>=0:            #0:load the plot data and visualize with plots
+            self.res.load("plot")
+            self.res.visualizes()
+        if self.task>=-1:           #-1:load the plot data and wait for exops to visualize is
+            self.res.load("plot")
 
-                OP = optm(pmVersion=self.pmVersion,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True)
-                self.debugdraw(s,0,"")#s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s.png"%(s.scene_uid[:10]))
-                step = 0
-                ret = {"over":False}
+    # def init_eval(self,s):
+    #     from ..Experiment.Tmer import tme
+    #     from ..Operation.Adjs import adj
+    #     fit = s.plan.update_fit()
+    #     _, vio = s.OBJES.optimizePhy(self.config["phy"],tme()), s.OBJES.violates()
+    #     for e in ["","pat","phy","syn","fld"]:
+    #         self.res[s].timer(e,False)
+    #     self.res[s].append(fit=fit, vio=vio, dif=-1, adj=adj(call=False))
+
+    def experiment(self):
+        from ..Operation.Optm import optm
+        from ..Operation.Plan import plans
+        from ..Operation.Patn import patternManager as pm
+        self.PM = pm(self.pmVersion)
+        for i,s in enumerate(self.sDs):
+            plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
+            
+            adjs0 = self.__randomize(s)
+            while True:
+                #self.init_eval(s)
+                OP = optm(pmVersion=self.pmVersion,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True,timer=self.res[s].timer)
+                self.debugdraw(s,0,"")
+                ret,step = {"over":False},0
                 [o.adjust.clear() for o in s.OBJES]
-                while (not ret["over"]): #the over criterion
+                while (ret["over"] is False) and step <= 20: #the over criterion
+                    assert ret["over"] is False and ret["over"] is not None
                     ret = OP(step,self.debugdraw) #timer, adjs, vio, fit, cos, over
-                    ret["diff"] = adjs0 - ret["adjs"]
-                    self.store(ret,s,step)
-                    self.debugdraw(s,step,"+")#self.debugdraw(s,step)
+                    self.res[s].append(step=step,dif=adjs0-ret["adj"],**ret)
+                    self.debugdraw(s,step,"+")
                     step += 1
-                    if step > 33:
-                        break
+                if ret["over"] is not None and step <= 20:
+                    break
+                else:
+                    print("restart",s.scene_uid)
+                    adjs0 = self.__randomize(s,use=False)
+                    self.res.rsops[s.scene_uid].clear()
 
-                #print(step,time)
-            self.save()
-        self.visualize()
 
+            _ = print(i+1) if i%20==19 else None
+
+    def save(self,n="origin"):
+        from moviepy.editor import ImageSequenceClip
+        self.res.save(n) #open(os.path.join(self.dirname,n+".json"),"w").write(json.dumps(self.origin if n == "origin" else self.plots))
+        for s in self.sDs:
+            _ = ImageSequenceClip([os.path.join(EXOP_BASE_DIR,"debug","%s-%d%s.png"%(s.scene_uid[:10],i,"+")) for i in range(1,33)],fps=3).write_videofile(os.path.join(EXOP_BASE_DIR,"%s.mp4"%(s.scene_uid[:10])),logger=None) if "+" in DEBUG_FILTER and n=="origin" else None
+
+    """
     #region: buffer
-    def store(self,ret,s,steps):
-        if steps != len(self.origin[s.scene_uid[:10]]):
-            print(steps,s.scene_uid[:10])
-        assert steps == len(self.origin[s.scene_uid[:10]])
-        ret["timer"]= ret["timer"].dct()
-        ret["adjs"] = ret["adjs"].Norm()
-        self.origin[s.scene_uid[:10]].append(ret)
 
     def store_plot(self,key,ele,value):
         self.plots[key][ele] = value
 
-    def save(self,n="origin"):
-        from moviepy.editor import ImageSequenceClip
-        open(os.path.join(self.dirname,n+".json"),"w").write(json.dumps(self.origin if n == "origin" else self.plots))
-        for s in self.sDs:
-            _ = ImageSequenceClip([os.path.join(EXOP_BASE_DIR,"debug","%s-%d%s.png"%(s.scene_uid[:10],i,"+")) for i in range(1,33)],fps=3).write_videofile(os.path.join(EXOP_BASE_DIR,"%s.mp4"%(s.scene_uid[:10])),logger=None) if "+" in DEBUG_FILTER and n=="origin" else None
-
-    def load(self,n="origin"):
-        if n == "origin":
-            self.origin= json.load(open(os.path.join(self.dirname,n+".json"),"r"))
-        else:
-            self.plots = json.load(open(os.path.join(self.dirname,n+".json"),"r"))
+   
     #endregion: buffer
-
+    
     #region: visualize
         #region: visualize plots
     def visualize_box(self,key,content,boxes):
@@ -138,8 +152,8 @@ class exop():
         #endregion: visualize plots    
     
         #region: organize data to plot
-    def organize_metrics(self,key):
-        #（1）vio（2）fit（3）adjs（4）cos:pat's trend and phy's trend（5）diff：adjust's trend and noise's trend
+    def organize_metrics(self,key): #step-wise attributes: "vio","fit","adjs","diff"
+        #（1）vio（2）fit（3）adjs（4）diff：adjust's trend and noise's trend
 
         #step-aligned flatten, as box-plot
         if self.task > 0: #2:experiment, 1:process and visualize
@@ -152,7 +166,7 @@ class exop():
                     bs[j] = bs[j] + [self.origin[s.scene_uid[:10]][min(i,len(self.origin[s.scene_uid[:10]]))][key] for s in self.sDs]
             self.store_plot(key,"bs",bs)
             self.store_plot(key,"boxes",boxes)
-        else: #0:load and visualize, -1:load and visualized by exops
+        else: #0:load and visualize, -1:load and visualized the exops
             bs = self.plots[key]["bs"]
             boxes = self.plots[key]["boxes"]
         if self.task > -1: #only lines will be visualized by exops
@@ -186,12 +200,12 @@ class exop():
                 idxs[ifirst] += 1
             self.store_plot(key,"ts",ts)
             self.store_plot(key,"vs",vs)
-        else: #0:load and visualize, -1:load and visualized by exops
+        else: #0:load and visualize, -1:load and visualized the exops
             ts = self.plots[key]["ts"]
             vs = self.plots[key]["vs"]
         self.visualize_line(key,ts,vs)
 
-    def organize_steps(self,key):
+    def organize_steps(self,key): #total attributes of each optimizing process (only two): time lasting and total steps
         if self.task > 0: #2:experiment, 1:process and visualize
             vs = [self.origin[s.scene_uid[:10]][-1]["timer"]["accum"] for s in self.sDs] if key == "time" else [len(self.origin[s.scene_uid[:10]]) for s in self.sDs]
             vs = sorted(vs)
@@ -203,7 +217,7 @@ class exop():
                 l -= 1
             self.store_plot(key,"ts",ts)
             self.store_plot(key,"ls",ls)
-        else: #0:load and visualize, -1:load and visualized by exops
+        else: #0:load and visualize, -1:load and visualized the exops
             ts = self.plots[key]["ts"]
             ls = self.plots[key]["ls"]
         self.visualize_line(key,ts,ls)
@@ -222,7 +236,7 @@ class exop():
             self.store_plot(key,"hs",hs)
             self.store_plot(key,"boxes",boxes)
             self.store_plot(key,"gap",gap)
-        else: #0:load and visualize, -1:load and visualized by exops
+        else: #0:load and visualize, -1:load and visualized the exops
             hs = self.plots[key]["hs"]
             boxes = self.plots[key]["boxes"]
             gap = self.plots[key]["gap"]
@@ -231,28 +245,34 @@ class exop():
         #endregion: organize data to plot
 
         #region: visualize main
-    def visualize(self,keys=["time","steps","vio","fit","adjs","cos","diff"]):
-        if self.task > 0: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized by exops
-            self.load("origin")
-        elif self.task == 0: #when task is -1, we have already loaded the data in exops
-            self.load("plots")
+    def visualize(self,keys=["time","steps","vio","fit","adjs","diff"]):
+        if self.task > 0: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized the exops
+            self.res.load("origin")
+        else: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized the exops
+            self.res.load("plots")
         for key in keys:
             _ = self.organize_steps(key) if key in ["time","steps"] else self.organize_metrics(key)
-        if self.task >= 1: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized by exops
+        if self.task >= 1:
             self.save("plots")
         #endregion: visualize main
     #endregion: visualize
-
+    """
     #region: util
     def debugdraw(self,s,step,suffix):
         s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d%s.png"%(s.scene_uid[:10],step,suffix)) if suffix in DEBUG_FILTER else None#return #
         
-    def __randomize(self,t):
-        a,b = t.randomize(dev=self.dev,cen=True)
+    def __randomize(self,t,use=True):
+        import numpy as np,os
+        #a,b = self.scene.randomize(dev=rand,cen=True,hint=np.load(os.path.join(self.scene.imgDir,"rand.npy")))#None)#
+        if use and self.S and os.path.exists(os.path.join(self.seeds,t.scene_uid+".npy")):
+            a,b = t.randomize(dev=self.dev,cen=True,hint=np.load(os.path.join(self.seeds,t.scene_uid+".npy")))#None)#
+        else:
+            a,b = t.randomize(dev=self.dev,cen=True)
+        np.save(os.path.join(self.seeds,t.scene_uid+".npy"), b)
         return a
     #endregion: util
 class exops():
-    def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="test",UIDS=[]):
+    def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="real",UIDS=[]):
         self.UIDS = UIDS
         if len(UIDS)==0:
             self.UIDS = [
@@ -285,7 +305,7 @@ class exops():
                 "12219573-1263-4658-a5db-d048f3f0d668_MasterBedroom-569",
                 "908633f6-545c-4016-a2e7-f334120ac392_MasterBedroom-7728",
                 "196930e3-70ae-4432-bf23-7a706f5feb22_LivingDiningRoom-109282024",
-                "43f250b1-17a4-4ac7-af2d-ba722f3a8bcb_LivingDiningRoom-449432024",
+                "0d3a11a7-ea64-4ba0-a78a-85719956d7a7_MasterBedroom-59476",
                 "1b8e0aa0-1feb-4030-b45b-ba797530c57f_LivingDiningRoom-36888",
                 "6e4825e3-4ceb-40d4-a7f8-2adf7a3ab6f5_MasterBedroom-536",
                 "822213ac-e850-4189-ae92-5a9e0946be04_Bedroom-72334",
@@ -330,7 +350,7 @@ class exops():
                 "1d43e076-fc80-4d55-a07d-1b7a8c6dc6e7_LivingDiningRoom-3814",
             ]
         self.num=0 #self.num=512, self.UIDS = []
-        self.task = task #2:experiment, 1:process and visualize, 0:load and visualize
+        self.task = task #2:experiment, 1:process and visualize, 0:load and visualize，-1:load and visualized the exops
         self.pmVersion=pmVersion
         self.dataset=dataset
         self.expName = expName
@@ -339,52 +359,36 @@ class exops():
 
         self.hypers = []
         self.mods = ["prerec",]#"postrec",
-        self.s4s = [2,3,4]
-        self.rates =[ 0.1*i for i in range(1,2)] #4)] #
-        self.devs = [ 0.5*i for i in range(1,6)] #(1,6)] #
-        self.hypers = [[[ (rate,s4,dev) for dev in self.devs ] for rate in self.rates] for s4 in self.s4s ]
-        self.exops = [[[ None for dev in self.devs ] for rate in self.rates]  for s4 in self.s4s ]
+        self.s4s = [2,3,4]#]# 
+        self.devs = [ 0.5*i for i in range(1,6)] #(2,3)] #
+        self.hypers = [[ (s4,dev) for dev in self.devs ]  for s4 in self.s4s ]
+        self.EXOPS = [[ None for dev in self.devs ]  for s4 in self.s4s ]
         
     def __call__(self):
-        if self.task==2: #2:experiment, 1:process and visualize, 0:load and visualize
-            for s,s4 in enumerate(self.s4s):
-                for r,rate in enumerate(self.rates):
-                    for d,dev in enumerate(self.devs):
-                        from ..Operation.Optm import default_optm_config as config
-                        config["pat"]["rate"] = {"mode":"exp_dn","r0":rate*9,"lda":0.2,"rinf":rate*4}#{"mode":"exp_dn","r0":rate*2,"lda":0.5,"rinf":rate/5.0}
-                        config["phy"]["rate"] = {"mode":"exp_up","rinf":rate*10,"lda":0.5,"r0":rate/100.0}#{"mode":"exp_up","rinf":rate*10,"lda":1.5,"r0":rate/100.0}
-                        config["phy"]["s4"] = s4
-                        dirName = "%.2f %.3f %d"%(dev,rate,s4)
-                        Exop = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,dev=dev,config=config,task=self.task)
-                        Exop()
-
-        self.visualize()
-            
-    def load(self):
         for s,s4 in enumerate(self.s4s):
-            for r,rate in enumerate(self.rates):
-                for d,dev in enumerate(self.devs):
-                    dirName = "%.2f %.3f %d"%(dev,rate,s4)
-                    self.exops[s][r][d] = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,dev=dev,config=None,task=-1)
-                    self.exops[s][r][d].load(n="plots")
+            for d,dev in enumerate(self.devs):
+                from ..Operation.Optm import default_optm_config as config
+                config["phy"]["s4"] = s4
+                dirName = "%.2f %d"%(dev,s4)
+                self.EXOPS[s][d] = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,dev=dev,config=config,task=self.task)
+                self.EXOPS[s][d]()
+        
+        self.visualize()
     
     def visualize(self):
-        self.load()
-        assert len(self.rates)==1
-        from matplotlib import pyplot as plt
-        import os
-        for r,rate in enumerate(self.rates):
-            for key in ["time","steps","vio","fit","adjs","cos","diff"]:
-                for s,s4 in enumerate(self.s4s):
-                    for d,dev in enumerate(self.devs):
-                        self.exops[s][r][d].visualize(keys=[key])
-                    plt.legend(["dev=%.3f"%(dev) for dev in self.devs])
-                    plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s s4=%d.png"%(key,s4)))
-                    plt.clf()
-
+        import os, matplotlib.pyplot as plt
+        for key in ["times","steps","vio","fit","adj","dif"]:
+            kwargs = {"key":key,"subkey":"line" if key in ["times","steps"] else "time"}
+            for s,s4 in enumerate(self.s4s):
                 for d,dev in enumerate(self.devs):
-                    for s,s4 in enumerate(self.s4s):
-                        self.exops[s][r][d].visualize(keys=[key])
-                    plt.legend(["s4=%d"%(s4) for s4 in self.s4s])
-                    plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s dev=%.3f.png"%(key,dev)))
-                    plt.clf()        
+                    self.EXOPS[s][d].res.line(clear=False,**kwargs)
+                plt.legend(["dev=%.3f"%(dev) for dev in self.devs])
+                plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s s4=%d.png"%(key,s4)))
+                plt.clf()
+
+            for d,dev in enumerate(self.devs):
+                for s,s4 in enumerate(self.s4s):
+                    self.EXOPS[s][d].res.line(clear=False,**kwargs)
+                plt.legend(["s4=%d"%(s4) for s4 in self.s4s])
+                plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s dev=%.3f.png"%(key,dev)))
+                plt.clf()        

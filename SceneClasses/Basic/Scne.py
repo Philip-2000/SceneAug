@@ -102,13 +102,13 @@ class scne():
         plt.figure(figsize=(50, 40))
         _ = self.fild.draw(suffix,config,ts) if suffix[:2]=="fi" else self.OBJES.drao(suffix, config)
         if suffix=="pat":
-            from ..Semantic.Link import objLink
-            self.LINKS = []
-            for jss in Js:
-                for oid,J in jss.items():
-                    if oid != J: #print(oid,J)
-                        self.LINKS.append(objLink(oid,J,len(self.LINKS),self,"black"))
-            [li.draw() for li in self.LINKS]
+            # from ..Semantic.Link import objLink
+            # self.LINKS = []
+            # for jss in Js:
+            #     for oid,J in jss.items():
+            #         if oid != J: #print(oid,J)
+            #             self.LINKS.append(objLink(oid,J,len(self.LINKS),self,"black"))
+            [li.draw() for li in self.LINKS if self[li.src].v and self[li.dst].v]
         
         if suffix not in ["fih","fip","fiq"]: #these three images don't go through the matplotlib-2D pipeline, "fih" and "fiq" is from PIL, and "fip" is from pyplot-3d
             self.WALLS.draw()

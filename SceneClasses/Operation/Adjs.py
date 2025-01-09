@@ -45,10 +45,10 @@ class adj():
         return np.concatenate([self.t, self.s, self.r])
 
     def norm(self):
-        return np.linalg.norm(self.flat())
+        return max(np.linalg.norm(self.flat()),1e-8)
 
     def normed(self):
-        return self.flat() / np.linalg.norm(self.flat())
+        return self.flat() / self.norm()
 
     def dct(self):
         return {"T": np.round(self.T, 4).tolist(), "S": np.round(self.S, 4).tolist(), "R": np.round(self.R, 4).tolist()}

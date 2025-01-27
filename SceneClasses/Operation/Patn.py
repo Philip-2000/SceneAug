@@ -1,4 +1,4 @@
-import os, numpy as np
+import random, os, numpy as np
 
 class edge():
     def __init__(self,n,nn,c,cc):
@@ -16,18 +16,39 @@ class node():
         self.suffix = suffix
         self.source = None
         self.idx = idx
-        self.chosen_level = 0
+        self.h = 1
         self.edges = []
         self.bunches = {}
 
     def __str__(self):
         return self.type + " " + str(self.idx)
-    
+        
     def __getitem__(self,i):
-        return [self.edges[a].endNode for a in range(len(self.edges)) if self.edges[a].endNode.idx == i][0] if i > 0 else np.random.choice([self.edges[a].endNode for a in range(len(self.edges))])
+        if type(i) == int and i>0:
+            return [self.edges[a].endNode for a in range(len(self)) if self.edges[a].endNode.idx == i][0]
+        elif i == "random":
+            return random.choice([self.edges[a].endNode for a in range(len(self))])
+        elif i == "confidence+":
+            R = random.uniform(0, sum([self.edges[a].confidence for a in range(len(self))]) - 1e-5)
+            for a in range(len(self)):
+                R -= self.edges[a].confidence
+                if R <= 0: return self.edges[a].endNode
+        elif i == "confidence":
+            R = random.uniform(0, 1)
+            for a in range(len(self)):
+                R -= self.edges[a].confidence
+                if R <= 0: return self.edges[a].endNode
+            return None
+        elif type(i) == str and i.isdigit():
+            return random.choice([self.edges[a].endNode for a in range(len(self)) if self.edges[a].endNode.h >= int(i)])
+        else:
+            raise NotImplementedError("node.__getitem__, "+str(i)+" unrecognized usage")
 
     def __call__(self,i):
         return self.bunches[i]
+    
+    def __len__(self):
+        return len(self.edges)
     
     @property
     def mid(self):
@@ -35,6 +56,11 @@ class node():
         while not(self.idx in m.bunches):
             m = m.source.startNode
         return m.idx
+    
+    def height(self):
+        if self.h == 1 and len(self.edges):
+            self.h = 1 + max([e.endNode.height() for e in self.edges])
+        return self.h
 
 class merging():
     def __init__(self,d):
@@ -78,21 +104,12 @@ class patternManager():
             import json,yaml
             assert os.path.exists(os.path.join(self.treesDir,self.version+".js"))
             self.loadTre(json.loads(open(os.path.join(self.treesDir,self.version+".js")).read()[8:-1]))#self.loadTre(json.load(open(os.path.join(self.treesDir,self.version+".js"))))
+            self.nods[0].height()
             config = yaml.load(open(os.path.join(self.treesDir,self.version+".yaml")), Loader=yaml.FullLoader)
             self.rootNames = config["rootNames"]
-            # self.maxDepth = config["maxDepth"] if "maxDepth" in config else 10
             self.scaled = config["scale"] if "scale" in config else True
-            # global DEN
-            # global SIGMA2
-            # DEN,SIGMA2 = config["DEN"], config["SIGMA2"]
         else:
             assert not os.path.exists(os.path.join(self.treesDir,self.version+".js"))
-    
-    # def mid(self,nid):
-    #     m = self.nods[nid].source.startNode
-    #     while not(nid in m.bunches):
-    #         m = m.source.startNode
-    #     return m.idx
 
     #region: in/outputs----------#
         #region: inputs----------#
@@ -260,37 +277,35 @@ class patternManager():
     def __getitem__(self,i):
         return self.nods[i]
 
-    def random_path(self, I=-1):
-        i = I if I > 0 else np.random.randint(1,1+len(self[0].edges))
-        path = [i]
-        while 1:
-            j = self[path[-1]][-1]
-            if j:
-                path.append(j)
-            else:
-                return path
+    def random_path(self,path,N_min,N_max):
+        if N_max == 0: return path
+        n = self[path[-1]]
+        candidates = [n.edges[a] for a in range(len(n)) if n.edges[a].endNode.h >= N_min-1]
+        R = random.random()*(sum([e.confidence for e in candidates])-1e-5) if N_min > 0 else random.random()*sum([e.confidence for e in candidates])*1.3
+        for e in candidates:
+            R -= e.confidence
+            if R <= 0: return self.random_path(path + [e.endNode.idx],N_min-1,N_max-1)
+        return path
 
-    def random_paths(self,p):
-        A = np.random.choice([i for i in range(1,1+len(self[0].edges))],size=p,replace=False)
-        return [self.random_path(a) for a in A]
+    def random_paths(self,N_min=2,N_max=32,A=[-1,-1]):
+        A = np.random.choice([i for i in range(1,1+len(self[0].edges))],size=len(A),replace=False) if A[0]<0 else A
+        if len(A) == 1: return [self.random_path([A[0]],N_min,N_max)]
+        res_0 = self.random_path([A[0]],max(2,N_min-self[A[1]].h), N_max-4)
+        res_1 = self.random_path([A[1]],max(4,N_min-len(res_0)), N_max-len(res_0))
+        return [res_0,res_1]
     
-    def exp_object(self,i,s,d=.0,t=None):
-        from ..Basic.Obje import obje, object_types
-        mid = self[i].mid
-        if mid > 0:
-            fid = s(mid).idx
-            son = s[fid] + obje.fromFlat(self[fid].bunches[i].sample(d),j=object_types.index(self[i].type))
-        else:
-            v = np.concatenate([t, self[fid].bunches[i].exp[3:6], [(np.random.randint(-1,3))*np.math.pi/2.0]], axis=0)
-            son = obje.fromFlat(v,j=object_types.index(self[i].type))
+    def exp_object(self,i,s,d=.0,t=None,ori=None):
+        from ..Basic.Obje import obje
+        if self[i].mid > 0: son = s[s(self[i].mid).idx] + obje.fromFlat(self[self[i].mid].bunches[i].sample(d),n=self[i].type)
+        else:               son = obje.fromFlat(np.concatenate([t, self[0].bunches[i].exp[3:6], ori], axis=0), n=self[i].type)
+        son.nid = i
         s.addObject(son)
 
-    def random_scene(self,nm,centers,d=0):
+    def random_scene(self,N_min=2,N_max=32,A=[-1],centers=[np.array([1.0,.0,.0]),np.array([-1.0,.0,.0])],oris=[np.array([-np.pi/2]),np.array([np.pi/2])],d=.0):
         from ..Basic.Scne import scne
-        s, paths = scne.empty(nm=nm), self.random_paths(len(centers))
+        s, paths = scne.empty(), self.random_paths(N_min=N_min,N_max=N_max,A=A)
         for j, path in enumerate(paths):
-            for i in path:
-                self.exp_object(i,s,d,centers[j])
+            [ self.exp_object(i,s,d,centers[j],oris[j]) for i in path ]
         return s
     #endregion: utilize----------#
 

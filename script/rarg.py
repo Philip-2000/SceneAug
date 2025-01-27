@@ -36,4 +36,4 @@ if __name__ == "__main__":
     from SceneClasses.Basic.Scne import scneDs as SDS
     from SceneClasses.Operation.Patn import patternManager as PM
     pm = PM(args.version)
-    SDS(name=args.dataset,lst=(lst),prepare=args.condition).synthesis("rarg",args.condition,pm, use=True, utilize=True, draw=True)
+    SDS(name=args.dataset,lst=(lst),prepare=args.condition).synthesis("rarg",args.condition,pm, use=True, draw=True)

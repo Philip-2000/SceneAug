@@ -35,22 +35,17 @@ class pla():
 
     def utilize(self, g, scene, pm):
         from ..Semantic.Link import objLink
-        from ..Semantic.Grup import grup
-        scene[self.nids[0][0]].nid = self.nids[0][1]
-        scene[self.nids[0][0]].gid = g
-        for i, (oid,nid) in enumerate(self.nids[1:]):
+        for i, (oid,nid) in enumerate(self.nids):
             scene[oid].nid,scene[oid].gid = nid, g
-            scene.LINKS.append(objLink(oid,self.nids[i][0],len(scene.LINKS),scene,"lightblue"))
-            scene.LINKS.append(objLink(oid,self.searchOid(pm[nid].mid),len(scene.LINKS),scene,"pink"))
-
-        scene.GRUPS.append(grup([on[0] for on in self.nids],{"sz":scene.roomMask.shape[-1],"rt":16},g,scne=scene))
+            if i>0:
+                scene.LINKS.append(objLink(oid,self.nids[i-1][0],color="lightblue"))
+                scene.LINKS.append(objLink(oid,self.searchOid(pm[nid].mid),color="pink"))
+        from ..Semantic.Grup import grup
+        scene.GRUPS.append(grup([on[0] for on in self.nids]))#,{"sz":scene.roomMask.shape[-1],"rt":16},g,scne=scene))
 
     def optimize(self,g,scene,pm,ir,s): #print(self.Str(scene,pm))
-        from .Bnch import bnch_tree
+        from .Bnch import bnch_tree # bt = bnch_tree(self,pm,scene) print(bt) return bt.optimize(ir)
         return bnch_tree(self,pm,scene).optimize(ir,s) 
-        # bt = bnch_tree(self,pm,scene)
-        # print(bt)
-        # return bt.optimize(ir)
 
     def update_fit(self, g, scene, pm):
         from .Bnch import singleMatch
@@ -61,6 +56,30 @@ class pla():
             assert scene[oid].nid == nid and scene[oid].gid == g and scene[fid].nid == m.idx
             loss = m.bunches[nid].loss(scene[fid] - scene[oid])
             self.fits[i+1] = singleMatch(loss,None,None,None,None)
+
+    def fromPlaJson(js,g,scene,pm):
+        a = pla(js["nids"],js["fits"])
+        a.utilize(g,scene,pm)
+        return a
+    
+    def toPlaJson(self):
+        return {"nids":self.nids,"fits":self.fits}
+    
+    def renderables(self, scene_render, scene, pm):
+        from simple_3dviz import Lines
+        from numpy.linalg import norm
+        for i in range(1,len(self.nids)):
+            dst_o,src_o = scene[self.nids[i][0]], scene[self.searchOid(pm[self.nids[i][1]].mid)]
+            exp = pm[src_o.nid].bunches[dst_o.nid].exp
+            act = (src_o - dst_o).flat()
+            dif = norm(act-exp)
+            src,dst = src_o.translation, dst_o.translation
+            if norm(src-dst) > norm(exp[:3]): #the distance is larger than the expected distance 
+                colors,width = (max(0.5-0.1*dif,0.0),0,0), max(0.003 - 0.002*dif,0.0001)
+            else: #the distance is smaller than the expected distance
+                colors,width = (min(0.5+0.1*dif,1.0),0,0), 0.003 + 0.002*dif
+            src[1],dst[1] = 2.8,2.8
+            scene_render.add(Lines([scene[self.nids[i][0]].translation,scene[self.searchOid(pm[self.nids[i][1]].mid)].translation],colors=colors,width=width))
 
 class plas(): #it's a recognize plan
     def __init__(self,scene=None,pm=None,base=None):
@@ -73,6 +92,26 @@ class plas(): #it's a recognize plan
         self.occupied = deepcopy(list(chain(*[p.occupied() for p in self.plas])))
         self.fit = sum([sum(p.fits) for p in self.plas])
         self.myPM = None
+
+    @classmethod
+    def fromPlanJson(cls,js,scene):
+        from .Patn import patternManager as PM
+        a = cls(scene=scene,pm=PM(vers=js["vers"]))
+        a.plas = [ pla.fromPlaJson(p, i+1, scene, a.pm) for i,p in enumerate(js["plas"])]
+        a.occupied = list(chain(*[p.occupied() for p in a.plas]))
+        a.fit = sum([sum(p.fits) for p in a.plas])
+        return a
+        
+    def toPlanJson(self,rsj):
+        dct = {"vers":self.pm.version}
+        dct["plas"] = []
+        for p in self.plas:
+            if len(p)>1: dct["plas"].append(p.toPlaJson())
+        rsj["plan"] = dct
+        return rsj
+    
+    def renderables(self, scene_render):
+        for p in self.plas: p.renderables(scene_render, self.scene, self.pm)
 
     def __str__(self):
         return "\n".join([ "%d\t"%(pid) + p.Str(self.scene,self.pm) for pid,p in enumerate(self.plas)])
@@ -186,14 +225,14 @@ class plas(): #it's a recognize plan
 
     def optimize(self, ir, s):
         #_ = self.optinit() if s==0 else None
-        Is = [p.optimize(g+1,self.scene,self.pm,ir,s) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
+        [p.optimize(g+1,self.scene,self.pm,ir,s) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
         from ..Operation.Adjs import adjs
-        return adjs(self.scene.OBJES), Is#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
+        return adjs(self.scene.OBJES)#[(son.adjust["T"],son.adjust["S"],son.adjust["R"]) for son in self.scene.OBJES]
     
     def update_fit(self):
         [p.update_fit(g+1,self.scene,self.pm) for g,p in enumerate([_ for _ in self.plas if len(_) > 1])]
-        self.fit = sum([sum(p.fits) for p in self.plas])
-        return self.fit
+        self.fit = sum([sum(p.fits) for p in self.plas[1:]])
+        return self.fit, sum([len(p.fits) for p in self.plas[1:]])*15.0
     
     def __getitem__(self, k):
         return self.plas[k]
@@ -229,9 +268,11 @@ class plas(): #it's a recognize plan
             #     c1,c2 = wmax.center() * 0.4, wmin.center()*0.4 #np.array([(wmax.p[0]+wmax.q[0])*0.5, 0.0, np.max(zs)*0.3]), np.array([(wmin.p[0]+wmin.q[0])*0.5, 0.0, np.min(zs)*0.3])
             #print(wmax, wmax.center(), wmax.center()*0.5)
             #print(wmin, wmin.center(), wmin.center()*0.5)
+            print(wmax.center() * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)))
+            print(wmin.center() * ((wmin.length+1.0)/(wmax.length + wmin.length + 2.0)))
             
-
             M1,M2 = self.scene[p1.nids[0][0]].translation.copy() - wmax.center() * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)), self.scene[p2.nids[0][0]].translation.copy() - wmin.center()*((wmin.length+1.0)/(wmax.length + wmin.length + 2.0))
+            
             [self.scene[oid].adjust.update(T=-M1, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p1.nids]
             [self.scene[oid].adjust.update(T=-M2, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p2.nids]
         else:
@@ -274,7 +315,7 @@ class plans():
             p = plas.plas[ip]
             if len(p)<=1:
                 continue
-            tmpGrups[ip] = grup([on[0] for on in p.nids],{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene)
+            tmpGrups[ip] = grup([on[0] for on in p.nids],idx=j+1,scne=self.scene)#,{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene)
 
         for oid in orphans:
             o = self.scene[oid]
@@ -478,6 +519,5 @@ class plans():
             self.spatiallyRecorrect(self.currentPlas)
             self.addFrame(self.currentPlas,"spatial",thisDir,-1,2)                #--------------------------spatially recorrect,
         self.showTitles = self.showTitles[:1]*2+self.showTitles #print(len(self.showTitles))
-        #FIXME:the first several frames are black
         ImageSequenceClip([os.path.join(thisDir,t+".png") for t in self.showTitles], fps=2).write_videofile(os.path.join(thisDir,"recognize.mp4"),logger=None)#
        

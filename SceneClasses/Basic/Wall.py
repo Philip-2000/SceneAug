@@ -48,7 +48,7 @@ class wall():
 
     def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5):
         from simple_3dviz import Lines
-        return Lines( [ self.p+np.array([0,height,0]), self.q+np.array([0,height,0]) ], colors=colors, width=width )
+        return Lines( [ self.p + np.array([0,height,0]) - self.n*width*0.4 - self.array[self.w1].n*width*0.4 , self.q+np.array([0,height,0]) - self.n*width*0.4 - self.array[self.w2].n*width*0.4 ], colors=colors, width=width )
         
         #endregion: presentation#
     
@@ -137,8 +137,14 @@ class wall():
 
     def field(self,sp,config): #w_o, w_i, out
         minVec = -self.minVec(sp.transl)
-        projectedVec = max(minVec@(-sp.o.direction()),0.0)*(-sp.o.direction())
-        w_i = projectedVec * np.clip(1.0-norm(projectedVec)/config["bound"],0.0,1.0)
+        try: #for object samples
+            projectedVec = max(minVec@(-sp.o.direction()),0.0)*(-sp.o.direction())
+            w_i = projectedVec * np.clip(1.0-norm(projectedVec)/config["bound"],0.0,1.0)
+            return minVec, w_i if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]), (minVec@self.n > 0)
+        except: #for field sams
+            projectedVec = minVec
+            w_i = projectedVec * np.clip(1.0-norm(projectedVec)/config["bound"],0.0,1.0)
+            return minVec, w_i, (minVec@self.n > 0)
         # if norm(w_i) > 0.01 and sp.TRANSL[2] == -1:
         #     print(sp.o)
         #     print(sp.o.direction())
@@ -146,7 +152,6 @@ class wall():
         #     print(minVec)
         #     print(projectedVec)
         #     print(w_i)
-        return minVec, w_i if sp.TRANSL[2]==-1 else np.array([.0,.0,.0]), (minVec@self.n > 0)
         #endregion: optFields-------#
 
     #endregion: operations------#
@@ -271,6 +276,8 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 nor.append([float(self.WALLS[w].n[0]),float(self.WALLS[w].n[2])])
                 ori.append(float(np.math.atan2(self.WALLS[J].n[0],self.WALLS[J].n[2])))
                 w = self.WALLS[w].w2
+            bb = self.bbox()
+            rsj["bbox"] = {"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]}
         rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = sha, nor, ori
         rsj["blockList"] = self.windoors.toBlocksJson()
         return rsj #nor[:][0] is x, nor[:][1] is z
@@ -585,24 +592,29 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     #endregion: bullshits--------#
 
     #region: optFields-----------#
-    def optFields(self,sp,config):
-        wo, wi, dr = np.array([9.,9.,9.]), np.array([0.,0.,0.]), self.windoors.optFields(sp,config["door"])
-        for w in self:
-            w_o, w_i, out = w.field(sp,config["wall"])
-            wo,wi = min(w_o,wo,key=lambda x:norm(x)) if out else wo, max(w_i,wi,key=lambda x:norm(x)) if not out else wi
+    def optFields(self,sp,o,config):
+        if o: #for object samples
+            wo, wi, dr = np.array([9.,9.,9.]), np.array([0.,0.,0.]), self.windoors.optFields(sp,o,config["door"])
+            for w in self:
+                w_o, w_i, out = w.field(sp,config["wall"])
+                wo,wi = min(w_o,wo,key=lambda x:norm(x)) if out else wo, max(w_i,wi,key=lambda x:norm(x)) if not out else wi
 
-        from shapely.geometry import Point
-        try: #for object samples
+            from shapely.geometry import Point
             if self.shape().contains(Point(sp.transl[0],sp.transl[2])): #inside
                 return (np.array([.0,.0,.0]),wi,dr)
             else:#outside
                 return (wo,np.array([.0,.0,.0]),dr)
-        except: #for fields
-            raise Exception("WI and wi calculation is out of date")
-            WI, wi = wi, wi * np.clip(1.0-norm(wi)/config["wall"]["bound"],0.0,1.0)
+        else: #for field samples
+            wo, wi, dr = np.array([9.,9.,9.]), np.array([0.,0.,0.]), self.windoors.optFields(sp,o,config["door"])
+            for w in self:
+                w_o, w_i, out = w.field(sp,config["wall"])
+                wo,wi = min(w_o,wo,key=lambda x:norm(x)) if out else wo, max(w_i,wi,key=lambda x:norm(x)) if not out else wi
+
+            from shapely.geometry import Point
             if self.shape().contains(Point(sp.transl[0],sp.transl[2])): #inside
-                return ((np.array([.0,.0,.0]),0), (wi,((min(norm(WI),config["wall"]["bound"]))**2)/2.0), dr)
-            else: #outside
-                return ((wo,(norm(wo)**2)/2.0), (np.array([.0,.0,.0]),0),dr)
+                return (np.array([.0,.0,.0]),0.0),(wi,(norm(wi)**2)/2.0),dr
+            else:#outside
+                return (wo,(norm(wo)**2)/2.0),(np.array([.0,.0,.0]),0.0),dr
+
 
     #endregion: optFields--------#

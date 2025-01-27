@@ -1,12 +1,12 @@
 import numpy as np
 from copy import deepcopy
-INERTIA = 0.2       # inertia unused 0.0 <----> 1.0 fixed
-DECAY_RATE = 1.0    # objects independent 100 <-------> 0.0 everything move together
+INERTIA = 0.0       # inertia unused 0.0 <----> 1.0 fixed
+DECAY_RATE = 200    # objects independent 100 <-------> 0.0 everything move together
 
 class adj():
     def __init__(self, T=np.array([.0, .0, .0]), S=np.array([.0, .0, .0]), R=np.array([.0]), o=None, call=True):
         self.T, self.S, self.R = deepcopy(T), deepcopy(S), deepcopy(R)
-        self.t, self.s, self.r = deepcopy(T), deepcopy(S), deepcopy(R)
+        #self.t, self.s, self.r = deepcopy(T), deepcopy(S), deepcopy(R)
         self.o,self.v = o,False
         _ = self() if call else None
 
@@ -30,33 +30,33 @@ class adj():
     
     def clear(self):
         self.T, self.S, self.R = np.array([.0, .0, .0]), np.array([.0, .0, .0]), np.array([.0])
-        self.t, self.s, self.r = np.array([.0, .0, .0]), np.array([.0, .0, .0]), np.array([.0])
+        #self.t, self.s, self.r = np.array([.0, .0, .0]), np.array([.0, .0, .0]), np.array([.0])
 
     def Flat(self):
         return np.concatenate([self.T, self.S, self.R])
 
     def Norm(self):
-        return np.linalg.norm(self.Flat())
+        return max(np.linalg.norm(self.Flat()),1e-8)
 
     def Normed(self):
         return self.Flat() / np.linalg.norm(self.Flat())
 
-    def flat(self):
-        return np.concatenate([self.t, self.s, self.r])
+    # def flat(self):
+    #     return np.concatenate([self.t, self.s, self.r])
 
-    def norm(self):
-        return np.linalg.norm(self.flat())
+    # def norm(self):
+    #     return max(np.linalg.norm(self.flat()),1e-8)
 
-    def normed(self):
-        return self.flat() / np.linalg.norm(self.flat())
+    # def normed(self):
+    #     return self.flat() / self.norm()
 
     def dct(self):
         return {"T": np.round(self.T, 4).tolist(), "S": np.round(self.S, 4).tolist(), "R": np.round(self.R, 4).tolist()}
 
     def update(self, T, S, R, inertia=INERTIA, v=True, call=True): #v = True: this modification can be updated with inertia; v = False: this modification should be covered by the next one
-        i = inertia * int(self.v) # set inertia to 0 if it's the first time of optimzation
+        i = 0#inertia * int(self.v) # set inertia to 0 if it's the first time of optimzation
         self.T, self.S, self.R, self.v = i*self.T+(1-i)*T, i*self.S+(1-i)*S, i*self.R+(1-i)*R, v
-        self.t, self.s, self.r = deepcopy(T), deepcopy(S), deepcopy(R)
+        #self.t, self.s, self.r = deepcopy(T), deepcopy(S), deepcopy(R)
         _ = self() if call else None
 
     def toward(self, o, rt, inertia=INERTIA, v=True,call=True):
@@ -102,5 +102,6 @@ class adjs():
 
     def apply_influence(self):
         if DECAY_RATE < 100:
+            raise NotImplementedError("viscosity is not used right now")
             buffer = [np.array([adj_j.flat()*np.exp(-DECAY_RATE*np.linalg.norm(adj_i.o.translation-adj_j.o.translation)) for j, adj_j in enumerate(self.adjusts) if i != j]).mean(axis=0) for i, adj_i in enumerate(self.adjusts)]
             [adj.update(buffer[i][:3], buffer[i][3:6], buffer[i][6:]) for i, adj in enumerate(self.adjusts)]

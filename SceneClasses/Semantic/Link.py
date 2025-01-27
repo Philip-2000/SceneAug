@@ -17,11 +17,12 @@ class link():
         plt.plot([src[0], dst[0]], [-src[2], -dst[2]], marker=".", color=self.color)
 
 class objLink(link):
-    def __init__(self, src, dst, idx, scne=None, color="gray"):
+    def __init__(self, src, dst, idx=None, scne=None, color="gray"):
         super(objLink,self).__init__(src, dst, idx, scne, color)
-        self.scne[self.src].linkIndex.append(idx)
-        self.scne[self.dst].destIndex.append(idx)
-        pass
+    
+    def sets(self):
+        self.scne[self.src].linkIndex.append(self.idx)
+        self.scne[self.dst].destIndex.append(self.idx)
 
     def adjust(self, movement):
         #adjust the OBJES[dst] according to the OBJES[src] OR WALLS[src]'s movement
@@ -31,9 +32,13 @@ class objLink(link):
 
     def arrow(self):
         return self.scne[self.src].translation, self.scne[self.dst].translation
+    
+    def toLinkJson(self):
+        return {"src":self.src, "dst":self.dst}
 
 class walLink(link):
-    def __init__(self, src, dst, idx, dstTranslation, scne=None, color="gray"):
+    def __init__(self, src, dst, idx=None, dstTranslation=None, scne=None, color="gray"):
+        raise NotImplementedError("walLink unused right now")
         super(walLink,self).__init__(src, dst, idx, scne, color)
         self.scne.WALLS[self.src].linkIndex.append(idx)
         self.scne[self.dst].destIndex.append(idx)
@@ -76,3 +81,33 @@ class walLink(link):
 
     def arrow(self):
         return self.rate*self.scne.WALLS[self.src].q + (1-self.rate)*self.scne.WALLS[self.src].p, self.scne[self.dst].translation
+    
+class links():
+    def __init__(self, scene):
+        self.scne = scene
+        self.LINKS = []
+        
+    def __iter__(self):
+        return iter(self.LINKS)
+    
+    def __getitem__(self, i):
+        return self.LINKS[i]
+    
+    def __len__(self):
+        return len(self.LINKS)
+
+    def clear(self):
+        self.LINKS = []
+    
+    def append(self, lnk):
+        lnk.idx = len(self.LINKS)
+        lnk.scne = self.scne
+        lnk.sets()
+        self.LINKS.append(lnk)
+    
+    def draw(self):
+        for l in self.links: l.draw()
+    
+    def toLinksJson(self,rsj):
+        rsj["links"] = [l.toLinkJson() for l in self]
+        return rsj

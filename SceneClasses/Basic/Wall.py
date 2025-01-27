@@ -48,7 +48,7 @@ class wall():
 
     def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5):
         from simple_3dviz import Lines
-        return Lines( [ self.p+np.array([0,height,0]), self.q+np.array([0,height,0]) ], colors=colors, width=width )
+        return Lines( [ self.p + np.array([0,height,0]) - self.n*width*0.4 - self.array[self.w1].n*width*0.4 , self.q+np.array([0,height,0]) - self.n*width*0.4 - self.array[self.w2].n*width*0.4 ], colors=colors, width=width )
         
         #endregion: presentation#
     
@@ -276,6 +276,8 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 nor.append([float(self.WALLS[w].n[0]),float(self.WALLS[w].n[2])])
                 ori.append(float(np.math.atan2(self.WALLS[J].n[0],self.WALLS[J].n[2])))
                 w = self.WALLS[w].w2
+            bb = self.bbox()
+            rsj["bbox"] = {"min":[float(bb[0][0]),float(bb[0][1]),float(bb[0][2])],"max":[float(bb[1][0]),float(bb[1][1]),float(bb[1][2])]}
         rsj["roomShape"],rsj["roomNorm"],rsj["roomOrient"] = sha, nor, ori
         rsj["blockList"] = self.windoors.toBlocksJson()
         return rsj #nor[:][0] is x, nor[:][1] is z

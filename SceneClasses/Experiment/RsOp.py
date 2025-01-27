@@ -27,7 +27,7 @@ class rsop():
         if keyidx[0] == "adj":
             return self.adj[keyidx[1]]
         elif keyidx[0] == "vio":
-            return self.vio[keyidx[1]]
+            return self.vio[keyidx[1]] / (4*int(self.name[-1]))
         elif keyidx[0] == "fit":
             return self.fit[keyidx[1]]
         elif keyidx[0] == "dif":
@@ -46,11 +46,20 @@ class rsop():
         self.adj, self.vio, self.fit, self.dif = dct["adj"], dct["vio"], dct["fit"], dct["dif"]
         self.timer.load(dct["timer"])
 
+T=1.2
 class rsops():
-    def __init__(self,uids,dir):
-        self.rsops,self.dir = {name:rsop(name) for name in uids},dir
+    def __init__(self,uids,dir,dirs=[]):
+        self.dir = dir
+        self.dirs = dirs if len(dirs) > 0 else [dir]
+        self.rsops = {}
+        for d in self.dirs:
+            self.rsops.update({self.connect(name,d):rsop(self.connect(name,d)) for name in uids})
         self.plots = {"adj":{"step":[],"time":[]}, "vio":{"step":[],"time":[]}, "fit":{"step":[],"time":[]}, "dif":{"step":[],"time":[]}, "times":{"line":[],"hist":[]}, "steps":{"line":[],"hist":[]}}
         self.flat_list = None
+
+    def connect(self, name, d):
+        import os
+        return name+" "+os.path.basename(d)
 
     def __getitem__(self,name):
         return self.rsops[name if type(name) == str else name.scene_uid]
@@ -107,10 +116,10 @@ class rsops():
     def load(self, n="origin"):
         import os,json
         if n=="origin":
-            dct = json.loads(open(os.path.join(self.dir,"origin.json"),"r").read())
-            for name in dct:
-                self.rsops[name] = rsop(name)
-                self.rsops[name].load(dct[name])
+            for d in self.dirs:
+                dct = json.loads(open(os.path.join(d,"origin.json"),"r").read())
+                for name in dct: #self.rsops[name] = rsop(name)
+                    self.rsops[ self.connect(name,d) ].load(dct[name])
         elif n=="plot":
             self.plots = json.loads(open(os.path.join(self.dir,"plot.json"),"r").read())
 
@@ -125,7 +134,7 @@ class rsops():
     #region: utils
     def flat_list_gen(self):
         import itertools
-        full = [ [(name,i,self.rsops[name].timer[""][i]) for i in range(len(self.rsops[name]))] for name in self.rsops]#print(full)
+        full = [ [(name,i,self.rsops[name].timer[""][i]) for i in range(len(self.rsops[name])) if self.rsops[name].timer[""][i] <= T ] for name in self.rsops]#print(full)
         self.flat_list = sorted(list(itertools.chain(*full)), key=lambda x:x[2])
 
     def time_align(self,key):
@@ -154,14 +163,21 @@ class rsops():
         return res
 
     def times(self):
-        times = sorted([self.rsops[name].timer[""].last for name in self.rsops], key=lambda x:-x)
-        times_elbow = [(0.0,len(self))] + list(reversed([(t,i) for i,t in enumerate(times)]))
+        times = sorted([self.rsops[name].timer[""].last for name in self.rsops if self.rsops[name].timer[""].last <= T], key=lambda x:-x)
+        times_elbow = [(0.0,len(self)/len(self))] + list(reversed([(t,i/len(self)) for i,t in enumerate(times)]))
         return times_elbow, times
 
     def steps(self):
         #a list of all the steps of each rsop
         steps = sorted([len(self.rsops[name]) for name in self.rsops])
-        print(steps)
-        steps_elbow = [(4,len(self))] + [(s,len(self)-i) for i,s in enumerate(steps)]
+        #print(steps)
+        steps_elbow = [(4,len(self)/len(self))] + [(s,(len(self)-i)/len(self)) for i,s in enumerate(steps)]
+        if len(self.dirs)>1:
+            from collections import Counter
+            import os
+            a = Counter(steps)
+            print(os.path.basename(self.dir) + " 4:%.2f, 5:%.2f, 6:%.2f, 7+:%.2f "%(
+                a[4]/len(self),a[5]/len(self),a[6]/len(self),sum([a[i] for i in range(7,25)])/len(self)
+            ))
         return steps_elbow, steps
     #endregion: utils

@@ -12,7 +12,7 @@ class exop():
             self.config = config
         self.dev = dev
         self.dirname,self.seeds,self.S = os.path.join(EXOP_BASE_DIR,expName,dirName), os.path.join(EXOP_BASE_DIR,expName,dirName,"seeds"),True
-        print(self.dirname)
+        #print(self.dirname)
         os.makedirs(self.dirname,exist_ok=True) #
         os.makedirs(self.seeds,exist_ok=True) #
 
@@ -35,27 +35,18 @@ class exop():
         if self.task>=-1:           #-1:load the plot data and wait for exops to visualize is
             self.res.load("plot")
 
-    # def init_eval(self,s):
-    #     from ..Experiment.Tmer import tme
-    #     from ..Operation.Adjs import adj
-    #     fit = s.plan.update_fit()
-    #     _, vio = s.OBJES.optimizePhy(self.config["phy"],tme()), s.OBJES.violates()
-    #     for e in ["","pat","phy","syn","fld"]:
-    #         self.res[s].timer(e,False)
-    #     self.res[s].append(fit=fit, vio=vio, dif=-1, adj=adj(call=False))
-
     def experiment(self):
         from ..Operation.Optm import optm
         from ..Operation.Plan import plans
         from ..Operation.Patn import patternManager as pm
-        self.PM = pm(self.pmVersion)
+        self.pm = pm(self.pmVersion)
         for i,s in enumerate(self.sDs):
-            plans(s,self.PM,v=0).recognize(use=True,draw=False,show=False)
+            plans(s,self.pm,v=0).recognize(use=True,draw=False,show=False)
             
             adjs0 = self.__randomize(s)
             while True:
                 #self.init_eval(s)
-                OP = optm(pmVersion=self.pmVersion,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True,timer=self.res[s].timer)
+                OP = optm(pm=self.pm,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True,timer=self.res[s].timer)
                 self.debugdraw(s,0,"")
                 ret,step = {"over":False},0
                 [o.adjust.clear() for o in s.OBJES]
@@ -80,183 +71,6 @@ class exop():
         self.res.save(n) #open(os.path.join(self.dirname,n+".json"),"w").write(json.dumps(self.origin if n == "origin" else self.plots))
         for s in self.sDs:
             _ = ImageSequenceClip([os.path.join(EXOP_BASE_DIR,"debug","%s-%d%s.png"%(s.scene_uid[:10],i,"+")) for i in range(1,33)],fps=3).write_videofile(os.path.join(EXOP_BASE_DIR,"%s.mp4"%(s.scene_uid[:10])),logger=None) if "+" in DEBUG_FILTER and n=="origin" else None
-
-    """
-    #region: buffer
-
-    def store_plot(self,key,ele,value):
-        self.plots[key][ele] = value
-
-   
-    #endregion: buffer
-    
-    #region: visualize
-        #region: visualize plots
-    def visualize_box(self,key,content,boxes):
-        dolors = {"medians":"darkblue","means":"#513E1B"}
-        colors = {"vio":"#BF9A6D","fit":"#578279","adjs":"#B29D94","cos":"#BB7967","diff":"#81875A"}
-        
-        #content: 20*72
-        array = np.array(content).T
-        means,Xs = [],[]#, positions=[X*5 for X in range(len(content))]
-        A = plt.boxplot(array)#, labels = [content[1]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[key]}, medianprops={"color":dolors["medians"]}, meanprops={'marker':"*","markeredgecolor":dolors["means"],"markerfacecolor":dolors["means"]})
-        #print(A["means"][0].get_data())
-        #raise NotImplementedError
-        #means = means + [A["means"][0].get_data()[1][0]] 
-
-        # for j in range(len(content)):
-        #     X = j*5
-        #     A = plt.boxplot(content[j], positions=[X], labels = [content[1]], patch_artist=True, showmeans=True, boxprops={'facecolor': colors[key]}, medianprops={"color":dolors["medians"]}, meanprops={'marker':"*","markeredgecolor":dolors["means"],"markerfacecolor":dolors["means"]})
-        #     means = means + [A["means"][0].get_data()[1][0]]     
-
-        #plt.set_xticks([(i*(mT+gap)+(mT-1)/2.0)*scl for i in range(len(xTitles))], xTitles, fontsize=25)
-        #plt.set_ylabel("")
-        #plt.set_yticklabels("")
-        #plt.legend(handles=[plt.Line2D([0],[0],color=colors[i],lw=5,label=mO[i]) for i in range(mT)], labels=["%s(%.3f)"%(mO[j], np.var( [ bars[(i*mT+j)*ds+dMeans] for i in range(len(xTitles))]  ) ) for j in range(mT)], ncol=mT) #, labelcolor=colors, loc='lower left'
-        if self.task>=0: #save this plot if it is not visualized by exops
-            plt.savefig(os.path.join(self.dirname,key+"-steps.png"))
-            plt.clf()
-        
-    def visualize_line(self,key,ts,vs):
-        plt.plot(ts,vs)
-        if self.task>=0: #save this plot if it is not visualized by exops
-            plt.savefig(os.path.join(self.dirname,key+"-time.png" if key in ["time","steps"] else key+".png"))
-            plt.clf()
-
-    def visualize_bar(self,key,hs,gap):
-        #print(len(hs[0])) print(hs)
-        plt.bar([gap*i for i in range(len(hs))],hs,0.4*gap)
-        
-#         y_min, y_max = box.get_ylim()
-
-#         from itertools import chain
-#         bar.bar(Xs, np.array(bars)-y_min, bottom=y_min, width=barArea*barL, color=(list(chain(*[[c]*ds for c in colors[:mT]])))*(int(len(Xs)/ (ds*mT) )), edgecolor=dolors[:ds]*(int(len(Xs)/ds)))
-
-#         for i in range(len(xTitles)):
-#             for j in range(mT):
-#                 I0,exp,dev = (i*mT+j)*ds, exps[mI[j]], devs[mI[j]]
-#                 ord = sorted([ (k,bars[I0+k],bars[I0+k]*dev+exp) for k in range(ds)],key= lambda x:-x[1])
-#                 for o in ord:
-#                     y = 2.5+(len(ord)-1)*0.3-ord.index(o)*0.6
-#                     bar.annotate("%.2f"%(o[2]), xy=(Xs[I0]-(0.02 if abs(o[2])/10 < 1 else 0.10),y),fontsize=fontBar , color=dolors[o[0]], bbox={"facecolor":'white', "edgecolor":'white', "boxstyle":'round'})
-
-#         bar.set_xticks([(i*(mT+gap)+(mT-1)/2.0)*scl for i in range(len(xTitles))], xTitles, fontsize=25)
-#         bar.set_ylim(y_min,y_max)
-#         bar.set_ylabel("")
-#         bar.set_yticklabels("")
-#         bar.legend(handles=[plt.Rectangle((0,0),width=1.0, height=0.8,facecolor="white",edgecolor=dolors[k],linewidth=0.4,label=dNames[k]) for k in range(ds)], labels=dNames, ncol=ds) #, labelcolor=colors, loc='lower left'
-#         bar.set_title( " & ".join(dNames),fontsize=30)
-        if self.task>=0: #save this plot if it is not visualized by exops
-            plt.savefig(os.path.join(self.dirname,key+"-his.png"))
-            plt.clf()
-        #endregion: visualize plots    
-    
-        #region: organize data to plot
-    def organize_metrics(self,key): #step-wise attributes: "vio","fit","adjs","diff"
-        #（1）vio（2）fit（3）adjs（4）diff：adjust's trend and noise's trend
-
-        #step-aligned flatten, as box-plot
-        if self.task > 0: #2:experiment, 1:process and visualize
-            #print([len(self.origin[s.scene_uid[:10]]) for s in self.sDs])
-            ms = max([len(self.origin[s.scene_uid[:10]]) for s in self.sDs])
-            boxes = 34
-            bs = [[] for _ in range(boxes)]
-            for j in range(0,ms,ms//boxes):
-                for i in range(j,min(j+ms//boxes,ms)):
-                    bs[j] = bs[j] + [self.origin[s.scene_uid[:10]][min(i,len(self.origin[s.scene_uid[:10]]))][key] for s in self.sDs]
-            self.store_plot(key,"bs",bs)
-            self.store_plot(key,"boxes",boxes)
-        else: #0:load and visualize, -1:load and visualized the exops
-            bs = self.plots[key]["bs"]
-            boxes = self.plots[key]["boxes"]
-        if self.task > -1: #only lines will be visualized by exops
-            self.visualize_box(key,bs,boxes)
-        
-        #time-aligned flatten:
-        if self.task > 0: #2:experiment, 1:process and visualize
-            ds = [self.origin[s.scene_uid[:10]][0][key] for s in self.sDs]
-            mean = sum(ds)/float(len(self.sDs))
-            ts, vs = [],[]
-            idxs = [1 for s in self.sDs] #we should evaluate the initial value of these benchmarks as well, its time should always be zero
-            T = 0
-            while True:
-                ts.append([T])
-                vs.append([mean])
-
-                ifirst,Tfirst = -1,100000
-                for i,s in enumerate(self.sDs):
-                    if idxs[i] < len(self.origin[s.scene_uid[:10]]):
-                        t = self.origin[s.scene_uid[:10]][idxs[i]]["timer"]["accum"] #to be accumulative
-                        if t < Tfirst:
-                            Tfirst, ifirst = t,i
-                if Tfirst == 100000:
-                    break
-                T = Tfirst
-                
-                mean -= ds[ifirst] / float(len(self.sDs))
-                s = self.sDs[ifirst]
-                ds[ifirst] = self.origin[s.scene_uid[:10]][idxs[ifirst]][key]
-                mean += ds[ifirst] / float(len(self.sDs))
-                idxs[ifirst] += 1
-            self.store_plot(key,"ts",ts)
-            self.store_plot(key,"vs",vs)
-        else: #0:load and visualize, -1:load and visualized the exops
-            ts = self.plots[key]["ts"]
-            vs = self.plots[key]["vs"]
-        self.visualize_line(key,ts,vs)
-
-    def organize_steps(self,key): #total attributes of each optimizing process (only two): time lasting and total steps
-        if self.task > 0: #2:experiment, 1:process and visualize
-            vs = [self.origin[s.scene_uid[:10]][-1]["timer"]["accum"] for s in self.sDs] if key == "time" else [len(self.origin[s.scene_uid[:10]]) for s in self.sDs]
-            vs = sorted(vs)
-            ts,ls = [],[]
-            T,l = 0,len(vs)
-            for v in vs:
-                ts.append(v)
-                ls.append(l)
-                l -= 1
-            self.store_plot(key,"ts",ts)
-            self.store_plot(key,"ls",ls)
-        else: #0:load and visualize, -1:load and visualized the exops
-            ts = self.plots[key]["ts"]
-            ls = self.plots[key]["ls"]
-        self.visualize_line(key,ts,ls)
-
-        if self.task > 0: #2:experiment, 1:process and visualize
-            vs = [self.origin[s.scene_uid[:10]][-1]["timer"]["accum"] for s in self.sDs] if key == "time" else [len(self.origin[s.scene_uid[:10]]) for s in self.sDs]
-            vs = sorted(vs)
-            #print(vs)
-            boxes = 34
-            gap = max(vs)/float(boxes)
-            hs =  [0 for b in range(boxes)]
-            i = 0
-            for b in range(1,boxes+1):
-                while vs[i]<b*gap:
-                    hs[b-1],i = hs[b-1]+1,i+1
-            self.store_plot(key,"hs",hs)
-            self.store_plot(key,"boxes",boxes)
-            self.store_plot(key,"gap",gap)
-        else: #0:load and visualize, -1:load and visualized the exops
-            hs = self.plots[key]["hs"]
-            boxes = self.plots[key]["boxes"]
-            gap = self.plots[key]["gap"]
-        if self.task > -1: #only lines will be visualized by exops
-            self.visualize_bar(key,hs,gap)
-        #endregion: organize data to plot
-
-        #region: visualize main
-    def visualize(self,keys=["time","steps","vio","fit","adjs","diff"]):
-        if self.task > 0: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized the exops
-            self.res.load("origin")
-        else: #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized the exops
-            self.res.load("plots")
-        for key in keys:
-            _ = self.organize_steps(key) if key in ["time","steps"] else self.organize_metrics(key)
-        if self.task >= 1:
-            self.save("plots")
-        #endregion: visualize main
-    #endregion: visualize
-    """
     #region: util
     def debugdraw(self,s,step,suffix):
         s.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d%s.png"%(s.scene_uid[:10],step,suffix)) if suffix in DEBUG_FILTER else None#return #
@@ -363,6 +177,8 @@ class exops():
         self.devs = [ 0.5*i for i in range(1,6)] #(2,3)] #
         self.hypers = [[ (s4,dev) for dev in self.devs ]  for s4 in self.s4s ]
         self.EXOPS = [[ None for dev in self.devs ]  for s4 in self.s4s ]
+        self.RSOPS_dev = [None for _ in self.devs]
+        self.RSOPS_s4s = [None for _ in self.s4s ]
         
     def __call__(self):
         for s,s4 in enumerate(self.s4s):
@@ -373,6 +189,33 @@ class exops():
                 self.EXOPS[s][d] = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,dev=dev,config=config,task=self.task)
                 self.EXOPS[s][d]()
         
+        from .RsOp import rsops
+        for d,dev in enumerate(self.devs):
+            os.makedirs(os.path.join(EXOP_BASE_DIR,self.expName,"%.2f"%(dev)),exist_ok=True)
+            self.RSOPS_dev[d] = rsops(self.UIDS,os.path.join(EXOP_BASE_DIR,self.expName,"%.2f"%(dev)), [ os.path.join(EXOP_BASE_DIR,self.expName,"%.2f %d"%(dev,s)) for s in self.s4s ])
+            if self.task>=1:
+                self.RSOPS_dev[d].load("origin")
+                self.RSOPS_dev[d].to_plot()
+                self.RSOPS_dev[d].save("plot")
+            elif self.task>=0:
+                self.RSOPS_dev[d].load("plot")
+                self.RSOPS_dev[d].visualizes()
+            elif self.task>=-1:
+                self.RSOPS_dev[d].load("plot")
+
+        for s,s4 in enumerate(self.s4s):
+            os.makedirs(os.path.join(EXOP_BASE_DIR,self.expName,"%d"%(s4)),exist_ok=True)
+            self.RSOPS_s4s[s] = rsops(self.UIDS,os.path.join(EXOP_BASE_DIR,self.expName,"%d"%(s4)), [ os.path.join(EXOP_BASE_DIR,self.expName,"%.2f %d"%(dev,s4)) for dev in self.devs ])
+            if self.task>=1:
+                self.RSOPS_s4s[s].load("origin")
+                self.RSOPS_s4s[s].to_plot()
+                self.RSOPS_s4s[s].save("plot")
+            elif self.task>=0:
+                self.RSOPS_s4s[s].load("plot")
+                self.RSOPS_s4s[s].visualizes()
+            elif self.task>=-1:
+                self.RSOPS_s4s[s].load("plot")
+
         self.visualize()
     
     def visualize(self):
@@ -385,10 +228,23 @@ class exops():
                 plt.legend(["dev=%.3f"%(dev) for dev in self.devs])
                 plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s s4=%d.png"%(key,s4)))
                 plt.clf()
+            
+            for s,s4 in enumerate(self.s4s):
+                self.RSOPS_s4s[s].line(clear=False,**kwargs)
+            plt.legend(["M=%d"%(s4*4) for s4 in self.s4s])
+            plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s s4.png"%(key)))
+            plt.clf()
 
             for d,dev in enumerate(self.devs):
                 for s,s4 in enumerate(self.s4s):
                     self.EXOPS[s][d].res.line(clear=False,**kwargs)
-                plt.legend(["s4=%d"%(s4) for s4 in self.s4s])
+                plt.legend(["M=%d"%(s4*4) for s4 in self.s4s])
                 plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s dev=%.3f.png"%(key,dev)))
-                plt.clf()        
+                plt.clf()
+
+            for d,dev in enumerate(self.devs):
+                self.RSOPS_dev[d].line(clear=False,**kwargs)
+            plt.legend(["dev=%.3f"%(dev) for dev in self.devs])
+            plt.savefig(os.path.join(EXOP_BASE_DIR,self.expName,"%s dev.png"%(key)))
+            plt.clf()
+        

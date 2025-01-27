@@ -154,7 +154,7 @@ class wndrs():
                 self.WNDRS = [door(wls=wls,bbox=j["bbox"]) if j["coarseSemantic"].lower() == "door" else widw(wls=wls,bbox=j["bbox"]) for j in cont]#其实不应该这样的，应该去设那些bbox啥的#door(center=obj["translate"],size=obj["scale"],ori=obj["rotate"],wls=wls) if obj["coarseSemantic"].lower()=="door" else widw(center=c[:3],size=c[3:5],ori=c[6:],wls=wls) for obj in jsn]
             except:
                 self.WNDRS = [door(wls=wls,**h) if abs(h["y"]-h["height"]/2.0)<0.1 else widw(wls=wls,**h) for h in cont] #wid, rate, width, height, y
-
+        
     def toBlocksJson(self,rid=-1):
         return []#[wd.toBlockJson(rid,str(idx)) for idx,wd in enumerate(self.WNDRS)]
 
@@ -170,6 +170,9 @@ class wndrs():
     
     def __iter__(self):
         return iter(self.WNDRS)
+    
+    def __len__(self):
+        return len(self.WNDRS)
 
     def draw(self):
         [wd.draw() for wd in self.WNDRS]

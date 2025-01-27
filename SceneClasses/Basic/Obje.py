@@ -17,9 +17,9 @@ def reversedObj(o,j): #reversedObj(bx2d.fromFlat(m.bunches[nid].exp),self.scene[
     return o-obje.empty(j)
 class bx2d(): #put those geometrical stuff into this base class
     def __init__(self,t=np.array([.0,.0,.0]),s=np.array([1.,1.,1.]),o=np.array([.0]),b=None): #no semantical information here
-        self.translation = t if not b else b.translation
-        self.size        = s if not b else b.size
-        self.orientation = o if not b else b.orientation
+        self.translation = copy(t) if not b else copy(b.translation)
+        self.size        = copy(s) if not b else copy(b.size)
+        self.orientation = copy(o) if not b else copy(b.orientation)
         from ..Operation.Adjs import adj
         self.adjust = adj(o=self,call=False)
         
@@ -33,7 +33,7 @@ class bx2d(): #put those geometrical stuff into this base class
     @classmethod
     def fromBoxJson(cls,bj):
         bbox = [bj["bbox"]["min"],bj["bbox"]["max"]]
-        b = cls.fromFlat([(bbox[0][0]+bbox[1][0])/2.0,(bbox[0][1]+bbox[1][1])/2.0,(bbox[0][2]+bbox[1][2])/2.0,1,1,1,bj["orient"]])
+        b = cls.fromFlat(np.array([(bbox[0][0]+bbox[1][0])/2.0,(bbox[0][1]+bbox[1][1])/2.0,(bbox[0][2]+bbox[1][2])/2.0,1,1,1,bj["orient"]]))
         b.size = np.abs(b.matrix(-1) @ np.array([(bbox[1][0]-bbox[0][0])/2.0,(bbox[1][1]-bbox[0][1])/2.0,(bbox[1][2]-bbox[0][2])/2.0]))
         return b
         #endregion: inputs-------#
@@ -42,16 +42,16 @@ class bx2d(): #put those geometrical stuff into this base class
     def __str__(self):
         return "tr:[%.3f,%.3f,%.3f], sz:[%.3f,%.3f,%.3f], oi:[%.3f],[%.3f,0.000,%.3f]"%(self.translation[0],self.translation[1],self.translation[2],self.size[0],self.size[1],self.size[2],self.orientation[0],np.sin(self.orientation[0]),np.cos(self.orientation[0]))
 
-    def draw(self,g=False,d=False,color="",alpha=1.0,cr="",text=False,marker="."):
+    def draw(self,g=False,d=False,color="",alpha=1.0,cr="",text=False,marker=".",linewidth=2):
         from matplotlib import pyplot as plt
         corners = self.corners2()
         if g:
-            plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker=marker, color=grupC[self.gid])
+            plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker=marker, color=grupC[self.gid],linewidth=linewidth)
         else:
             if len(color):
-                plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker=marker, color=color, alpha=alpha)
+                plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker=marker, color=color, alpha=alpha,linewidth=linewidth)
             else:
-                plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker=marker)
+                plt.plot( np.concatenate([corners[:,0],corners[:1,0]]), np.concatenate([-corners[:,1],-corners[:1,1]]), marker=marker,linewidth=linewidth)
         if d:
             if len(cr):
                 plt.plot([self.translation[0], self.translation[0]+0.5*self.direction()[0]], [-self.translation[2],-self.translation[2]-0.5*self.direction()[2]], marker="x", color=cr)
@@ -62,13 +62,13 @@ class bx2d(): #put those geometrical stuff into this base class
 
     def drao(self,way,colors):
         if way in ["pnt","pns"] :
-            self.draw(d=False,color=(0.6,0.6,0.6),text=False)
+            self.draw(d=False,color=(0.6,0.6,0.6),text=False,linewidth=4)
             self.samples.draw(way,colors)
         else:
             if way=="pat":
-                self.draw(d=True,cr=(0.0,0.0,0.0),text=True)
+                self.draw(d=True,cr=(0.0,0.0,0.0),text=True,linewidth=4)
                 return
-            self.draw(d=True,color=colors["res"],cr=(0.0,0.0,0.0),text=False)
+            self.draw(d=True,color=colors["res"],cr=(0.0,0.0,0.0),text=False,linewidth=4)
             if way == "syn":
                 from matplotlib import pyplot as plt
                 a = bx2d(b=self)
@@ -161,10 +161,10 @@ class bx2d(): #put those geometrical stuff into this base class
         #endregion: relatives----#
 
         #region: samples---------#
-    def optimizePhy(self,config,debug=False,ut=-1):
-        from ..Semantic.Samp import samps
-        self.samples = samps(self,config["ss"],debug)
-        return self.samples(config,ut)
+    # def optimizePhy(self,config,debug=False,ut=-1):
+    #     from ..Semantic.Samp import samps
+    #     self.samples = samps(self,config["ss"],debug)
+    #     return self.samples(config,ut)
         #endregion: samples------#
 
     #endregion: operations-------#
@@ -184,13 +184,13 @@ class obje(bx2d):
         return cls(i=j,v=v)
 
     @classmethod
-    def fromFlat(cls,v,j):
-        return cls(b=bx2d.fromFlat(v),i=j)
+    def fromFlat(cls,v,j=0,n=""):
+        return cls(b=bx2d.fromFlat(v),n=n) if len(n) else cls(b=bx2d.fromFlat(v),i=j)
  
     def fromTensor(self,tensor,fmt):
         import torch
         i = 0
-        for f in format:
+        for f in fmt:
             if f[0]=="t":
                 self.translation[0] = float(tensor[i])
                 if f[1]==3:
@@ -214,7 +214,11 @@ class obje(bx2d):
 
     @classmethod
     def fromObjectJson(cls,oj,idx,scne=None):
-        return cls(b=bx2d.fromBoxJson(oj),n=oj["coarseSemantic"],idx=idx,modelId=oj["modelId"],scne=scne)
+        o = cls(b=bx2d.fromBoxJson(oj),n=oj["coarseSemantic"],idx=idx,modelId=oj["modelId"],scne=scne,v=oj["v"])
+        if "samples" in oj:
+            from ..Semantic.Samp import samps
+            o.samples = samps.fromSamplesJson(o, oj["samples"])
+        return o
         #endregion: inputs-------#
 
         #region: presentation----#
@@ -222,27 +226,34 @@ class obje(bx2d):
         return "%d %s\t"%(self.idx, self.class_name()[:10]) + (super(obje,self).__str__()) + ("" if self.nid<0 else "\tgid=%d,nid=%d"%(self.gid,self.nid))
 
     def toObjectJson(self, rid=0):
-        return {**(super(obje,self).toBoxJson()), "id":self.scne.scene_uid if self.scne.scene_uid else ""+"_"+str(self.idx), "type":"Object", "modelId":self.modelId, "coarseSemantic":self.class_name(), "roomId":rid, "inDatabase":False}
+        ret = {
+            **(super(obje,self).toBoxJson()),
+            "id":(self.scne.scene_uid if self.scne.scene_uid else "")+"_"+str(self.idx),
+            "type":"Object", "modelId":self.modelId, "coarseSemantic":self.class_name(),
+            "roomId":rid, "inDatabase":False, "gid":self.gid, "nid":self.nid, "v":self.v}
+        if hasattr(self,"samples"): ret["samples"] = self.samples.toSamplesJson()
+        return ret
     
-    def draw(self,g=False,d=False,color="",alpha=1.0,cr="",text=True):
-        return super(obje,self).draw(g,d,color,alpha,cr,("%d "%(self.nid) if self.nid>-1 else "")+self.class_name() if text else "")
+    def draw(self,g=False,d=False,color="",alpha=1.0,cr="",text=True,marker=".",linewidth=2):
+        if self.v: return super(obje,self).draw(g,d,color,alpha,cr,("%d "%(self.nid) if self.nid>-1 else "")+self.class_name() if text else "",marker,linewidth)
  
     def renderable(self,objects_dataset,color_palette,no_texture=True,depth=0):
         from simple_3dviz import Mesh
         from simple_3dviz.renderables.textured_mesh import TexturedMesh
-        if abs(self.size[1]) > 1e-5:
-            furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
-        else:
-            furniture = objects_dataset.get_closest_furniture_to_2dbox(self.class_name(), np.array([self.size[0],self.size[2]]))
+        if self.modelId is not None: furniture = objects_dataset.get_object_by_jid(self.modelId)
+        elif abs(self.size[1]) > 1e-5: furniture = objects_dataset.get_closest_furniture_to_box(self.class_name(), self.size)
+        else: furniture = objects_dataset.get_closest_furniture_to_2dbox(self.class_name(), np.array([self.size[0],self.size[2]]))
         try:
             raw_mesh = Mesh.from_file(furniture.raw_model_path, color=color_palette[self.class_index, :]) if no_texture else TexturedMesh.from_file(furniture.raw_model_path)
         except:
-            print(furniture.raw_model_path)
-            assert 1==0
+            raise RuntimeError(furniture.raw_model_path)
+        self.modelId = furniture.model_jid
         raw_mesh.scale(furniture.scale)
-        if abs(self.size[1]) < 1e-5:
-            self.size[1] = (raw_mesh.bbox[1][1] - raw_mesh.bbox[0][1])/2
-        self.translation[1] = self.translation[1] if ("Lamp" in self.class_name()) else self.size[1] - depth
+        if abs(self.size[1]) < 1e-5: self.size[1] = (raw_mesh.bbox[1][1] - raw_mesh.bbox[0][1])/2
+        #print(self.size[1])
+        #print(self.translation[1])
+        if "Lamp" not in self.class_name(): self.translation[1] = self.size[1] - depth
+        #self.translation[1] = self.translation[1] if ("Lamp" in self.class_name()) else self.size[1] - depth
         raw_mesh.affine_transform(t=-(raw_mesh.bbox[0]+raw_mesh.bbox[1])/2)
         raw_mesh.affine_transform(R=self.matrix(-1), t=self.translation)
         return raw_mesh
@@ -366,7 +377,7 @@ class objes():
       
     def renderables(self,scene_render,objects_dataset,no_texture,depth):
         import seaborn,tqdm
-        [scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in [_ for _ in self.OBJES if _.v] ]
+        [scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth)) for o in self.OBJES if o.v ]
         # for o in tqdm.tqdm([_ for _ in self.OBJES if _.v and _.gid]):
         #     scene_render.add(o.renderable(objects_dataset, np.array(seaborn.color_palette('hls', len(object_types)-2)), no_texture,depth))
       
@@ -384,11 +395,7 @@ class objes():
         return torch.cat([o.toTensor(fmt) for o in self]+[obje.empty(v=False).tensor(format)]*(length-len(self)),axis=0).reshape((1,length,-1))
 
     def toSceneJson(self,rsj):
-        for o in [_ for _ in self.OBJES if _.v]:
-            rsj["objList"].append(o.toObjectJson())
-            if o.class_name().lower() in ["window", "door"]:
-                raise NotImplementedError
-                rsj["blockList"].append(o.toObjectJson())
+        rsj["objList"] = [o.toObjectJson() for o in self.OBJES]
         return rsj
         #endregion: presentation-#
 
@@ -445,7 +452,6 @@ class objes():
             return  A.sum(axis=0), np.array([(norm(a)**2)/2.0 for a in A] ).sum(axis=0)
         
     def optimizePhy(self,config,timer,debug=False,ut=-1):
-        #print(ut)
         for o in [_ for _ in self.OBJES if _.v and _.gid]:
             o.optimizePhy(config,timer,debug,ut)
         from ..Operation.Adjs import adjs

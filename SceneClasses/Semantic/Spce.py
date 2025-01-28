@@ -364,7 +364,7 @@ class spce():
         #print(self.I)
         #print(self.J)
         #raise NotImplementedError
-        from ..Basic.Obje import obje
+        from ..Basic import obje
         self.refObj = obje(self.corners[self.J],np.array([1,1,1]),np.array([(2-self.J)*np.math.pi/2])) #if self.J != -1 else  obje((self.corners[self.I]+self.corners[(self.I-1)%4])/2.0,np.array([1,1,1]),self.I*np.math.pi)
         self.relA = np.array([self.a[0],self.a[1],self.a[2]]) if self.J%2==0 else np.array([self.a[2],self.a[1],self.a[0]])
 

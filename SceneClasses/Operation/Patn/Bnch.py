@@ -22,7 +22,7 @@ class bnch():
         return self.exp + np.random.randn(self.exp.shape[-1])*((self.dev if d<0 else d)**(0.5))/5#np.array([5,1,5,5,1,5,5])
 
     def diff(self,obj): #self.diff(obj)
-        from ..Basic.Obje import angleNorm
+        from ...Basic import angleNorm
         a = obj.flat()-self.exp
         return np.concatenate([a[:-1],[angleNorm(a[-1])]])
 
@@ -30,11 +30,11 @@ class bnch():
         return ((self.diff(obj))**2).sum() if type(hint)==int else (((self.diff(obj))**2/self.dev).sum() if hint is None else (hint*(self.diff(obj))**2/self.dev).sum())#/self.dev 
 
     def optimize(self,obj,iRate):
-        from ..Basic.Obje import obje
+        from ...Basic import obje
         return obje.fromFlat((self.diff(obj))*iRate+self.exp,j=obj.class_index)
 
     def add(self,obj,f=False):
-        from ..Basic.Obje import angleNorm
+        from ...Basic import angleNorm
         if self.accept(obj) or f:
             self.exp = (self.exp * (len(self.obs) + 1) + self.diff(obj)) / (len(self.obs)+1)
             self.exp[-1] = angleNorm(self.exp[-1])
@@ -64,7 +64,7 @@ class bnch():
 
     def draw(self,basic,dir,idx,J,scaled,all,lim,path,offset=[4.0,0.0]):
         from matplotlib import pyplot as plt
-        from ..Basic.Obje import obje, object_types
+        from ...Basic import obje, object_types
         plt.axis('equal')
         plt.xlim(-lim,lim)
         plt.ylim(-lim,lim)
@@ -155,11 +155,11 @@ class bnch_node():
     #             self.norm = tree[cid].norm
     #             self.I,self.J = cid, tree[cid].oid
     #     if self.I != self.nid:
-    #         from ..Basic.Obje import obje
+    #         from ...Basic import obje
     #         self.o = tree[self.I].o+(obje.fromFlat(tree.pm[self.nid].bunches[self.I].exp,j=tree.scene[tree[self.I].oid].class_index)-obje.empty(j=tree.scene[self.oid].class_index))
 
     def downward(self, tree, ir):
-        from ..Basic.Obje import obje
+        from ...Basic import obje
         exp_son = tree.scene[tree[self.fid].oid] + obje.fromFlat(tree.pm[self.fid].bunches[self.nid].exp, j=tree.scene[self.oid].class_index) if self.fid else self.o
         tree.scene[self.oid].adjust.toward(exp_son, ir)# if self.fid else ir*0.5)
         [tree[cid].downward(tree, ir) for cid in self.child_id]
@@ -197,7 +197,7 @@ class bnch_tree():
         self[self.root].downward(self, ir) #return {n.oid:n.J for n in self.nodes.values()}
 
 def bnch_effects(node, tree):
-    from ..Basic.Obje import obje, angleNorm
+    from ...Basic import obje, angleNorm
     class bnch_effect():
         def __init__(self, parent, child=None, expect=None):
             if child: #this effect is from other 
@@ -249,7 +249,7 @@ def bnch_effects(node, tree):
                 ws += w
         flats[-1] = angleNorm(flato)*W
 
-        from ..Basic.Obje import obje
+        from ...Basic import obje
         node.o = (obje.fromFlat(flats/W,j=node.o.class_index))
         node.Norm += sum([tree[cid].Norm for cid in node.child_id if tree[cid].Norm > 2e-8])
 
@@ -289,6 +289,6 @@ def bnch_effects(node, tree):
 
         if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
             flats[-1] = angleNorm(flato)*W
-            from ..Basic.Obje import obje
+            from ...Basic import obje
             node.o = (obje.fromFlat(flats/W,j=node.o.class_index))
         node.Norm += sum([tree[cid].Norm for cid in node.child_id if tree[cid].Norm > 2e-8])

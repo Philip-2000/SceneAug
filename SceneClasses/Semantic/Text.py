@@ -7,7 +7,7 @@ class text():
         return text
 
     def parse(self, sens):
-        from ..Basic.Obje import object_types
+        from ..Basic import object_types
         formatStr = [" is on the left of ", " is on the left of ", " is in front of ", " is behind ", " is close to "]
         counts=[0 for _ in object_types]
         nums = {"a":1,"one":1,"two":2,"three":3,"four":4,"five":5,"six":6,"seven":7,"eight":8,"nine":9,"ten":10}

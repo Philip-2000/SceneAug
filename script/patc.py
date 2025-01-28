@@ -11,9 +11,9 @@ def parse(): #construting pattern
 if __name__ == "__main__":
     args = parse()
     import os
-    from SceneClasses.Operation.Patn import patternManager as PM
+    from SceneClasses.Operation import patternManager as PM
     if args.dataset == "":
         PM(args.version).draw()
-    from SceneClasses.Basic.Scne import scneDs as SDS
+    from SceneClasses.Basic import scneDs as SDS
     T,S = PM(args.version,verb=args.verbose,new = True), SDS(args.dataset,lst=os.listdir(args.dataset),grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
     T.construct(args.maxDepth,args.scaled,S)

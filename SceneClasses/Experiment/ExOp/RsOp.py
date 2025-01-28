@@ -1,33 +1,35 @@
 class rsop():
     def __init__(self, name):
         self.name = name
-        from .Tmer import tmer
+        from ..Tmer import tmer
         self.timer = tmer()
         self.adj,self.vio,self.fit,self.dif = [],[],[],[]
 
     def clear(self):
-        from .Tmer import tmer
+        from ..Tmer import tmer
         self.timer = tmer()
         self.adj,self.vio,self.fit,self.dif = [],[],[],[]
 
     def append(self, **kwargs):
-        if "step" in kwargs:
-            try:
-                assert len(self) == kwargs["step"]
-            except:
-                print("name=%s, len=%d, step=%d"%(self.name,len(self),kwargs["step"]))
-                raise AssertionError
+        # if "step" in kwargs:
+        #     try:
+        #         assert len(self) == kwargs["step"]
+        #     except:
+        #         print("name=%s, len=%d, step=%d"%(self.name,len(self),kwargs["step"]))
+        #         raise AssertionError
 
         _ = self.adj.append(kwargs["adj"].Norm()) if "adj" in kwargs else None
+        if kwargs["step"] == 1: _ = self.adj.append(kwargs["adj"].Norm()) if "adj" in kwargs else None
         _ = self.vio.append(kwargs["vio"]) if "vio" in kwargs else None
         _ = self.fit.append(kwargs["fit"]) if "fit" in kwargs else None
         _ = self.dif.append(kwargs["dif"]) if "dif" in kwargs else None
+        if kwargs["step"] == 1: _ = self.dif.append(kwargs["dif"]) if "dif" in kwargs else None
     
     def __getitem__(self, keyidx):
         if keyidx[0] == "adj":
             return self.adj[keyidx[1]]
         elif keyidx[0] == "vio":
-            return self.vio[keyidx[1]] / (4*int(self.name[-1]))
+            return self.vio[keyidx[1]]# / (4*int(self.name[-1]))
         elif keyidx[0] == "fit":
             return self.fit[keyidx[1]]
         elif keyidx[0] == "dif":
@@ -43,8 +45,12 @@ class rsop():
         return { "adj":[round(a,5) for a in self.adj], "vio":[round(a,5) for a in self.vio], "fit":[round(a,5) for a in self.fit], "dif":[round(a,5) for a in self.dif], "timer":self.timer.save() }
 
     def load(self, dct):
-        self.adj, self.vio, self.fit, self.dif = dct["adj"], dct["vio"], dct["fit"], dct["dif"]
+        self.adj, self.vio, self.fit, self.dif = dct["adj"], [dct["vio"][1]]+dct["vio"][1:], [dct["fit"][1]]+dct["fit"][1:], dct["dif"]
         self.timer.load(dct["timer"])
+
+    def connect(self, name, d):
+        import os
+        return name+" "+os.path.basename(d)
 
 T=1.2
 class rsops():
@@ -118,8 +124,8 @@ class rsops():
         if n=="origin":
             for d in self.dirs:
                 dct = json.loads(open(os.path.join(d,"origin.json"),"r").read())
-                for name in dct: #self.rsops[name] = rsop(name)
-                    self.rsops[ self.connect(name,d) ].load(dct[name])
+                for name in dct: #self.rsops[name] = rsop(name) self.connect(name,d)
+                    self.rsops[ name ].load(dct[name])
         elif n=="plot":
             self.plots = json.loads(open(os.path.join(self.dir,"plot.json"),"r").read())
 
@@ -143,6 +149,7 @@ class rsops():
 
         #res = np.zeros(( len(flat_list) , len(self.rsops)))
         cur = [ self.rsops[name][(key,0)] for name in self.rsops]
+        #print(cur)
         avg = [0 for _ in self.flat_list]#np.zeros((len(flat_list)))
 
 
@@ -152,6 +159,7 @@ class rsops():
             cur[list(self.rsops.keys()).index(name)] = self.rsops[name][(key,i)]
             #for jj in range(len(self)): res[s][jj] = cur[jj]
             avg[s] = sum(cur)/len(self)
+            #print(avg[s])
         return [(self.flat_list[s][2], round(avg[s],5)) for s in range(len(self.flat_list))]
 
     def step_align(self,key):
@@ -176,8 +184,8 @@ class rsops():
             from collections import Counter
             import os
             a = Counter(steps)
-            print(os.path.basename(self.dir) + " 4:%.2f, 5:%.2f, 6:%.2f, 7+:%.2f "%(
-                a[4]/len(self),a[5]/len(self),a[6]/len(self),sum([a[i] for i in range(7,25)])/len(self)
+            print(os.path.basename(self.dir) + " 4:%.2f, 5:%.2f, 6:%.2f, 7:%.2f, 8:%.2f, 9:%.2f, 10:%.2f, 11+:%.2f "%(
+                a[5]/len(self),a[6]/len(self),a[7]/len(self),a[8]/len(self),a[9]/len(self),a[10]/len(self),a[11]/len(self),sum([a[i] for i in range(12,25)])/len(self)
             ))
         return steps_elbow, steps
     #endregion: utils

@@ -26,16 +26,16 @@ class scne():
 
         #region: semantic-------#
             #region: space------#
-        from ..Semantic.Spce import spces
+        from ..Semantic import spces
         self.SPCES = spces(self)#[]
             #endregion: space---#
 
             #region: text-------#
-        self.text = scene["text"] if "text" in scene else ""
+        self.TEXTS = scene["text"] if "text" in scene else ""
             #endregion: text----#
 
             #region: eval-------#
-        self.eval = scene["eval"] if "eval" in scene else {}
+        self.EVALS = scene["eval"] if "eval" in scene else {}
             #endregion: eval----#
 
             #region: field-------#
@@ -44,10 +44,10 @@ class scne():
 
             #region: patn--------#
         assert not grp#from ..Semantic.Grup import grup 
-        from ..Semantic.Link import links
+        from ..Semantic import links
         self.LINKS=links(self)
         self.grp = False#grp
-        from ..Semantic.Grup import grups
+        from ..Semantic import grups
         self.GRUPS=grups(self)
         #这一段是不是需要重整一下，确认一下如何从plan+patn的方式来构建grup和link。
         #那如果遇到暂存的plan呢？如何加载暂存的plan呢？
@@ -55,7 +55,7 @@ class scne():
         # if grp:
         #     grops = np.ones(len(self.OBJES)) if scene["grops"] is None else scene["grops"]
         #     self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":irt},j+1,scne=self) for j in range(int(max(grops)))]
-        self.plan = None # a object: self.plan = ..Operation.Plan.plan(scene=self,pm=???)
+        self.PLAN = None # a object: self.PLAN = ..Operation.Plan.plan(scene=self,pm=???)
         
         #经过深思熟虑之后，我有一个想法，那就是plan，LINKS，GRUPS的读取和存储，都围绕着plan来进行
         #可以。但是这都是去toSceneJson和fromSceneJson的时候才需要考虑的问题。而不是现在吗？
@@ -80,9 +80,9 @@ class scne():
         scene.OBJES = objes.fromSceneJson(rsj,scene)
         from .Wall import walls
         scene.WALLS = walls.fromWallsJson(rsj["roomShape"],rsj["roomNorm"],scene, rsj["blockList"])
-        from ..Operation.Plan import plas
-        scene.plan = plas.fromPlanJson(rsj["plan"],scene) if "plan" in rsj else None
-        if "eval" in rsj: scene.eval = rsj["eval"]
+        from ..Semantic import plan
+        scene.PLAN = plan.fromPlanJson(rsj["plan"],scene) if "plan" in rsj else None
+        if "eval" in rsj: scene.EVALS = rsj["eval"]
         return scene
 
     @classmethod
@@ -179,7 +179,7 @@ class scne():
         [scene_render.add(w.renderable(height=height)) for w in self.WALLS] #return scene_render.renderables
     
     def more_renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0,sz=192, rt=25.):     #class top2down():
-        self.plan.renderables(scene_render)
+        self.PLAN.renderables(scene_render)
         [o.samples.renderables(scene_render) for o in self.OBJES if hasattr(o,"samples")]
         
     def exportAsSampleParams(self):
@@ -203,9 +203,9 @@ class scne():
         rsj = self.WALLS.toWallsJson(rsj)
 
         #semantic
-        if len(self.eval): rsj["eval"] = self.eval
-        if len(self.text): rsj["text"] = self.text
-        if self.plan: rsj = self.plan.toPlanJson(rsj)
+        if len(self.EVALS): rsj["eval"] = self.EVALS
+        if len(self.TEXTS): rsj["text"] = self.TEXTS
+        if self.PLAN: rsj = self.PLAN.toPlanJson(rsj)
         if len(self.LINKS): rsj = self.LINKS.toLinksJson(rsj)
         if len(self.GRUPS): rsj = self.GRUPS.toGrupsJson(rsj)
 
@@ -315,7 +315,7 @@ class scneDs():
                 except:
                     template = scne.fromSceneJson(json.load(open(os.path.join(name,LST[i],"scene.json"))))
                 scene = scne.empty(template.scene_uid)
-                scene.text = template.text
+                scene.TEXTS = template.TEXTS
             else:
                 pbar.set_description("random texting %s "%(i))
                 scene = scne.empty(str(i))
@@ -344,7 +344,7 @@ class scneDs():
     #region: operation------------#
 
     def synthesis(self,syth,cond,T,**kwargs):
-        from ..Operation.Syth import agmt,gnrt,copl
+        from ..Operation import agmt,gnrt,copl
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("%s-%s, %s "%(syth,cond,self._dataset[i].scene_uid[:20]))
@@ -354,7 +354,7 @@ class scneDs():
             elif syth == "copl":
                 S = copl(T,self._dataset[i],v=V)
             elif syth == "rarg":
-                from ..Operation.Syth_Rarg import rarg
+                from ..Operation import rarg
                 S = rarg(T,self._dataset[i],v=V)
             elif syth == "agmt":
                 S = agmt(T,self._dataset[i],v=V)
@@ -379,24 +379,24 @@ class scneDs():
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("recognizing %s "%(self._dataset[i].scene_uid[:20]))
-            from ..Operation.Plan import plans
-            plans(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
+            from ..Operation import rgnz
+            rgnz(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
 
     def optimize(self,T,PatFlag,PhyFlag,steps,config,rand=-1):
         import os
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar: #range(len(self)):#
             pbar.set_description("optimizing %s"%(self._dataset[i].scene_uid[:20]))
-            from ..Operation.Optm import optm #print(self._dataset[i])
+            from ..Operation import optm #print(self._dataset[i])
             self._dataset[i].imgDir = os.path.join(".","pattern","opts", self._dataset[i].scene_uid)
             O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=rand,config=config,exp=False)
             O.loop(steps,pbar=pbar)
         
     def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        
-        from ..Operation.Patn import patternManager as PM
+        from ..Operation import patternManager as PM
         import numpy as np
         T = PM(pmVersion)
-        from SceneClasses.Operation.Plan import plans
+        from SceneClasses.Operation import rgnz
         from evaClasses.Titles import titles, indexes
         
         #----------------------------------------original data
@@ -432,13 +432,13 @@ class scneDs():
                             
                     if "FIT" in metrics:
                         for i in lst:
-                            FIT[i] = FIT[i] if FIT[i]>0 else plans(self[i],T,v=0).recognize(use=True,draw=False)[0]
+                            FIT[i] = FIT[i] if FIT[i]>0 else rgnz(self[i],T,v=0).recognize(use=True,draw=False)[0]
                         fit[vl].append( sum([FIT[i] for i in lst])/len(lst) )
 
                     if "VAR" in metrics and vl > 0:
                         for i in lst:
                             for j in lst:
-                                DIS[i][j] = DIS[i][j] if DIS[i][j] > -0.001 else ((self[i].plan.diff(self[j]) if self[i].plan else 0 ))
+                                DIS[i][j] = DIS[i][j] if DIS[i][j] > -0.001 else ((self[i].PLAN.diff(self[j]) if self[i].PLAN else 0 ))
                         
                         var[vl].append( sum([sum([DIS[i][j] for j in lst]) for i in lst])/(len(lst)*len(lst)) )#[(indx.dict)] = 
                     nms[vl].append(indx.dict)

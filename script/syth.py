@@ -13,6 +13,6 @@ def parse(): #using pattern to synthesis scene
 
 if __name__ == "__main__": 
     args = parse()
-    from SceneClasses.Basic.Scne import scneDs as SDS 
+    from SceneClasses.Basic import scneDs as SDS 
     assert (args.application != "agmt") or len(args.id) > 0
     SDS(name=args.dataset,lst=([args.id]*args.n_sequence if len(args.id) else []),prepare=args.condition,num=args.n_sequence).synthesis(args.application,args.condition,args.version)

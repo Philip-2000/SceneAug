@@ -1,4 +1,4 @@
-from ..Experiment.ExOp import EXOP_BASE_DIR
+from ...Experiment import EXOP_BASE_DIR
 default_optm_config = {
     "vis":{
         "res":{"res":(.5,.5,.5),},
@@ -11,7 +11,7 @@ default_optm_config = {
         #"rerec":False,
         "prerec":True,
         #"rand":False, #/5.0
-        "rate":{"mode":"exp_dn","r0":0.9,"lda":0.05,"rinf":0.4},#{"mode":"static","v":0.8}, #
+        "rate":{"mode":"exp_dn","r0":0.9,"lda":0.02,"rinf":0.4},#{"mode":"static","v":0.8}, #
         "vis":{
             "pat":True,
             "syn":{"t":(.0,.5,.5),"s":(.5,.0,.5),"r":(.5,.5,.0),"res":(.5,.5,.5),},
@@ -71,6 +71,7 @@ default_optm_config = {
             # #"pnt":{"al":(.0,.0,.0),},
         }
     },
+    "stop":{ "over_bounds":{"ads":0.5,"vios":2.0,"fits":5.0}, "error_bounds":{"vios":10.0,"fits":50.0}, "over_len":4, },
     "adjs":{"inertia":0.0,"decay":200.0,}
 }
 
@@ -79,15 +80,15 @@ class optm_mcmc():
         self.scene=scene
         from SceneClasses.Operation.Patn import patternManager as PM 
         from .Shdl import shdl_factory
-        from ..Experiment.Tmer import tme
+        from ...Experiment import tme
         self.PM = PM(pmVersion)
         self.E,self.T = -1e3, shdl_factory(T=1e4,a=0.1,mode="hamonic")
         self.timer = timer if timer else tme()
 
     def __eval(self):
-        from .Plan import plans
-        from ..Experiment.Tmer import tme
-        fit,_,__ = plans(self.scene,self.PM,v=0).recognize(use=False,draw=False,show=False)
+        from .. import rgnz
+        from ...Experiment import tme
+        fit,_,__ = rgnz(self.scene,self.PM,v=0).recognize(use=False,draw=False,show=False)
         _, vio = self.scene.OBJES.optimizePhy(default_optm_config["phy"],tme()), self.scene.OBJES.violates()
         return fit - 100*vio
 
@@ -112,7 +113,7 @@ class optm_mcmc():
 class optm():
     def __init__(self,pm=None,scene=None,PatFlag=True,PhyFlag=True,rand=-1,config={},exp=False, timer=None):
         self.scene = scene
-        from ..Experiment.Tmer import tme
+        from ...Experiment import tme
         self.timer = tme() if timer is None else timer
         self.exp, self.state, self.config = exp, -1e3, config
         from . import Adjs
@@ -121,8 +122,9 @@ class optm():
         self.PhyOpt = None if not PhyFlag else PhyOpt(scene,self.timer,config=config["phy"],exp=exp)
         _           = None if rand < 0    else self.__random(rand)
 
-        self.over_bounds, self.over_states, self.over_len = {"ads":0.5,"vios":2.0,"fits":35.0}, {"ads":[],"vios":[],"fits":[]}, 4
-        self.error_bounds = {"vios":10.0,"fits":80.0}
+        #self.over_bounds, self.over_states, self.over_len = {"ads":0.5,"vios":2.0,"fits":5.0}, {"ads":[],"vios":[],"fits":[]}, 4
+        #self.error_bounds = {"vios":10.0,"fits":50.0}
+        self.over_bounds, self.over_states, self.over_len, self.error_bounds = config["stop"]["over_bounds"], {"ads":[],"vios":[],"fits":[]}, config["stop"]["over_len"], config["stop"]["error_bounds"]
 
     def __random(self,rand,use=True):
         import numpy as np,os
@@ -155,7 +157,7 @@ class optm():
         for nms in ["pns","syn","pat","fiv"]: self.scene.drao(nms, self.config["vis"][nms], 0.0)
         open(os.path.join(self.scene.imgDir,"%.1f.json"%(0.0)),"w").write(json.dumps(self.scene.toSceneJson()))
 
-        from ..Experiment.Tmer import tmer
+        from ...Experiment import tmer
         timer = tmer()
         [o.adjust.clear() for o in self.scene.OBJES]
         for s in range(6):
@@ -178,20 +180,13 @@ class optm():
     def __call__(self, s, debugdraw=None): #timer, adjs, vio, fit, cos(PhyAdjs,PatAdjs), Over
         if self.PhyOpt and self.PatOpt:
             self.timer("") #from .Adjs import adjs #ad = adjs(self.scene.OBJES) #print("zero") #print(ad)
-            #debugdraw(self.scene,s,"--") if debugdraw else None #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d--.png"%(self.scene.scene_uid[:10],s))#return #
             PatRet = self.PatOpt.opt(s) #adjs,fit,self.over(adjs,vio)
-            #print("no") #print(PhyRet["adjs"])
-            #debugdraw(self.scene,s,"-") if debugdraw else None ##self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d-.png"%(self.scene.scene_uid[:10],s))#return #
             PhyRet = self.PhyOpt.opt(s) #adjs,vio,self.over(adjs,vio)
-            #print("yes")#print(PatRet["adjs"])
             self.timer("")
             
-            fit = self.PatOpt.eval()#,fitmax = self.scene.plan.update_fit() #if self.exp else (0,0)
-            #print(fit)
-            #,"over":self.over(adjs,fit)
+            fit = self.PatOpt.eval()#,fitmax = self.scene.PLAN.update_fit() #if self.exp else (0,0)
             vio = self.PhyOpt.eval()#self.scene.OBJES.violates() #if self.exp else None
             ad = PhyRet+PatRet #PhyRet["adjs"]+PatRet["adjs"]
-            #,"over":self.over(adjs,vio))
             
             return {"adj":ad, "vio":vio, "fit":fit,
                     "over": self.__over(ad,fit,vio)
@@ -212,16 +207,14 @@ class optm():
                 ret,s = {"over":False},0
                 while (ret["over"] is False) and s <= 20: #the over criterion #assert ret["over"] is False and ret["over"] is not None
                     ret, s = self(s), s+1
-                if ret["over"] is not None and s <= 20:
-                    break
+                if ret["over"] is not None and s <= 20: break
                 else:
                     print("restart",self.scene.scene_uid)
                     adjs0 = self.__random(2.0,use=False)
         else:
             for s in range(steps):
                 self(s)
-                if pbar:
-                    pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], s))
+                if pbar: pbar.set_description("optimizing %s %d"%(self.scene.scene_uid[:20], s))
         
         _ = (self.PhyOpt.show() if self.PhyOpt else None, self.PatOpt.show() if self.PatOpt else None)
 
@@ -238,7 +231,7 @@ class PhyOpt():
         self.configVis = config["vis"] if "vis" in config else None
         if (not exp) and self.configVis:
             if ("fiv" in self.configVis or "fih" in self.configVis or "fip" in self.configVis or "fiq" in self.configVis):
-                from ..Semantic.Fild import fild
+                from ...Semantic import fild
                 self.scene.fild = fild(scene,config["grid"],config)
         self.shows = {"res":[],"syn":[],"pnt":[],"pns":[],"fiv":[],"fih":[],"fip":[],"fiq":[]}
         self.steps = 0
@@ -260,8 +253,7 @@ class PhyOpt():
         return False #vio < 0.001
     
     def eval(self,safe=True):
-        if safe:
-            self.scene.OBJES.optimizePhy(self.config,self.timer,debug=True,ut=-1)
+        if safe: self.scene.OBJES.optimizePhy(self.config,self.timer,debug=True,ut=-1)
         return self.scene.OBJES.violates()
     
     def opt(self,s,ir=-1):
@@ -270,7 +262,7 @@ class PhyOpt():
     def __call__(self,s,ir=-1):
         #self.scene.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d-opt.png"%(self.scene.scene_uid[:10],s))#return #
         self.timer("phy_opt")
-        adjs = self.scene.OBJES.optimizePhy(self.config,self.timer,debug=bool(self.configVis),ut=(self.iRate(s) if ir<0 else ir))
+        adjs = self.opt(s,ir) #self.scene.OBJES.optimizePhy(self.config,self.timer,debug=bool(self.configVis),ut=(self.iRate(s) if ir<0 else ir))
         self.timer("phy_opt")
         
         self.draw(s)
@@ -294,11 +286,11 @@ class PatOpt():
         self.steps = 0
         if not exp: # exp did random by itself (because it has to record the result of randomization) , not from us
             if self.prerec: #for recognition: when we know how the original scene is, we use recognition
-                from .Plan import plans
-                plans(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
+                from .. import rgnz
+                rgnz(scene,self.PM,v=0).recognize(use=True,draw=False,show=False)
                 #if self.rand: self.__random()
             else: #for rearrangement: when we don't know how the original scene is, we use rearrangement to guess how the semantic of the objects are
-                from .Syth_Rarg import rarg
+                from .. import rarg
                 rarg(self.PM,scene,v=0).uncond(use=True,move=True,draw=False)
 
         self.shows = {"pat":[]}
@@ -318,15 +310,15 @@ class PatOpt():
         return False#adjs.norm() < 0.1
     
     def eval(self):
-        fit,fitmax = self.scene.plan.update_fit()
+        fit,fitmax = self.scene.PLAN.update_fit() #print(fit,fitmax)
         return fitmax-fit
 
     def opt(self,s,ir=-1):
-        return self.scene.plan.optimize((self.iRate(s) if ir <0 else ir),s)
+        return self.scene.PLAN.optimize((self.iRate(s) if ir <0 else ir),s)
 
     def __call__(self,s,ir=-1):        
         self.timer("pat_opt")
-        adjs = self.scene.plan.optimize((self.iRate(s) if ir <0 else ir),s)
+        adjs = self.opt(s,ir) #self.scene.PLAN.optimize((self.iRate(s) if ir <0 else ir),s)
         self.timer("pat_opt")
         
         self.draw(s)

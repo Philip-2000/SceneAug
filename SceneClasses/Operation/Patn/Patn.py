@@ -66,7 +66,7 @@ class merging():
     def __init__(self,d):
         self.d=d
     def __getitem__(self,a):
-        from ..Basic.Obje import object_types
+        from ...Basic import object_types
         try:
             a = object_types[int(a)]
             return object_types.index(self.d[a] if (a in self.d) else a)
@@ -78,7 +78,7 @@ class merging():
 class patternManager():
     def __init__(self,vers,verb=0,new=False):
         self.version = vers
-        self.workDir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))),"pattern")#"./pattern/"
+        self.workDir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),"pattern")#"./pattern/"
         self.fieldDir = os.path.join(self.workDir,"fields/")
         self.imgDir = os.path.join(self.workDir,"imgs/")
         self.treesDir = os.path.join(self.workDir,"trees/") #self.cnt = len(os.listdir(self.sceneDir))
@@ -137,7 +137,7 @@ class patternManager():
 
     def freqInit(self,n):#筛选出里面有的物体，组成bunch 然后进行分析，每一次向下个分析都有相应的可信度
         from .Bnch import bnch
-        from ..Basic.Obje import obje
+        from ...Basic import obje
         for s in self.rootNames:
             for ss in self.merging.reversed(s):
                 if not os.path.exists(os.path.join(self.fieldDir,ss+".txt")):
@@ -158,7 +158,7 @@ class patternManager():
 
     def freq(self,n,ex=True,lev=0): #,path
         from .Bnch import bnches,giveup
-        from ..Basic.Obje import object_types,noOriType
+        from ...Basic import object_types,noOriType
         path,m = [],n
         while m.idx != 0:
             path,m = (path if (m.type in noOriType) else [m.idx] + path), m.source.startNode
@@ -237,7 +237,7 @@ class patternManager():
 
     def draw(self,all=False,lim=5):
         import json
-        from ..Basic.Obje import obje,object_types
+        from ...Basic import obje,object_types
         if not os.path.exists(self.imgDir+self.version+"/"):
             os.makedirs(self.imgDir+self.version+"/")
         info = {}#open(self.imgDir+self.version+"/info.json")
@@ -295,14 +295,14 @@ class patternManager():
         return [res_0,res_1]
     
     def exp_object(self,i,s,d=.0,t=None,ori=None):
-        from ..Basic.Obje import obje
+        from ...Basic import obje
         if self[i].mid > 0: son = s[s(self[i].mid).idx] + obje.fromFlat(self[self[i].mid].bunches[i].sample(d),n=self[i].type)
         else:               son = obje.fromFlat(np.concatenate([t, self[0].bunches[i].exp[3:6], ori], axis=0), n=self[i].type)
         son.nid = i
         s.addObject(son)
 
     def random_scene(self,N_min=2,N_max=32,A=[-1],centers=[np.array([1.0,.0,.0]),np.array([-1.0,.0,.0])],oris=[np.array([-np.pi/2]),np.array([np.pi/2])],d=.0):
-        from ..Basic.Scne import scne
+        from ...Basic import scne
         s, paths = scne.empty(), self.random_paths(N_min=N_min,N_max=N_max,A=A)
         for j, path in enumerate(paths):
             [ self.exp_object(i,s,d,centers[j],oris[j]) for i in path ]

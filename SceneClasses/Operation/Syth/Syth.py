@@ -75,22 +75,22 @@ class syth():
     def uncond(self):
         raise NotImplementedError("virtual function")
 
-    def txcond(self):
+    def textcond(self):
         raise NotImplementedError("virtual function")
 
-    def rmcond(self):
+    def roomcond(self):
         raise NotImplementedError("virtual function")
     
-    def trcond(self):
+    def txrmcond(self):
         raise NotImplementedError("virtual function")
 
     def __call__(self):
         if (self.txcond and self.scene.text) and (self.rmcond and self.scene.room):
-            return self.trcond()
+            return self.txrmcond()
         elif self.txcond and hasattr(self.scene, "TEXTS") and len(self.scene.TEXTS):
-            return self.txcond()
+            return self.textcond()
         elif self.rmcond and len(self.scene.WALLS):
-            return self.rmcond()
+            return self.roomcond()
         else:
             return self.uncond()
 

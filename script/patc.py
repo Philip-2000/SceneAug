@@ -15,5 +15,5 @@ if __name__ == "__main__":
     if args.dataset == "":
         PM(args.version).draw()
     from SceneClasses.Basic import scneDs as SDS
-    T,S = PM(args.version,verb=args.verbose,new = True), SDS(args.dataset,lst=os.listdir(args.dataset),grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
+    T,S = PM(args.version,verb=args.verbose,new = True), SDS(args.dataset,lst=os.listdir(args.dataset)[:100],grp=False,wl=False,keepEmptyWL=True,cen=True,rmm=False)
     T.construct(args.maxDepth,args.scaled,S)

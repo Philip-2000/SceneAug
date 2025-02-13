@@ -31,7 +31,8 @@ class scne():
             #endregion: space---#
 
             #region: text-------#
-        self.TEXTS = scene["text"] if "text" in scene else ""
+        from ..Semantic import text
+        self.TEXTS = text(scene["text"]) if "text" in scene else ""
             #endregion: text----#
 
             #region: eval-------#
@@ -49,18 +50,8 @@ class scne():
         self.grp = False#grp
         from ..Semantic import grups
         self.GRUPS=grups(self)
-        #这一段是不是需要重整一下，确认一下如何从plan+patn的方式来构建grup和link。
-        #那如果遇到暂存的plan呢？如何加载暂存的plan呢？
-        #大多数时候的plan都不是暂存的，都是在后续手动识别的。
-        # if grp:
-        #     grops = np.ones(len(self.OBJES)) if scene["grops"] is None else scene["grops"]
-        #     self.GRUPS = [grup([o.idx for o in self.OBJES if grops[o.idx]==j+1],{"sz":self.roomMask.shape[-1],"rt":irt},j+1,scne=self) for j in range(int(max(grops)))]
         self.PLAN = None # a object: self.PLAN = ..Operation.Plan.plan(scene=self,pm=???)
         
-        #经过深思熟虑之后，我有一个想法，那就是plan，LINKS，GRUPS的读取和存储，都围绕着plan来进行
-        #可以。但是这都是去toSceneJson和fromSceneJson的时候才需要考虑的问题。而不是现在吗？
-
-
             #endregion: patn----#
         #endregion: semantic----#
         
@@ -173,14 +164,14 @@ class scne():
         from PIL import Image, ImageDraw
         Image.fromarray(self.roomMask.astype(np.uint8)).save(self.imgDir+self.scene_uid + "_Mask.png" if maskTitle=="" else maskTitle)
 
-    def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0,sz=192, rt=25.):     #class top2down():
+    def renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0,sz=192, rt=25.,back=0.4):     #class top2down():
         self.OBJES.renderables(scene_render,objects_dataset,no_texture,depth)
         scene_render.add(self.WALLS.renderable_floor(depth=depth,sz=sz,rt=rt)) #depth is positive
-        [scene_render.add(w.renderable(height=height)) for w in self.WALLS] #return scene_render.renderables
+        [scene_render.add(w.renderable(height=height,back=back)) for w in self.WALLS] #return scene_render.renderables
     
     def more_renderables(self,objects_dataset,scene_render,no_texture=True,depth=0,height=0,sz=192, rt=25.):     #class top2down():
         self.PLAN.renderables(scene_render)
-        [o.samples.renderables(scene_render) for o in self.OBJES if hasattr(o,"samples")]
+        [o.samples.renderables(scene_render) for o in self.OBJES if hasattr(o,"samples") and o.v]
         
     def exportAsSampleParams(self):
         from copy import copy
@@ -213,6 +204,10 @@ class scne():
         sj["rooms"].append(rsj)
         return sj
 
+    def save(self):
+        import os,json
+        os.makedirs(self.imgDir,exist_ok=True)
+        open(os.path.join(self.imgDir,self.scene_uid+".json"),"w").write(json.dumps(self.toSceneJson()))
         #endregion: presentation-#
 
     #endregion: in/outputs-------#
@@ -229,6 +224,16 @@ class scne():
     def outOfBoundaries(self): #intersect area,  object occupied area in total,  room area
         contour = self.WALLS.shape()
         return sum([o.shape().area-contour.intersection(o.shape()).area for o in self.OBJES]), sum([o.shape().area for o in self.OBJES]), contour.area
+    
+    def conflict(self, oj):
+        if not hasattr(self,"occupied"):
+            from shapely import unary_union
+            self.occupied = unary_union([o.shape() for o in self.OBJES])
+        s = oj.shape()
+        A = self.occupied.intersection(s)
+        if len(self.WALLS) > 0:
+            return A.area + (s.area - self.WALLS.shape().intersection(s).area)
+        return A.area
     #endregion: properties-------#
 
     #region: operations----------#
@@ -344,19 +349,21 @@ class scneDs():
     #region: operation------------#
 
     def synthesis(self,syth,cond,T,**kwargs):
-        from ..Operation import agmt,gnrt,copl
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar:
             pbar.set_description("%s-%s, %s "%(syth,cond,self._dataset[i].scene_uid[:20]))
             V=3 if len(self._dataset)==1 else 0
             if syth == "gnrt":
+                from ..Operation import gnrt
                 S = gnrt(T,self._dataset[i],v=V)
             elif syth == "copl":
+                from ..Operation import copl
                 S = copl(T,self._dataset[i],v=V)
             elif syth == "rarg":
                 from ..Operation import rarg
                 S = rarg(T,self._dataset[i],v=V)
             elif syth == "agmt":
+                from ..Operation import agmt
                 S = agmt(T,self._dataset[i],v=V)
 
             if syth == "agmt":
@@ -382,14 +389,14 @@ class scneDs():
             from ..Operation import rgnz
             rgnz(self._dataset[i],T,v=3 if (len(self._dataset)==1 and not show) else 0).recognize(show=show,**kwargs)
 
-    def optimize(self,T,PatFlag,PhyFlag,steps,config,rand=-1):
+    def optimize(self,T,steps,config,rand=-1):
         import os
         pbar = tqdm.tqdm(range(len(self)))
         for i in pbar: #range(len(self)):#
             pbar.set_description("optimizing %s"%(self._dataset[i].scene_uid[:20]))
             from ..Operation import optm #print(self._dataset[i])
             self._dataset[i].imgDir = os.path.join(".","pattern","opts", self._dataset[i].scene_uid)
-            O = optm(T,self._dataset[i],PatFlag=PatFlag,PhyFlag=PhyFlag,rand=rand,config=config,exp=False)
+            O = optm(T,self._dataset[i],rand=rand,config=config)
             O.loop(steps,pbar=pbar)
         
     def evaluate(self, metrics=[], cons=[], pmVersion="losy"):        
@@ -400,6 +407,9 @@ class scneDs():
         from evaClasses.Titles import titles, indexes
         
         #----------------------------------------original data
+        from evaClasses.Operation.generator.timer import timer
+        t = timer.load(self.dir)
+        TIM = [t.result["average"]]
         OSA = [-1 for _ in range(len(self))]
         FIT = [-1 for _ in range(len(self))]
         DIS = [ [-1 for _ in range(len(self))] for __ in range(len(self)) ]
@@ -446,9 +456,9 @@ class scneDs():
 
         res,full = [],[]
         for t in metrics:
-            if t == "CKL":
-                res.append(None)
-                full.append(None)
+            if t == "TIM":
+                res.append(TIM[0])
+                full.append(TIM)
             elif t == "OSA":
                 res.append(osa[0][0]) #??????
                 full.append(osa)

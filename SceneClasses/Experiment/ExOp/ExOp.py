@@ -7,6 +7,7 @@ class exop():
             from ...Basic import scneDs as SDS
             self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False, cen=False, wl=True, windoor=True)
             self.pmVersion = pmVersion
+            config["phy"]["vis"], config["pat"]["vis"], config["vis"] = {},{},{}
             self.config = config
         self.dev = dev
         import os
@@ -43,18 +44,19 @@ class exop():
             adjs0, s_key = self.__randomize(s), self.res.connect(s.scene_uid,self.dirname)
             while True:
                 #self.init_eval(s)
-                OP = optm(pm=self.pm,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True,timer=self.res[s_key].timer)
+                OP = optm(pm=self.pm,scene=s,config=self.config,exp=True,timer=self.res[s_key].timer)
                 self.debugdraw(s,0,"")
                 ret,step = {"over":False},0
                 [o.adjust.clear() for o in s.OBJES]
                 self.res[s_key].append(step=0,vio=OP.PhyOpt.eval(), fit=OP.PatOpt.eval())
-                while (ret["over"] is False) and step <= 20: #the over criterion
+                self.res[s_key].timer("",0) #start stamp
+                while (ret["over"] is False) and step <= OP.max_len: #the over criterion
                     assert ret["over"] is False and ret["over"] is not None
-                    ret = OP(step,self.debugdraw) #timer, adjs, vio, fit, cos, over
+                    ret = OP.exps(step)#,self.debugdraw) #timer, adjs, vio, fit, cos, over
                     self.res[s_key].append(step=step+1,dif=adjs0-ret["adj" ],**ret)
                     self.debugdraw(s,step,"+")
                     step += 1
-                if ret["over"] is not None and step <= 20:
+                if ret["over"] is not None and step <= OP.max_len:
                     break
                 else:
                     print("restart",s.scene_uid)
@@ -85,7 +87,7 @@ class exop():
         return a
     #endregion: util
 class exops():
-    def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="last",UIDS=[]):
+    def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="no",UIDS=[]):
         self.UIDS = UIDS
         if len(UIDS)==0:
             self.UIDS = [
@@ -107,11 +109,11 @@ class exops():
                 "5e6f0a50-b34c-45a8-8e31-55c7d9adad2d_MasterBedroom-92088",
                 "14d1fa1d-6421-4457-81ad-46db84d6e3d4_LivingDiningRoom-1140",
                 "120b8cb2-aa75-49d8-8928-ee4dbb177966_LivingDiningRoom-617192024",
-                "5e647f08-d821-4554-8598-9684ffd28f7c_LivingDiningRoom-3367",
+                "d03b14a0-31a6-4136-8e7c-d364c7b09955_SecondBedroom-1613",
                 "f1a605ec-155d-48fd-ac89-d54c3ebdbfb6_LivingDiningRoom-3581",
                 "d0615bd5-c5af-474b-a2bf-c434fcfaf74c_MasterBedroom-110",
-                "4a102195-8b2f-444d-b95d-3b332822bc9a_LivingDiningRoom-152",
-                "0e44eab5-891c-49df-8311-4395a610016d_LivingDiningRoom-574142024",
+                "11410829-e920-4e53-b8ab-688d026c0af1_Bedroom-2297",
+                "0b812f6e-0769-4b37-b872-ee066433207e_MasterBedroom-11619",
                 "5530455f-bf14-464b-88c0-7eaee2d2d85b_LivingDiningRoom-3064",
                 "0685adc2-121b-4ea7-894d-6a81cb779be9_LivingDiningRoom-10913",
                 "0b35b16b-f277-427a-8274-09c50f6e2b99_LivingDiningRoom-7940",
@@ -128,7 +130,7 @@ class exops():
                 "6e3d565d-89ce-4a2d-b39b-aef362e9857e_MasterBedroom-4091",
                 "3d048fd0-a931-4343-bd40-0f62860034a1_Bedroom-11202",
                 "4f63ffc2-2473-42e9-bec4-0317ab3c70a7_Bedroom-40616",
-                "711bd99b-2719-45a9-9836-c4baae874ad7_LivingDiningRoom-5053",
+                "ef0613b7-4461-461b-96c6-cb140f7a2f2a_Bedroom-15208",
                 "1ac5c316-3dc5-4ed2-8348-76715cfe4837_LivingDiningRoom-437092024",
                 "320dc0a4-0acf-4880-97c5-33273d37bd93_LivingDiningRoom-241022024",
                 "08bd64bf-132b-4659-a302-00d37dd74471_MasterBedroom-12183",
@@ -137,7 +139,7 @@ class exops():
                 "7cf6e5de-a1ac-4bb4-bcb7-3b8dba3b4a78_LivingDiningRoom-13879",
                 "ef0613b7-4461-461b-96c6-cb140f7a2f2a_LivingDiningRoom-16342",
                 "af17e492-9278-4023-9c48-c289e819a641_LivingDiningRoom-4522024",
-                "bcb18073-a4a7-4ce4-b24b-f67877bde572_LivingDiningRoom-23320",
+                "cc5f69b9-c76d-41a9-8a40-094e5664ebbd_MasterBedroom-3715",
                 "081b8907-7e4d-4764-b931-7709386de7da_LivingDiningRoom-202292024",
                 "89630235-284d-49c1-8258-65af4e749633_LivingDiningRoom-825",
                 "ae1f318b-a8ac-4eec-974c-10a587ea0a71_LivingDiningRoom-36167",
@@ -147,19 +149,19 @@ class exops():
                 "18c98959-cef7-4f72-b95e-387eba4e86b8_LivingDiningRoom-8855",
                 "09170637-2952-4014-b97b-9e3f7d519c66_LivingDiningRoom-344202024",
                 "0abea0c8-3398-4d26-b03d-9fb1fc9708a4_LivingDiningRoom-212696",
-                "9e9c7c48-a631-4ded-a271-7dd697faf0dc_LivingDiningRoom-16322024",
+                "2d728150-ecd3-4648-b584-68de8e9f9a89_SecondBedroom-119762",
                 "f105dd34-bc81-432e-83bd-314087015257_LivingDiningRoom-1692024",
                 "ad2462d1-ed66-45c6-8739-3ccface000c9_LivingDiningRoom-5751",
-                "b73ddfc0-9382-4e47-91d1-0a86a69fcbcc_LivingDiningRoom-245462024",
+                "ca05c8ca-dcd6-402c-89f8-27ba4e769841_MasterBedroom-412",
                 "022b94eb-7d48-4312-af06-d05a7cbd5c64_LivingDiningRoom-12319",
                 "0bd1cdea-366c-47b6-a65d-ee7ccde0aaa9_LivingDiningRoom-23474",
                 "08f96e2f-fbb4-4850-88e6-239e998e6f6a_LivingDiningRoom-91422024",
                 "2d728150-ecd3-4648-b584-68de8e9f9a89_Library-118121",
-                "388a3f2f-1cf9-40f7-8dbe-5452598359dd_LivingDiningRoom-17211",
+                "3a16f523-4dc8-4a6e-a57b-497fe0befa0e_KidsRoom-5204",
                 "3a0683d2-399c-47fa-99f2-cbb3bff5e156_LivingDiningRoom-12394",
                 "339e4d0f-096a-4453-be12-5a730e71e6aa_LivingDiningRoom-15731",
-                "e1b50a25-5422-4307-8b9c-24ad0bb8d8bc_LivingDiningRoom-25562",
-                "2f5fc1b6-c9d2-4388-a8ed-b2144f30781f_LivingDiningRoom-57454",
+                "3d506c20-7b7e-4757-8884-1fd5525eb63a_Bedroom-1298",
+                "1dcb6909-4e3c-4e34-bb38-207cc78e9263_Bedroom-20397",
                 "1d43e076-fc80-4d55-a07d-1b7a8c6dc6e7_LivingDiningRoom-3814",
             ]
         self.num=0 #self.num=512, self.UIDS = []
@@ -173,7 +175,7 @@ class exops():
         self.hypers = []
         self.mods = ["prerec",]#"postrec",
         self.s4s = [2,3,4]#]# 
-        self.devs = [ 0.5*i for i in range(1,6)] #(2,3)] #
+        self.devs = [ 0.5*i for i in range(2,7)] #(2,3)] #
         self.hypers = [[ (s4,dev) for dev in self.devs ]  for s4 in self.s4s ]
         self.EXOPS = [[ None for dev in self.devs ]  for s4 in self.s4s ]
         self.RSOPS_dev = [None for _ in self.devs]

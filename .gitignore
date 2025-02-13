@@ -7,6 +7,7 @@ SceneClasses/__pycache__/
 segment/
 experiment/
 pattern/fields/
+pattern/flds/
 pattern/trees/
 pattern/imgs/
 pattern/rcgf/

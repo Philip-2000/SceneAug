@@ -12,9 +12,10 @@ grupA=["white","lightblue","lightgreen","pink","lime","lightblue","lightgreen","
 class grup():
     def __init__(self, objIdList, imgMeta=None, idx=0, scne=None):
         self.objIdList = [i for i in objIdList]
+        #print(objIdList, self.objIdList)
         self.scne=scne
         self.idx=idx
-        if scne: self.update()
+        #if scne: self.update()
         # if scne: 
         #     for i in objIdList: self.scne[i].gid = idx
         # assert len(objIdList) > 0
@@ -28,9 +29,9 @@ class grup():
         #self.irt=imgMeta["rt"]
 
     def update(self):
-        self.objIdList = []
+        #self.objIdList = []
         for o in self.scne.OBJES:
-            if o.gid == self.idx:
+            if o.gid == self.idx and o.idx not in self.objIdList:
                 self.objIdList.append(o.idx)
         if len(self.objIdList) == 0:
             return
@@ -108,7 +109,7 @@ class grups():
         return len(self.GRUPS)
     
     def append(self, group):
-        group.idx = len(self.GRUPS)
+        group.idx = len(self.GRUPS)+1
         group.scne = self.scne
         group.update()
         group.isz, group.irt = self.isz, self.irt

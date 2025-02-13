@@ -10,13 +10,12 @@ if __name__ == "__main__": #load="testings",
     args = parse()
     E = exops(task=args.task)
     E()
-# else:
 #     from matplotlib import pyplot as plt
 #     import numpy as np
 #     z= ["4","5","6-10","11+"]
 #     c= ["#69C9B1","#99B999","#E79A78","#BD683A"]
-#     m,n=[[91,  4, 4, 1], [49, 45, 4, 2], [17, 77, 3, 3], [ 5, 87, 4, 4], [ 4, 84, 9, 3]], ["dev\n0.5","dev\n1.0","dev\n1.5","dev\n2.0","dev\n2.5"]
-#     #m,n=[[32, 61, 4, 3], [33, 57, 7, 3], [34, 58, 6, 2]], ["M=8","M=12","M=16"] 
+#     #m,n=[[32, 58, 7, 3], [13, 81, 5, 1], [6, 84, 7, 3], [ 5, 85, 8, 2], [ 2, 75, 20, 3]], ["dev\n1.0","dev\n1.5","dev\n2.0","dev\n2.5","dev\n3.0"]
+#     m,n=[[11, 74, 11, 4], [11, 77, 10, 2], [12, 79, 8, 1]], ["M=8","M=12","M=16"] 
 #     x = np.arange(len(m)) #if len(m)==5 else np.arange(0,5,2)
 #     width = 0.5 if len(m)==5 else 0.4
 #     malef = np.zeros(len(m))
@@ -37,4 +36,4 @@ if __name__ == "__main__": #load="testings",
 #         ax.set_xticks(np.arange(0,101,20))
 #         ax.set_xticklabels(np.arange(0,101,20))
 #         ax.yaxis.tick_left()
-#     plt.savefig("./experiment/opts/last/steps dev.png")
+#     plt.savefig("./experiment/opts/tmer/steps s4.png")

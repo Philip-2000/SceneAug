@@ -33,8 +33,9 @@ class rgnz():
             p = Plan.PLAN[ip]
             if len(p)<=1:
                 continue
+            #print(ip,p.nids,len(p),[on[0] for on in p.nids])           
             tmpGrups[ip] = grup([on[0] for on in p.nids],idx=j+1,scne=self.scene)#,{"sz":self.scene.roomMask.shape[-1],"rt":16},j+1,scne=self.scene)
-
+            #print(tmpGrups[ip].objIdList)
         for oid in orphans:
             o = self.scene[oid]
             oPolygon = o.shape()

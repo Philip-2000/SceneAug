@@ -4,6 +4,7 @@ class gnrt(syth):
         super(gnrt,self).__init__(pm,scene,self.__class__.__name__,nm,v)
 
     def __randomchoose(self,node,version = "confidence"):
+        raise AssertionError("This function is outdated")
         import numpy as np
         if version == "confidence":
             cs = 0
@@ -30,6 +31,8 @@ class gnrt(syth):
                     return node.edges[ran]
 
     def uncond(self,draw=False,uid=""):
+        self.scene = self.pm.random_scene()
+        return self.scene
         import numpy as np
         from ..Semantic.Link import objLink
         from ..Basic.Obje import obje,object_types
@@ -51,8 +54,23 @@ class gnrt(syth):
             self.scene.draw()
         return self.scene
 
-    def textcond(self):
-        raise NotImplementedError
+    def textcond(self, draw=True):
+        from ..Patn import paths
+        self.paths = paths(self.pm)
+        matchs = self.paths.matching(self.scene.TEXTS)
+        cnt = 0
+        for match in matchs[:5]:
+            from ...Basic import scne
+            self.scene = scne.empty(keepEmptyWL=True)
+            for MTCH in match:
+                MTCH.utilize(self.scene,[0,0,0],[1,0,0,0])
+            if draw:
+                self.scene.imgDir = "./pattern/syth/"+self.pm.version+"/gnrt_syth/test/"
+                import os
+                os.makedirs(self.scene.imgDir,exist_ok=True)
+                self.scene.scene_uid = str(cnt)
+                self.scene.draw(),self.scene.save()
+            cnt += 1
         return self.scene
 
     def tempDebugger(self,theScene,cObjectList,o,spc,imgName):
@@ -75,7 +93,17 @@ class gnrt(syth):
         tmpScene.draw(imageTitle="./spce_generate/"+imgName,d=True,lim=5)
 
     def roomcond(self):
-        raise NotImplementedError
+        #（1）采样第一条路径
+        #要边采样边检测空间吗？肯定不要，
+        #（2）利用路径检测空间
+        self.scene.SPCES.extractingSpces(1) #陈年老代码，不知道还能跑吗
+        print(self.scene.SPCES[0])
+        print(self.scene.SPCES.WALLS)
+        #（3）逐物体向空间中添加并整体移动
+        #（4）如果所有物体完全放置了就回收空间，形成一个新的walls
+        #（5）如果还有空间，就采样下一条路径，再重复
+        #空间提取与占用
+        return self.scene
         from ..Basic.Obje import obje, object_types
         if useWalls:
             assert theScene.WALLS is not None
@@ -168,7 +196,7 @@ class gnrt(syth):
                             if not moving:
                                 collide = False
                                 for oo in cObjectList:
-                                    if oo.class_name().find("Lamp")==-1:
+                                    if oo.class_name.find("Lamp")==-1:
                                         a,b=oo.distance(o)
                                         collide = b
                                         if collide:
@@ -203,5 +231,14 @@ class gnrt(syth):
                     break
     
             return
+        return self.scene
 
+    def txrmcond(self):
+        #（1）基于语句获得所有的路径
+        #（2）利用路径检测空间
+        #（3）逐物体向空间中添加并整体移动
+        #（4）如果所有物体完全放置了就回收空间，形成一个新的walls
+        #（4.5）如果空间快要不够了，而且我还不是第一条路径，就不放置非关键物体了，
+        #（5）如果还有空间，就采样下一条路径，再重复
+        #空间提取与占用
         return self.scene

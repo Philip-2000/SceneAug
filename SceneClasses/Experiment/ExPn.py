@@ -197,7 +197,7 @@ class RecExpn(expn):
         super(RecExpn,self).__init__(pmVersion,dataset,UIDS,self.__class__.__name__,num,["fitness","assigned"],task)
 
     def execute(self, s, diff, **kwargs):
-        from ..Operation.Plan import plans
+        from ..Operation.Rgnz import plans
         a,b,c = plans(s,self.pm).recognize(draw=False,**kwargs)#rands.recognize(self.pm)
         return a,b
 

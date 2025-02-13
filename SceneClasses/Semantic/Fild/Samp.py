@@ -93,4 +93,4 @@ class samps():
         [s.draw(colors) for s in self]
 
     def violate(self):
-        return np.array([norm(s.t) for s in self]).sum() #????
+        return np.array([norm(s.t) for s in self]).mean() #????

@@ -6,17 +6,17 @@ def parse():  #Execute the pattern application experiments
     return parser.parse_args(sys.argv[1:])
     
 if __name__ == "__main__": #load="testings",
-    from SceneClasses.Experiment.ExOp import exops
+    from SceneClasses.Experiment import exops
     args = parse()
     E = exops(task=args.task)
     E()
 # else:
 #     from matplotlib import pyplot as plt
 #     import numpy as np
-#     z= ["4","5","6","7+"]
+#     z= ["4","5","6-10","11+"]
 #     c= ["#69C9B1","#99B999","#E79A78","#BD683A"]
-#     #m,n=[[88,  7, 3, 2], [35, 58, 3, 4], [ 9, 82, 5, 4], [ 5, 87, 6, 2], [ 3, 84, 8, 5]], ["dev\n0.5","dev\n1.0","dev\n1.5","dev\n2.0","dev\n2.5"]
-#     m,n=[[29, 66, 1, 4], [28, 64, 5, 3], [28, 60, 8, 4]], ["M=8","M=12","M=16"] 
+#     m,n=[[91,  4, 4, 1], [49, 45, 4, 2], [17, 77, 3, 3], [ 5, 87, 4, 4], [ 4, 84, 9, 3]], ["dev\n0.5","dev\n1.0","dev\n1.5","dev\n2.0","dev\n2.5"]
+#     #m,n=[[32, 61, 4, 3], [33, 57, 7, 3], [34, 58, 6, 2]], ["M=8","M=12","M=16"] 
 #     x = np.arange(len(m)) #if len(m)==5 else np.arange(0,5,2)
 #     width = 0.5 if len(m)==5 else 0.4
 #     malef = np.zeros(len(m))
@@ -37,4 +37,4 @@ if __name__ == "__main__": #load="testings",
 #         ax.set_xticks(np.arange(0,101,20))
 #         ax.set_xticklabels(np.arange(0,101,20))
 #         ax.yaxis.tick_left()
-#     plt.show()
+#     plt.savefig("./experiment/opts/last/steps dev.png")

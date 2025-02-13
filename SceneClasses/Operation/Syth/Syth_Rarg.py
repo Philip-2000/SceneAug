@@ -154,6 +154,7 @@ class rarg(syth):
         super(rarg,self).__init__(pm,scene,self.__class__.__name__,nm,v)
 
     def __clean_find(self,node,level):
+        raise Exception("Not used")
         if level == -1:
             node.chosen_level = 0
             for i in node.edges:
@@ -206,7 +207,7 @@ class rarg(syth):
     def uncond(self, use=True, move=True, draw=False):
         res = pathses(self.pm,self.scene)() #print(len(res), sum([len(r[-1]) for r in res])/len(res), len(res[0])-1)
         from ..Basic.Obje import obje,object_types
-        from ..Operation.Plan import plas, pla
+        from ..Operation.Plan import plan, pla
         from numpy.linalg import norm as norm
         import random# , numpy as np
         random.shuffle(res)
@@ -217,9 +218,9 @@ class rarg(syth):
         centers, orients = self.rarg_init(res[0][:-1]) #[np.array([.0,.0,.0]), np.array([4,.0,.0]), np.array([-4,.0,.0])], [np.array([0]), np.array([0]), np.array([0])]
 
         if use:
-            self.scene.plan = plas(self.scene, self.pm)
+            self.scene.PLAN = plan(self.scene, self.pm)
             try:
-                self.scene.plan.plas = [pla([],[]) for _ in res[0][:-1]]
+                self.scene.PLAN.PLAN = [pla([],[]) for _ in res[0][:-1]]
             except:
                 print(len(res), len(res[0]), self.scene.fild)
 
@@ -237,13 +238,13 @@ class rarg(syth):
                     o.nid, o.gid = M.idx, j+1
                     o.translation = (m.translation if K > 0 else centers.pop(0)) if move else o.translation
                     o.orientation = (m.orientation if K > 0 else orients.pop(0)) if move else o.orientation
-                    self.scene.plan.plas[j] = pla(self.scene.plan[j].nids + [(o.idx, o.nid)], self.scene.plan[j].fits + [0])
+                    self.scene.PLAN.PLAN[j] = pla(self.scene.PLAN[j].nids + [(o.idx, o.nid)], self.scene.PLAN[j].fits + [0])
                     N = M
             
             for o in self.scene.OBJES:
                 o.v = (o.nid != -1)
             
-            self.scene.plan.update_fit()
+            self.scene.PLAN.update_fit()
             if draw: self.scene.draw(suffix="_rarg")
         return res[0]
 

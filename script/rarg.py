@@ -33,7 +33,7 @@ def parse(): #using pattern to synthesis scene
 
 if __name__ == "__main__": 
     args, lst = parse()
-    from SceneClasses.Basic.Scne import scneDs as SDS
-    from SceneClasses.Operation.Patn import patternManager as PM
+    from SceneClasses.Basic import scneDs as SDS
+    from SceneClasses.Operation import patternManager as PM
     pm = PM(args.version)
     SDS(name=args.dataset,lst=(lst),prepare=args.condition).synthesis("rarg",args.condition,pm, use=True, draw=True)

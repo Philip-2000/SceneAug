@@ -1,16 +1,15 @@
-from matplotlib import pyplot as plt
-import json,os,numpy as np
 EXOP_BASE_DIR = "./experiment/opts/"
 DEBUG_FILTER = []#"","+"] #
 class exop():
     def __init__(self,pmVersion,dataset,UIDS,num,expName,dirName,dev,config,task):
         self.task = task #2:experiment, 1:process and visualize, 0:load and visualize, -1:load and visualized the exops
         if task == 2:
-            from ..Basic.Scne import scneDs as SDS
+            from ...Basic import scneDs as SDS
             self.sDs = SDS(dataset,lst=UIDS,num=num,grp=False, cen=False, wl=True, windoor=True)
             self.pmVersion = pmVersion
             self.config = config
         self.dev = dev
+        import os
         self.dirname,self.seeds,self.S = os.path.join(EXOP_BASE_DIR,expName,dirName), os.path.join(EXOP_BASE_DIR,expName,dirName,"seeds"),True
         #print(self.dirname)
         os.makedirs(self.dirname,exist_ok=True) #
@@ -36,35 +35,35 @@ class exop():
             self.res.load("plot")
 
     def experiment(self):
-        from ..Operation.Optm import optm
-        from ..Operation.Plan import plans
-        from ..Operation.Patn import patternManager as pm
+        from ...Operation import optm, rgnz, patternManager as pm
         self.pm = pm(self.pmVersion)
         for i,s in enumerate(self.sDs):
-            plans(s,self.pm,v=0).recognize(use=True,draw=False,show=False)
+            rgnz(s,self.pm,v=0).recognize(use=True,draw=False,show=False)
             
-            adjs0 = self.__randomize(s)
+            adjs0, s_key = self.__randomize(s), self.res.connect(s.scene_uid,self.dirname)
             while True:
                 #self.init_eval(s)
-                OP = optm(pm=self.pm,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True,timer=self.res[s].timer)
+                OP = optm(pm=self.pm,scene=s,PatFlag=True,PhyFlag=True,config=self.config,exp=True,timer=self.res[s_key].timer)
                 self.debugdraw(s,0,"")
                 ret,step = {"over":False},0
                 [o.adjust.clear() for o in s.OBJES]
+                self.res[s_key].append(step=0,vio=OP.PhyOpt.eval(), fit=OP.PatOpt.eval())
                 while (ret["over"] is False) and step <= 20: #the over criterion
                     assert ret["over"] is False and ret["over"] is not None
                     ret = OP(step,self.debugdraw) #timer, adjs, vio, fit, cos, over
-                    self.res[s].append(step=step,dif=adjs0-ret["adj"],**ret)
+                    self.res[s_key].append(step=step+1,dif=adjs0-ret["adj" ],**ret)
                     self.debugdraw(s,step,"+")
                     step += 1
                 if ret["over"] is not None and step <= 20:
                     break
                 else:
                     print("restart",s.scene_uid)
+                    print("adj",self.res.rsops[s_key].adj[-1],"vio",self.res.rsops[s_key].vio[-1],"fit",self.res.rsops[s_key].fit[-1])
                     adjs0 = self.__randomize(s,use=False)
-                    self.res.rsops[s.scene_uid].clear()
+                    self.res.rsops[s_key].clear()
 
 
-            _ = print(i+1) if i%20==19 else None
+            if i%18==17: print(i+1)
 
     def save(self,n="origin"):
         from moviepy.editor import ImageSequenceClip
@@ -86,7 +85,7 @@ class exop():
         return a
     #endregion: util
 class exops():
-    def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="real",UIDS=[]):
+    def __init__(self,pmVersion='losy',dataset="../novel3DFront/",task=2,expName="last",UIDS=[]):
         self.UIDS = UIDS
         if len(UIDS)==0:
             self.UIDS = [
@@ -183,13 +182,14 @@ class exops():
     def __call__(self):
         for s,s4 in enumerate(self.s4s):
             for d,dev in enumerate(self.devs):
-                from ..Operation.Optm import default_optm_config as config
+                from ...Operation import default_optm_config as config
                 config["phy"]["s4"] = s4
                 dirName = "%.2f %d"%(dev,s4)
                 self.EXOPS[s][d] = exop(pmVersion=self.pmVersion,dataset=self.dataset,UIDS=self.UIDS,num=self.num,expName=self.expName,dirName=dirName,dev=dev,config=config,task=self.task)
                 self.EXOPS[s][d]()
         
         from .RsOp import rsops
+        import os
         for d,dev in enumerate(self.devs):
             os.makedirs(os.path.join(EXOP_BASE_DIR,self.expName,"%.2f"%(dev)),exist_ok=True)
             self.RSOPS_dev[d] = rsops(self.UIDS,os.path.join(EXOP_BASE_DIR,self.expName,"%.2f"%(dev)), [ os.path.join(EXOP_BASE_DIR,self.expName,"%.2f %d"%(dev,s)) for s in self.s4s ])

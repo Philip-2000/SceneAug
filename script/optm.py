@@ -37,9 +37,9 @@ def parse(): #using pattern to understand scene
 
 if __name__ == "__main__": #load="testings",
     args, config, sceneLst = parse()
-    from SceneClasses.Operation.Patn import patternManager as PM
-    from SceneClasses.Operation.Optm import optm
-    from SceneClasses.Basic.Scne import scne
+    from SceneClasses.Operation import patternManager as PM
+    from SceneClasses.Operation import optm
+    from SceneClasses.Basic import scne
     import os
     P = PM(args.version)
     for scene_uid in sceneLst:
@@ -48,7 +48,7 @@ if __name__ == "__main__": #load="testings",
         O = optm(P,scene,rand=args.rand,config=config)
         O.qualitative()
 
-    # from SceneClasses.Basic.Scne import scneDs as SDS
+    # from SceneClasses.Basic import scneDs as SDS
     # SDS(args.dataset, lst=sceneLst,
     #     grp=False, cen=False, wl=True, windoor=True,
     #     #imgDir="./",os.path.join("./pattern/","optm",args.version),

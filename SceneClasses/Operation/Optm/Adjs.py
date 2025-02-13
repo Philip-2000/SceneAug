@@ -26,7 +26,7 @@ class adj():
         return adj(self.T + a.T, self.S + a.S, self.R + a.R, self.o, call=False)
 
     def __sub__(self, a):
-        return self.normed() @ a.normed()
+        return self.Normed() @ a.Normed()
     
     def clear(self):
         self.T, self.S, self.R = np.array([.0, .0, .0]), np.array([.0, .0, .0]), np.array([.0])
@@ -39,7 +39,7 @@ class adj():
         return max(np.linalg.norm(self.Flat()),1e-8)
 
     def Normed(self):
-        return self.Flat() / np.linalg.norm(self.Flat())
+        return self.Flat() / self.Norm()
 
     # def flat(self):
     #     return np.concatenate([self.t, self.s, self.r])
@@ -60,7 +60,7 @@ class adj():
         _ = self() if call else None
 
     def toward(self, o, rt, inertia=INERTIA, v=True,call=True):
-        from ..Basic.Obje import angleNorm
+        from ...Basic import angleNorm
         self.update(T=(o.translation-self.o.translation)*rt, S=(o.size-self.o.size)*rt,
                     R=np.array([angleNorm((o.orientation-self.o.orientation)[0])])*rt, inertia=inertia, v=v, call=call)
 

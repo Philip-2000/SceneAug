@@ -12,6 +12,6 @@ if __name__ == "__main__": #load="testings",
     args = parse()
     import os
     UIDS = os.listdir(args.dataset)[:args.num] if len(args.id)==0 else [args.id]
-    from SceneClasses.Basic.Scne import scneDs as SDS
+    from SceneClasses.Basic import scneDs as SDS
     S = SDS(args.dataset,lst=UIDS,grp=False,cen=True,wl=True,windoor=True)
     S.draw(d=True)

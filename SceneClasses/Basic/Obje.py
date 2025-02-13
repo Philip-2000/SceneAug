@@ -20,7 +20,7 @@ class bx2d(): #put those geometrical stuff into this base class
         self.translation = copy(t) if not b else copy(b.translation)
         self.size        = copy(s) if not b else copy(b.size)
         self.orientation = copy(o) if not b else copy(b.orientation)
-        from ..Operation.Adjs import adj
+        from ..Operation import adj
         self.adjust = adj(o=self,call=False)
         
     #region: in/outputs----------#
@@ -160,13 +160,6 @@ class bx2d(): #put those geometrical stuff into this base class
             return (self.matrix(-1)@(b-self.translation))/self.size
         #endregion: relatives----#
 
-        #region: samples---------#
-    # def optimizePhy(self,config,debug=False,ut=-1):
-    #     from ..Semantic.Samp import samps
-    #     self.samples = samps(self,config["ss"],debug)
-    #     return self.samples(config,ut)
-        #endregion: samples------#
-
     #endregion: operations-------#
     
 class obje(bx2d):
@@ -216,7 +209,7 @@ class obje(bx2d):
     def fromObjectJson(cls,oj,idx,scne=None):
         o = cls(b=bx2d.fromBoxJson(oj),n=oj["coarseSemantic"],idx=idx,modelId=oj["modelId"],scne=scne,v=oj["v"])
         if "samples" in oj:
-            from ..Semantic.Samp import samps
+            from ..Semantic import samps
             o.samples = samps.fromSamplesJson(o, oj["samples"])
         return o
         #endregion: inputs-------#
@@ -311,7 +304,7 @@ class obje(bx2d):
 
         #region: optField--------#
     def optimizePhy(self,config,timer,debug=False,ut=-1):
-        from ..Semantic.Samp import samps
+        from ..Semantic import samps
         self.samples = samps(self,config["s4"],debug)
         return self.samples(config,timer,ut)
     
@@ -430,15 +423,15 @@ class objes():
     
     def randomize(self, dev, hint=None, cen=False):
         import numpy as np
-        from ..Operation.Adjs import adjs,adj
+        from ..Operation import adjs,adj
         Rs = np.random.randn(len(self),7) if hint is None else hint
         for i,o in enumerate(self.OBJES): #o.adjust = adj(T=np.zeros((3)),S=np.zeros((3)),R=np.zeros((1)),o=o) if o.idx else adj(T=o.direction()*self.dev,S=np.zeros((3)),R=np.zeros((1)),o=o)
             o.adjust = adj(T=Rs[i,:3]*dev,S=Rs[i,3:6]*dev * 0.1,R=Rs[i,6:]*dev,o=o)#o.adjust()
-        if not cen or self.scne.plan is None:
+        if not cen or self.scne.PLAN is None:
             return adjs(self.OBJES), Rs
         else:
             A = adjs(self.OBJES)
-            B = self.scne.plan.optinit()
+            B = self.scne.PLAN.optinit()
             return A+B,Rs
 
         #endregion: basic--------#
@@ -454,9 +447,8 @@ class objes():
     def optimizePhy(self,config,timer,debug=False,ut=-1):
         for o in [_ for _ in self.OBJES if _.v and _.gid]:
             o.optimizePhy(config,timer,debug,ut)
-        from ..Operation.Adjs import adjs
-        #from ..Experiment.ExOp import EXOP_BASE_DIR
-        #self.scne.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+opt.png"%(self.scne.scene_uid[:10],1))#return #
+        from ..Operation import adjs
+        #from ..Experiment import EXOP_BASE_DIR self.scne.draw(imageTitle=EXOP_BASE_DIR+"debug/%s-%d+opt.png"%(self.scne.scene_uid[:10],1))#return #
         return adjs(self)#[o.optimizePhy(config,timer,debug,ut) for o in self.OBJES]
     
     def violates(self):

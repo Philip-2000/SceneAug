@@ -401,8 +401,6 @@ class spce():
             for j in PRO.areaF[i]:
                 self.wallsSign[i].append([j[0],j[1],(j[1]<self.delta),w[i].rate(j[0]),w[i].rate(j[0])*w[i].length])
 
-
-
     @classmethod
     def fromProb(cls,c,a):
         return cls(c-a,c+a)
@@ -628,8 +626,6 @@ class spces():
 
         return True
 
-
-
     def eliminatingSpace(self, Spce):
         return self.eliminatedSpace(Spce)
         #addSpace's walls#print(Spce)#print(self.WALLS)
@@ -665,7 +661,6 @@ class spces():
     def extractingSpce(self,DIR="",hint=None):
         if len([w for w in self.WALLS if w.v])==0:
             return None
-        #grid on the space
         N,M = int(self.flex*self.LH[0]/self.delta),int(self.flex*self.LH[1]/self.delta)
         GRIDS = self.delta*np.array([[[i,j] for i in range(-N,N+1)] for j in range(-M,M+1)]).reshape((-1,2))
         GRIDPro = []
@@ -748,15 +743,19 @@ class spces():
             self.SPCES = []
 
     def extractingSpces(self,bound=1,DIR=""):
-        self.SPCES,sp,b = [],self.extractingSpce(DIR),self.draw((DIR if DIR else self.drawFolder)) if DIR or self.drawFolder else None
-        while sp and len(self.SPCES)<bound:
+        self.SPCES,b = [],self.draw((DIR if DIR else self.drawFolder)) if DIR or self.drawFolder else None
+        while len(self.SPCES)<bound:
+            sp = self.extractingSpce(DIR)
             self.SPCES.append(sp)
             sp.scne = self.scne
             a = self.eliminatingSpace(sp)
             b = self.draw((DIR if DIR else self.drawFolder)) if DIR or self.drawFolder else None
             if not a:
                 break
-            sp = self.extractingSpce((DIR if DIR else self.drawFolder))
+            #sp = self.extractingSpce((DIR if DIR else self.drawFolder))
+
+    def __getitem__(self, idx):
+        return self.SPCES[idx]
 
     def drawProb(self, probArray, DIR="", order=0, aFlag=True):
         from PIL import Image,ImageDraw
@@ -788,3 +787,11 @@ class spces():
                     pixels[x, y] = (int(nearx*50), int(ratio*50+nearavg*50), int(nearz*50))
 
         img.save((DIR if DIR else self.drawFolder)+str(len(self.SPCES))+' heat.png')
+
+    def drop(self):
+        #fucking python, I have to do this
+        #can't we just do something else?
+        #just coding and coding and coding every fucking single day
+        #don't tell me that I have to do this anymore
+        #
+        pass

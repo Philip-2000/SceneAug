@@ -6,12 +6,12 @@ class pla():
         self.fits,self.nids=fits,nids #[(oid,nid),(oid,nid)......]
 
     def Str(self,s,pm):
-        return "(%s,%d,%d)\n"%(s[self.nids[0][0]].class_name()[:10],self.nids[0][0],self.nids[0][1]) + \
+        return "(%s,%d,%d)\n"%(s[self.nids[0][0]].class_name[:10],self.nids[0][0],self.nids[0][1]) + \
                 "\n".join(
                         [
                             " ".join(["\t"]*(pid+1)) + "(%s,%d,%d->(%s,%d,%d))"%(
-                            s[p[0]].class_name()[:10],p[0],p[1],
-                            s[self(pm[p[1]].mid)].class_name()[:10],self(pm[p[1]].mid),pm[p[1]].mid
+                            s[p[0]].class_name[:10],p[0],p[1],
+                            s[self(pm[p[1]].mid)].class_name[:10],self(pm[p[1]].mid),pm[p[1]].mid
                             ) for pid, p in enumerate(self.nids[1:])
                         ]
                     )
@@ -48,7 +48,7 @@ class pla():
                 scene.LINKS.append(objLink(oid,self(pm[nid].mid),color="pink"))
         from ...Semantic import grup
         scene.GRUPS.append(grup([on[0] for on in self.nids]))#,{"sz":scene.roomMask.shape[-1],"rt":16},g,scne=scene))
-
+        
     def optimize(self,g,scene,pm,ir,s): #print(self.Str(scene,pm))
         from ...Operation import bnch_tree # bt = bnch_tree(self,pm,scene) print(bt) return bt.optimize(ir)
         return bnch_tree(self,pm,scene).optimize(ir,s) 
@@ -90,8 +90,8 @@ class pla():
 class plan(): #it's a recognize plan
     def __init__(self,scene=None,pm=None,base=None):
         if base is None:
-            self.scene,self.pm=scene,pm
-            self.PLAN = [pla([(o.idx, [ed.endNode.idx for ed in pm[0].edges if ed.endNode.type == pm.merging[o.class_name()]].pop() )]) for o in scene.OBJES if (pm.merging[o.class_name()] in pm.rootNames)]
+            self.scene,self.pm=scene,pm #pm.merging[o.class_name]
+            self.PLAN = [pla([(o.idx, [ed.endNode.idx for ed in pm[0].edges if ed.endNode.label == o.label].pop() )]) for o in scene.OBJES if (o.label("mrg") in pm.rootNames)]
         else:
             self.scene,self.pm=base.scene,base.pm
             self.PLAN = deepcopy(base.PLAN)
@@ -131,14 +131,14 @@ class plan(): #it's a recognize plan
         from ...Operation import patternManager as PM
         from ...Basic import obje
         
-        pm = PM(vers="tmp",new=True)
-        pm.rootNames = [ pm.merging[self.scene[p.nids[0][0]].class_name()] for p in self.PLAN ]
+        pm = PM(vers="tmp",new=True) #pm.merging[self.scene[p.nids[0][0]].class_name]
+        pm.rootNames = [ self.scene[p.nids[0][0]].label("mrg") for p in self.PLAN ]
         for p in self.PLAN:
             newNids, fid = {0:0},0
             for oid,nid in p.nids:
                 o,mid = self.scene[oid], self.pm[nid].mid#m.idx
                 O = obje(o.translation,np.array([1,1,1]),o.orientation,i=0) if p.nids.index((oid,nid))==0 else self.scene[p(mid)]
-                fid = pm.createNode(pm[fid],self.pm.merging[o.class_name()],1,1)
+                fid = pm.createNode(pm[fid],o.label("mrg"),1,1)
                 #pm.nods[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,O.rela(o,self.pm.scaled).flat(),np.abs(O.rela(o,self.pm.scaled).flat()-self.pm.nods[mid].bunches[nid].exp)), fid
                 pm[newNids[mid]].bunches[fid], newNids[nid] = bnch(None,(O-o).flat(),np.abs((O-o).flat()-self.pm[mid].bunches[nid].exp)), fid
         return pm
@@ -146,17 +146,15 @@ class plan(): #it's a recognize plan
     def diff(self,scene,ref=None,v=0):
         if self.myPM is None:
             self.myPM = self.formPM()
-            if v>0:
-                print(self.myPM)
-        fit,ass,_ = plans(scene,self.myPM,v=v).recognize(use=False,draw=False,show=False)#assert fit < ref
-        if v>0:
-            print(fit)
-            print(self.fit)
+            if v>0:print(self.myPM)
+        from ...Operation import rgnz  
+        fit,ass,_ = rgnz(scene,self.myPM,v=v).recognize(use=False,draw=False,show=False)#assert fit < ref
+        if v>0:print(fit,self.fit)
         return abs(self.fit - fit)
 
     def printIds(self):
         return
-        print("occupied" +"+".join(["(%s,%d)"%(self.scene[id].class_name(),id) for id in self.occupied]) )
+        print("occupied" +"+".join(["(%s,%d)"%(self.scene[id].class_name,id) for id in self.occupied]) )
 
     def __len__(self):
         return len(self.PLAN)
@@ -168,8 +166,8 @@ class plan(): #it's a recognize plan
         for ed in self.pm[p.nids[-1][1]].edges:
             m = self.pm[self.pm[ed.endNode.idx].mid]
             a = self.scene[p(m.idx)]
-            self.printIds()
-            losses = [(oo,m.bunches[ed.endNode.idx].loss(a-oo)) for oo in [o for o in self.scene.OBJES if (self.pm.merging[o.class_name()]==ed.endNode.type and (o.idx not in self.occupied and o.idx not in [on[0] for on in p.nids] ))]] #print(str(lev)+" loop: " + ed.endNode.type + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
+            self.printIds() #self.pm.merging[o.class_name]
+            losses = [(oo,m.bunches[ed.endNode.idx].loss(a-oo)) for oo in [o for o in self.scene.OBJES if (o.label==ed.endNode.label and (o.idx not in self.occupied and o.idx not in [on[0] for on in p.nids] ))]] #print(str(lev)+" loop: " + ed.endNode.label.n + " nid=" + str(ed.endNode.idx) + " idx=" + str(o.idx) + " mid=" + str(m.idx))
             if m.idx==1 and ed.endNode.idx == 254 and False:#
                 print("m.idx=%d,m.oid=%d,new.idx=%d"%(m.idx,a.idx,ed.endNode.idx))
                 print("exp")
@@ -181,11 +179,11 @@ class plan(): #it's a recognize plan
                     print(oo.flat())
                     
 
-                    print("(%s,%d):%.3f"%(oolosses[0].class_name(),oolosses[0].idx,oolosses[1]))
+                    print("(%s,%d):%.3f"%(oolosses[0].class_name,oolosses[0].idx,oolosses[1]))
                     pass
                     
                 
-                print("\t".join([ "(%s,%d):%.3f"%(oolosses[0].class_name(),oolosses[0].idx,oolosses[1]) for oolosses in losses]))
+                print("\t".join([ "(%s,%d):%.3f"%(oolosses[0].class_name,oolosses[0].idx,oolosses[1]) for oolosses in losses]))
             self.printIds()
             for oolosses in sorted(losses,key=lambda x:x[1]):
                 oo,loss = oolosses[0],oolosses[1]#[0] 

@@ -125,6 +125,7 @@ class rsops():
             for d in self.dirs:
                 dct = json.loads(open(os.path.join(d,"origin.json"),"r").read())
                 for name in dct: #self.rsops[name] = rsop(name) self.connect(name,d)
+                    if name not in self.rsops: self.rsops[name] = rsop(name)
                     self.rsops[ name ].load(dct[name])
         elif n=="plot":
             self.plots = json.loads(open(os.path.join(self.dir,"plot.json"),"r").read())

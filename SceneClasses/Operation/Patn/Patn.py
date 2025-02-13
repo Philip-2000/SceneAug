@@ -11,17 +11,20 @@ class edge():
         nn.source = self
 
 class node():
-    def __init__(self,type,suffix,idx=-1):
-        self.type = type
+    def __init__(self,label,suffix,idx=-1):
+        from ...Basic import labl
+        self.label = labl("mrg",label)
         self.suffix = suffix
         self.source = None
         self.idx = idx
         self.h = 1
         self.edges = []
         self.bunches = {}
+        self.ancs = []
+        self.tree_types = set([self.label.n])
 
     def __str__(self):
-        return self.type + " " + str(self.idx)
+        return self.label.n + " " + str(self.idx)
         
     def __getitem__(self,i):
         if type(i) == int and i>0:
@@ -127,6 +130,8 @@ class patternManager():
             self.loadTre(dct,e)
             if id>0:
                 suf += "--"+dct[e]["type"]
+        self.set_ancestors()
+        #self.set_tree_types()
         #endregion: inputs-------#
 
         #region: construction----#
@@ -137,17 +142,17 @@ class patternManager():
 
     def freqInit(self,n):#筛选出里面有的物体，组成bunch 然后进行分析，每一次向下个分析都有相应的可信度
         from .Bnch import bnch
-        from ...Basic import obje
+        from ...Basic import obje, labl
         for s in self.rootNames:
-            for ss in self.merging.reversed(s):
+            for ss in labl("mrg",s).reverse("ful"):#self.merging.reversed(s):
                 if not os.path.exists(os.path.join(self.fieldDir,ss+".txt")):
-                    open(os.path.join(self.fieldDir,ss+".txt"),"w").write('\n'.join([ str(sc) for sc in range(len(self.sDs)) if ss in [o.class_name() for o in self.sDs[sc].OBJES] ]))
+                    open(os.path.join(self.fieldDir,ss+".txt"),"w").write('\n'.join([ str(sc) for sc in range(len(self.sDs)) if ss in [o.class_name for o in self.sDs[sc].OBJES] ]))
                 for f in open(os.path.join(self.fieldDir,ss+".txt")).readlines():
-                    for o in [_ for _ in self.sDs[int(f)].OBJES if self.merging[_.class_name()] == s]:#F+=1
-                        if (len(self.nods)) in n.bunches:
-                            n.bunches[len(self.nods)].add(obje(np.array([0,0,0]),o.size,np.array([0]),i=self.merging[o.class_index],idx=o.idx,scne=o.scne),True)
-                        else:
-                            n.bunches[len(self.nods)] = bnch(obje(np.array([0,0,0]),o.size,np.array([0]),i=self.merging[o.class_index],idx=o.idx,scne=o.scne))
+                    for o in [_ for _ in self.sDs[int(f)].OBJES if _.label("mrg") == s]:#self.merging[_.class_name()] == s]:#F+=1
+                        if (len(self.nods)) in n.bunches: #i=self.merging[o.class_index]
+                            n.bunches[len(self.nods)].add(obje(np.array([0,0,0]),o.size,np.array([0]),n=o.label("mrg"),idx=o.idx,scne=o.scne),True)
+                        else: #i=self.merging[o.class_index]
+                            n.bunches[len(self.nods)] = bnch(obje(np.array([0,0,0]),o.size,np.array([0]),n=o.label("mrg"),idx=o.idx,scne=o.scne))
             n.bunches[len(self.nods)].enable(len(self.nods))
             self.createNode(n,s,len(n.bunches[len(self.nods)])/len(self.sDs),len(n.bunches[len(self.nods)])/len(self.sDs))
 
@@ -161,7 +166,7 @@ class patternManager():
         from ...Basic import object_types,noOriType
         path,m = [],n
         while m.idx != 0:
-            path,m = (path if (m.type in noOriType) else [m.idx] + path), m.source.startNode
+            path,m = (path if (m.label.n in noOriType) else [m.idx] + path), m.source.startNode
         field= [self.sDs[int(f)] for f in open(self.fieldDir+n.suffix+".txt").readlines() if n.idx in self.sDs[int(f)].OBJES.nids()]
         while 1:
             sheet = {id:{o:bnches() for o in object_types} for id in path}
@@ -174,8 +179,8 @@ class patternManager():
                     for o in scene.OBJES:
                         if o.nid in sheet: #o.nid == n.idx:
                             res = scene.OBJES.objectView(o.idx,self.objectViewBd,self.scaled) #assert len(res) <= self.objectViewBd
-                            for r in res:#print(r.class_name())
-                                blackLists[o.nid][self.merging[r.class_name()]].append(sheet[o.nid][self.merging[r.class_name()]].accept(r,1,blackLists[o.nid][self.merging[r.class_name()]]))
+                            for r in res:#print(r.class_name) #self.merging[r.class_name] 
+                                blackLists[o.nid][r.label("mrg")].append(sheet[o.nid][r.label("mrg")].accept(r,1,blackLists[o.nid][r.label("mrg")]))
             [[sheet[k][s].refresh() for s in sheet[k]] for k in sheet]
     
             if self.verb > 1:
@@ -193,19 +198,19 @@ class patternManager():
             
             if giveup(B[0],len(field),cnt):
                 break
-            
-            self.createNode(n,self.merging[B[0].obs[0].class_name()],len(B[0])/len(field),len(B[0])/cnt)
+            #self.merging[B[0].obs[0].class_name]
+            self.createNode(n,B[0].obs[0].label("mrg"),len(B[0])/len(field),len(B[0])/cnt)
             B[0].enable(len(self.nods)-1)#nn.idx)
             self.nods[B[1]].bunches[len(self.nods)-1] = B[0]
 
             if self.verb > 1:
-                print(self.merging[B[0].obs[0].class_name()] + " " + str(len(B[0])) + "\n")
+                print(B[0].obs[0].label("mrg") + " " + str(len(B[0])) + "\n")
 
         if self.verb > 0:
-            print('\t'.join(['\t']*lev+[e.endNode.type for e in n.edges]+["fuck"]))
+            print('\t'.join(['\t']*lev+[e.endNode.label.n for e in n.edges]+["fuck"]))
         if lev < self.maxDepth:
             for e in n.edges:
-                self.freq(e.endNode,ex,lev+1)#,(path if (e.endNode.type in noOriType) else path+[e.endNode.idx])
+                self.freq(e.endNode,ex,lev+1)#,(path if (e.endNode.label.n in noOriType) else path+[e.endNode.idx])
         self.Q = self.Q + [e for e in n.edges] if self.maxDepth == -1 else self.Q
 
     def construct(self,maxDepth,scaled,sDs):
@@ -226,7 +231,7 @@ class patternManager():
                 m = self.nods[n.idx].source.startNode
                 while not(n.idx in m.bunches):
                     m = m.source.startNode
-                nodeStr = ".".join(["\t"]*lev) + "%s nid=%d c=%.2f cc=%.2f from (%s mid=%d): %s"%(n.type,n.idx,e.confidence,e.confidenceIn,m.type,m.idx,str(m.bunches[n.idx]))
+                nodeStr = ".".join(["\t"]*lev) + "%s nid=%d c=%.2f cc=%.2f from (%s mid=%d): %s"%(n.label.n,n.idx,e.confidence,e.confidenceIn,m.label.n,m.idx,str(m.bunches[n.idx]))
                 resStr += nodeStr + "\n"
                 lev += 1
                 assert len(n.edges)<=1
@@ -252,11 +257,11 @@ class patternManager():
                 path.append(nn)
 
             B = sr.bunches[nn.idx]
-            A = obje()#obje.fromFlat(B.exp,j=object_types.index(nn.type))
-            for i in range(len(path)-1,0,-1):
-                A = (A + obje.fromFlat(B.exp,j=object_types.index(path[i-1].type)))
-                B = path[i].bunches[path[i-1].idx]
-            B.draw(A,self.imgDir+self.version,str(n.idx),object_types.index(nn.type),self.scaled,all,lim,path)
+            A = obje.empty()#obje.fromFlat(B.exp,j=object_types.index(nn.type))
+            for i in range(len(path)-1,0,-1): #j=object_types.index(path[i-1].type)
+                A = (A + obje.fromFlat(B.exp,n=path[i-1].label("ful")))
+                B = path[i].bunches[path[i-1].idx] #object_types.index(nn.type)
+            B.draw(A,self.imgDir+self.version,str(n.idx),nn.label("ful"),self.scaled,all,lim,path)
             info[path[0].idx] = path[1].idx if len(path)>1 else 0
 
         open(self.imgDir+self.version+"/info.js","w").write("var info="+json.dumps(info)+";")
@@ -265,7 +270,7 @@ class patternManager():
         #if len(name) > 0:
         import yaml,json,inspect
         from .Bnch import giveup,DEN,SIGMA2
-        lst = [{"type": N.type,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
+        lst = [{"type": N.label.n,"buncs":{i:[N.bunches[i].exp.tolist(),N.bunches[i].dev.tolist(),len(N.bunches[i])] for i in N.bunches},
                 "edges":[(e.endNode.idx,e.confidence,e.confidenceIn) for e in N.edges]} for N in self.nods]
         open(os.path.join(self.treesDir,self.version+".js"),"w").write("var dat="+json.dumps(lst)+";")#open(os.path.join(self.treesDir,self.version+".json"),"w").write(json.dumps(lst))
         yaml.dump({"merging":self.merging.d,"rootNames":self.rootNames,"maxDepth":self.maxDepth,"scaled":self.scaled,"DEN":DEN,"SIGMA2":SIGMA2,"giveup":('\n'.join(inspect.getsource(giveup).split('\n')[1:-1]))},open(os.path.join(self.treesDir,self.version+".yaml"),"w"))
@@ -296,8 +301,8 @@ class patternManager():
     
     def exp_object(self,i,s,d=.0,t=None,ori=None):
         from ...Basic import obje
-        if self[i].mid > 0: son = s[s(self[i].mid).idx] + obje.fromFlat(self[self[i].mid].bunches[i].sample(d),n=self[i].type)
-        else:               son = obje.fromFlat(np.concatenate([t, self[0].bunches[i].exp[3:6], ori], axis=0), n=self[i].type)
+        if self[i].mid > 0: son = s[s(self[i].mid).idx] + obje.fromFlat(self[self[i].mid].bunches[i].sample(d),n=self[i].label("ful"))
+        else:               son = obje.fromFlat(np.concatenate([t, self[0].bunches[i].exp[3:6], ori], axis=0), n=self[i].label("ful"))
         son.nid = i
         s.addObject(son)
 
@@ -307,5 +312,58 @@ class patternManager():
         for j, path in enumerate(paths):
             [ self.exp_object(i,s,d,centers[j],oris[j]) for i in path ]
         return s
+    
+    def rel_bunch(self,o,nid,d=.0):
+        from ...Basic import obje,object_types
+        assert o.nid == self[nid].mid or nid == self[o.nid].mid
+        if o.nid == self[nid].mid:
+            p = o + obje.fromFlat(self[o.nid].bunches[nid].sample(d),n=self[nid].label("ful"))
+        else:
+            p = o + (obje.fromFlat(self[nid].bunches[o.nid].sample(d),n=o.class_name)-obje.empty(n=self[nid].label("ful")))
+        p.nid, p.v = nid, False
+        return p
+
+    def rel_object(self,o,nid):
+        assert o.nid in self[nid].ancs or nid in self[o.nid].ancs
+        o_mid_chain = [o.nid]
+        while self[o_mid_chain[0]].mid != 0: o_mid_chain.insert(0,self[o_mid_chain[0]].mid)
+        n_mid_chain = [nid]
+        while self[n_mid_chain[0]].mid != 0: n_mid_chain.insert(0,self[n_mid_chain[0]].mid)
+        
+        #print(o_mid_chain,n_mid_chain)
+        while len(o_mid_chain) and len(n_mid_chain) and o_mid_chain[0] == n_mid_chain[0]:
+            a = o_mid_chain[0]
+            o_mid_chain.pop(0), n_mid_chain.pop(0)
+        o_mid_chain.insert(0,a)
+        n_mid_chain.insert(0,a)
+        #print(list(reversed(o_mid_chain[:-1])),n_mid_chain)
+        #print(self[215].mid)
+        #print(self[6].mid)
+        p = o
+        for i in reversed(o_mid_chain[:-1]):
+            p = self.rel_bunch(p,i)
+        #print(p.nid)
+        for i in n_mid_chain[1:]:
+            p = self.rel_bunch(p,i)
+        return p
     #endregion: utilize----------#
 
+    #region: properties----------#
+    def set_ancestors(self, nid=0, anc=[]):
+        self[nid].ancs = [a for a in anc]
+        for n in self[nid].edges:
+            self.set_ancestors(n.endNode.idx, anc+[n.endNode.idx])
+    
+    # def set_tree_types(self, nid=0):
+    #     for e in self[nid].edges:
+
+    #         self[nid].tree_types = self[nid].tree_types | 
+    #     if len(self[nid].edges) > 0:
+    #         self[nid].tree_types = set([self[nid].type] + [t for e in self[nid].edges for t in self.set_tree_types(e.endNode.idx)])
+
+    
+    @property
+    def type_2_nids(self):
+        from ...Basic import object_types
+        return { t: [n.idx for n in self.nods if n.label.n == self.merging[t]] for t in object_types }
+    #endregion: properties-------#

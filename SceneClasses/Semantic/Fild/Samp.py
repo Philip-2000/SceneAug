@@ -16,8 +16,8 @@ class samp():
     def __call__(self, o, config, timer):
         self.__update(o)
         wo, wi, dr = o.scne.WALLS.optFields(self,o,config)
-        wi = wi if config["object"][o.class_name()][-1] else np.zeros_like(wi)
-        ob = o.scne.OBJES.optFields(self, o, config["object"]) if o.class_name().find("Lamp") < 0 else np.array([.0,.0,.0])#
+        wi = wi if config["object"][o.class_name][-1] else np.zeros_like(wi)
+        ob = o.scne.OBJES.optFields(self, o, config["object"]) if o.class_name.find("Lamp") < 0 else np.array([.0,.0,.0])#
         self.t = wo+wi+dr+ob
         self.s = np.dot(self.t,self.radial/norm(self.radial))*np.abs(self.TRANSL)
         self.r =-np.cross(self.t,self.radial)[1:2]/norm(self.radial) #self.tangen
@@ -49,17 +49,17 @@ class samps():
         return iter(self.samps)
     
     def __call__(self, config, timer, ut=-1):
-        timer("fld")
+        timer("fld",1)
         [s(self.o,config,timer) for s in self]
-        timer("fld")
-        timer("syn")
+        timer("fld",0)
+        timer("syn",1)
         #T,S,R = np.average([_.t for _ in self],axis=0)*config["syn"]["T"], np.average([_.s for _ in self],axis=0)*config["syn"]["S"], np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
         T = np.sum([_.t*norm(_.t) for _ in self],axis=0)/np.sum([norm(_.t) for _ in self]+[1e-6]) *config["syn"]["T"]
         S = np.average([_.s for _ in self],axis=0)*config["syn"]["S"]
         R = np.average([_.r for _ in self],axis=0)*config["syn"]["R"]
         if ut>-1e-5:
             self.o.adjust.update(T*ut,S*ut,R*ut)#self.o.adjust()
-        timer("syn")
+        timer("syn",0)
         return T, S, R
     
     def toSamplesJson(self):
@@ -74,18 +74,22 @@ class samps():
     def renderables(self, scene_render):
         bound = 1e-2
         if len([s for s in self if norm(s.t)>bound]) == 0: return
-        vertices=np.array([ [.2,.0,.0],[ .2,.0,.8],[-.2,.0, .8], 
-                            [.2,.0,.0],[-.2,.0,.8],[-.2,.0, .0],
-                            [.4,.0,.8],[-.4,.0,.8],[ .0,.0,1.0],]) 
+        vertices=np.array([ [.2,.0,.0],[ .2,.0,.6],[-.2,.0, .6], 
+                            [.2,.0,.0],[-.2,.0,.6],[-.2,.0, .0],
+                            [.4,.0,.6],[-.4,.0,.6],[ .0,.0,1.0],]) 
         from simple_3dviz import Mesh
-        arrow = Mesh(vertices=vertices, normals=np.array([[.0,1.,.0]]*len(vertices)), colors=np.array([[.6, .6,.6]]*len(vertices)))
+        arrow = Mesh(vertices=vertices, normals=np.array([[.0,1.,.0]]*len(vertices)), colors=np.array([[1.1, 1.1, 1.1]]*len(vertices)))
         
-        mean_t = np.mean([np.abs(s.t) for s in self],axis=0)
-        arrow.scale(np.array([norm(mean_t)]*3))
-        arrow.rotate_y(np.arctan2(mean_t[0],mean_t[2]))
-        mean_transl = np.mean([np.abs(s.transl) for s in self if norm(s.t)>bound],axis=0)
-        mean_transl[1] = 3.0
-        arrow.affine_transform(t=mean_transl)
+        # print(self.o)
+        # for s in self:
+        #     if norm(s.t)>bound:
+        #         print(s.TRANSL, s.t, s.transl)
+        mean_t = np.mean([s.t for s in self if norm(s.t)>bound],axis=0)
+        arrow.scale(np.array([norm(mean_t)/3.0,1.0,norm(mean_t)]))
+        mean_transl = np.mean([s.transl for s in self if norm(s.t)>bound],axis=0)
+        mean_transl[1] = self.o.translation[1]+self.o.size[1]+0.1
+        from pyrr import Matrix33
+        arrow.affine_transform(R=Matrix33.from_y_rotation(-np.arctan2(mean_t[0],mean_t[2])), t=mean_transl)
         scene_render.add(arrow)
 
     def draw(self,way,colors):

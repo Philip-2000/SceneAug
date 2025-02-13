@@ -46,9 +46,9 @@ class wall():
                 res = torch.cat([res,[self.n[0]]])
         return res
 
-    def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5):
+    def renderable(self, colors=(0.5,0.5,0.5,1), width=0.5, height=0.5, back=0.4):
         from simple_3dviz import Lines
-        return Lines( [ self.p + np.array([0,height,0]) - self.n*width*0.4 - self.array[self.w1].n*width*0.4 , self.q+np.array([0,height,0]) - self.n*width*0.4 - self.array[self.w2].n*width*0.4 ], colors=colors, width=width )
+        return Lines( [ self.p + np.array([0,height,0]) - self.n*width*back - self.array[self.w1].n*width*back , self.q+np.array([0,height,0]) - self.n*width*back - self.array[self.w2].n*width*back ], colors=colors, width=width )
         
         #endregion: presentation#
     
@@ -197,6 +197,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
 
     @classmethod
     def fromLog(cls,f,name="",drawFolder=""):
+        raise NotImplementedError
         from .Logg import distribute
         import json
         a = cls(name=name,drawFolder=drawFolder)
@@ -348,7 +349,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         raise NotImplementedError
         for a in self.windoors:
             o = self.windoors[a]
-            if o.class_name() == "door":
+            if o.class_name == "door":
                 a = int(a)
 
                 W=self.WALLS[a]
@@ -513,7 +514,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         q=self.WALLS[w2].p
         self.WALLS[w2].w1 = ID
         n = np.cross(self.WALLS[w1].n,np.array([0,1,0])) if (p-q)@(p-q)<0.01 else np.array([p[2]-q[2],0,q[0]-p[0]])/norm(np.array([p[2]-q[2],0,q[0]-p[0]]))
-        self.WALLS.append(wall(p,q,n,w1,w2,ID,scne=self.scne,array=self))
+        self.WALLS.append(wall(p,q,n,w1,w2,ID,scene=self.scne,array=self))
         return ID
 
     def deleteWall(self,id,delta):

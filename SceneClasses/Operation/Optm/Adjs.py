@@ -11,7 +11,7 @@ class adj():
         _ = self() if call else None
 
     def __str__(self):
-        return "%s id=%d, T:(%.3f,%.3f,%.3f), S:(%.3f,%.3f,%.3f), R:(%.3f)" % (self.o.class_name()[:10], self.o.idx, self.T[0], self.T[1], self.T[2], self.S[0], self.S[1], self.S[2], self.R[0])
+        return "%s id=%d, T:(%.3f,%.3f,%.3f), S:(%.3f,%.3f,%.3f), R:(%.3f)" % (self.o.class_name[:10], self.o.idx, self.T[0], self.T[1], self.T[2], self.S[0], self.S[1], self.S[2], self.R[0])
 
     def __getitem__(self, k):
         assert k in ["T", "S", "R"]

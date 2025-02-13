@@ -59,10 +59,10 @@ class bnch():
         return len(self.obs) > 0
 
     def enable(self,nid):
-        for o in self.obs:#if o.scne[o.idx].nid != -1: print(o.scne.scene_uid+" "+str(o.idx)+" "+o.scne[o.idx].class_name()) #assert 1 == 0
+        for o in self.obs:#if o.scne[o.idx].nid != -1: print(o.scne.scene_uid+" "+str(o.idx)+" "+o.scne[o.idx].class_name) #assert 1 == 0
             o.scne[o.idx].nid = nid
 
-    def draw(self,basic,dir,idx,J,scaled,all,lim,path,offset=[4.0,0.0]):
+    def draw(self,basic,dir,idx,N,scaled,all,lim,path,offset=[4.0,0.0]):
         from matplotlib import pyplot as plt
         from ...Basic import obje, object_types
         plt.axis('equal')
@@ -75,15 +75,15 @@ class bnch():
             for a in self.obs:
                 (basic + a).draw(color="red",alpha=1.0/len(self.obs),text=False)
         else:
-            me = basic + (obje.fromFlat(self.exp,j=J))
+            me = basic + (obje.fromFlat(self.exp,n=N))
             if len(path)>1:
                 plt.Rectangle((me.translation[0],-me.translation[2]),width=self.dev[0],height=self.dev[2],color="yellow")
                 plt.plot([me.translation[0], me.translation[0]+0.5*np.math.sin(me.orientation+self.dev[-1])], [-me.translation[2],-me.translation[2]-0.5*np.math.cos(me.orientation+self.dev[-1])], color="lime")
                 plt.plot([me.translation[0], me.translation[0]+0.5*np.math.sin(me.orientation-self.dev[-1])], [-me.translation[2],-me.translation[2]-0.5*np.math.cos(me.orientation-self.dev[-1])], color="lime")
                 fat = path[0].source.startNode
                 while fat.idx != path[1].idx:
-                    if fat.idx in path[1].bunches:
-                        (basic + obje.fromFlat(path[1].bunches[fat.idx].exp,j=object_types.index(fat.type))).draw(color="gray",d=True,cr="gray",text=False)
+                    if fat.idx in path[1].bunches: #j=object_types.index(fat.type)
+                        (basic + obje.fromFlat(path[1].bunches[fat.idx].exp,n=fat.label("ful"))).draw(color="gray",d=True,cr="gray",text=False)
                     fat = fat.source.startNode
 
             me.draw(d=True,color="red",cr="green",text=False)
@@ -146,7 +146,7 @@ class bnch_node():
         self.I,self.J = nid,oid
     
     def Str(self, tree, lev):
-        return ".".join(["\t"]*lev)+"(%d %d %s)"%(self.nid, self.oid, tree.scene[self.oid].class_name()) + ("\n" if len(self.child_id) else "") + "\n".join([tree[i].Str(tree,lev+1) for i in self.child_id])
+        return ".".join(["\t"]*lev)+"(%d %d %s)"%(self.nid, self.oid, tree.scene[self.oid].class_name) + ("\n" if len(self.child_id) else "") + "\n".join([tree[i].Str(tree,lev+1) for i in self.child_id])
 
     # def upward(self, tree): #an elder version of upwards, only considering the largest impact from all its children
     #     self.I,self.J = self.nid,self.oid
@@ -215,14 +215,14 @@ def bnch_effects(node, tree):
     effects = [ bnch_effect(node) ]
     for cid in node.child_id:
         effects.append(bnch_effect(node, tree[cid], tree.pm[node.nid].bunches[cid].exp))
-        #print(node.o.class_name(),tree[cid].o.class_name(),effects[-1].W)
+        #print(node.o.class_name,tree[cid].o.class_name,effects[-1].W)
         if effects[-1].W > threshold:
             squeeze = squeeze or effects[-1].squeeze
-    #print(self.node.o.class_name(),squeeze)
+    #print(self.node.o.class_name,squeeze)
     
     if squeeze:
         # if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
-        #     print("squeeze",node.o.class_name(),[e.W for e in effects if e.W > threshold and e.squeeze == squeeze])
+        #     print("squeeze",node.o.class_name,[e.W for e in effects if e.W > threshold and e.squeeze == squeeze])
         #calculate the sum and absolute sum of e.move on x-axis and z-axis
         X,Z,X_abs,Z_abs,W,flats,flatos = 0,0,0,0,1e-6,np.zeros_like(node.o.flat()), []
         for e in [e for e in effects if e.W > threshold and e.squeeze == squeeze]:
@@ -253,20 +253,20 @@ def bnch_effects(node, tree):
         node.o = (obje.fromFlat(flats/W,j=node.o.class_index))
         node.Norm += sum([tree[cid].Norm for cid in node.child_id if tree[cid].Norm > 2e-8])
 
-        #print("squeeze",node.o.class_name(),X,Z,X_abs,Z_abs)
+        #print("squeeze",node.o.class_name,X,Z,X_abs,Z_abs)
         
         if X_abs > abs(X) + 0.05 or Z_abs > abs(Z) + 0.05 or True: #conflict occurs
             if (X_abs-abs(X)) > (Z_abs-abs(Z)): #conflict larger on x-axis
-                #print("conflict",node.o.class_name(),X,Z,X_abs,Z_abs,"x")
+                #print("conflict",node.o.class_name,X,Z,X_abs,Z_abs,"x")
                 yes = np.abs(node.o.matrix(-1) @ np.array([(X_abs-abs(X))*.8,.0,.0])) #align the x-axis conflict to self.node.o's coordinate
             else: #conflict larger on z-axis 
-                #print("conflict",node.o.class_name(),X,Z,X_abs,Z_abs,"z")
+                #print("conflict",node.o.class_name,X,Z,X_abs,Z_abs,"z")
                 yes = np.abs(node.o.matrix(-1) @ np.array([.0,.0,(Z_abs-abs(Z))*.8]))
             #print(node.o.size,yes,node.o.size-yes)
             node.o.size -= yes
     else:
         # if len([e for e in effects if e.W > threshold and e.squeeze == squeeze]):
-            # print("expand",node.o.class_name())
+            # print("expand",node.o.class_name)
         W,flats,flatos = 1e-6,np.zeros_like(node.o.flat()),[] 
         for e in [e for e in effects if e.W > threshold and e.squeeze == squeeze]:
             flats += e.o.flat() * e.W

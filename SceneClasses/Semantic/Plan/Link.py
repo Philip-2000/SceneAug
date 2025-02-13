@@ -106,7 +106,7 @@ class links():
         self.LINKS.append(lnk)
     
     def draw(self):
-        for l in self.links: l.draw()
+        for l in self.LINKS: l.draw()
     
     def toLinksJson(self,rsj):
         rsj["links"] = [l.toLinkJson() for l in self]

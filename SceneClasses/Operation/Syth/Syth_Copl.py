@@ -33,6 +33,13 @@ class sltn():
         S.conflict = self.conflict + ob_c[1]
         return S
 
+    def clone(self):
+        S = sltn(self.pm,self.scene)
+        from ...Basic import obje
+        S.OBJES = [obje.copy(o) for o in self.OBJES]
+        S.conflict = self.conflict
+        return S
+
     @property
     def hold(self):
         return len([o for o in self.OBJES if o.v])
@@ -87,6 +94,10 @@ class sltn():
                 self.scene.OBJES[-1].v = True
             else:
                 self.scene.OBJES[o.idx].nid = o.nid
+            
+            if len(self.WALLS)>0:
+                from ..Optm import tme, default_optm_config as config
+                self.scene.OBJES.optimizePhy(config,tme,debug=False,ut=1.0)
 
     def __eq__(self,SLTN):
         if len(self.OBJES) != len(SLTN.OBJES): return False
@@ -95,6 +106,24 @@ class sltn():
             if o.nid != p.nid: return False
             if not(o.idx is None and p.idx is None) and o.idx != p.idx: return False
         return True
+
+class sltns():
+    def __init__(self,*args):
+        self.SLTNS = [sltn.clone(_) for _ in args]
+    
+    def __getitem__(self,i):
+        return self.SLTNS[i]
+    
+    def __len__(self):
+        return len(self.SLTNS)
+    
+    def utilize(self):
+        for sl in self.SLTNS: sl.utilize()
+
+    @property
+    def conflict(self):
+        return sum([sl.conflict for sl in self.SLTNS])
+    
 """
 class sltns():
     def __init__(self,scene,pm):
@@ -202,37 +231,46 @@ class copl(syth):
         self.scene.draw(),self.scene.save()
 
     def uncond(self, use=True, draw=True):#可以类似于rearrange
+        return self.unconds(use,draw)
         from ..Patn import paths
         self.paths = paths(self.pm)
         solutions = self.paths.recognize(self.scene)
+        solution = sorted(solutions,key=lambda x:x.conflict)[0]
+        for o in self.scene.OBJES: o.nid = -1
+        if use:
+            solution.utilize()
+            print(solution.conflict)
+            if draw: self.scene.draw(),self.scene.save()
+        return self.scene
+
+    def unconds(self, use=True, draw=True):#可以类似于rearrange
+        from ..Patn import pathses
+        self.paths = pathses(self.pm)
+        solutions = self.paths.recognize(self.scene)
         ORIDS = len([o.idx for o in self.scene.OBJES])
         #print("ORIDS",ORIDS)
-        cnt = 1
-        for solution in solutions[-10:]:
+        for cnt, solution in enumerate(solutions[-10:]):
             for o in self.scene.OBJES: o.nid = -1
             self.scene.OBJES.OBJES = self.scene.OBJES.OBJES[:ORIDS]
             #print(self.scene.OBJES,"\n")
             #print(len(solution)) #,solution[0].nid_tags,solution[1].nid_tags,solution[0].nid_tags
             #print(solution[0],"\n",solution[1],"\n") if len(solution) > 1 else print(solution[0],"\n")
             #for o in solution[0].OBJES: print(o.nid)
-            for sl in solution: sl.utilize()
+            solution.utilize() #for sl in solution: sl.utilize()
             #solution[0].conflicting(solution[1])
-            print(sum([sl.conflict for sl in solution]))
+            print(solution.conflict)
             if draw:
-                self.scene.scene_uid = str(cnt)
+                self.scene.scene_uid = str(cnt+1)
                 self.scene.draw(),self.scene.save()
-            cnt += 1
             #break
         return self.scene
 
-    def textcond(self):
+    def textcond(self,use,draw):
         #语言指导路径挑选
         return self.scene
 
-    def roomcond(self):
-        #场景优化微调
-        return self.scene
+    def roomcond(self,use=True,draw=True):
+        return self.uncond(use,draw)
 
-    def txrmcond(self):
-        #语义指导路径挑选+场景优化微调
-        return self.scene
+    def txrmcond(self,use,draw):
+        return self.textcond(use,draw)

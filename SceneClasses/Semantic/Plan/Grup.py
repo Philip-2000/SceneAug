@@ -41,6 +41,12 @@ class grup():
         self.orientation = 0.0
         self.size = np.array([np.max(Xs),1.0,np.max(Zs)])-self.translation
         self.scale = np.array([1,1,1])
+        from ..Spce import rect
+        self.rect= rect(c=self.translation,a=self.size)
+
+    def append(self, i):
+        self.objIdList.append(i)
+        self.update()
 
     def bbox2(self):
         cs = np.array([self.scne[i].corners2() for i in self.objIdList]).reshape((-1,2))

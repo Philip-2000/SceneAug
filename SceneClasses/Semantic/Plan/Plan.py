@@ -258,7 +258,7 @@ class plan(): #it's a recognize plan
             p = [p for p in self.PLAN if len(p)>1][0]
             walls = sorted(self.scene.WALLS,key=lambda x:(x.p[0]+x.q[0])) if np.max(xs) > np.max(zs) else sorted(self.scene.WALLS,key=lambda x:(x.p[2]+x.q[2]))
             wmax,wmin = walls[-1],walls[0]
-            c = (wmax.center()*(wmax.length+1.0) + wmin.center()*(wmin.length+1.0))/(wmax.length + wmin.length + 2.0)#np.array([np.max(xs), 0.0, (wmax.p[2]+wmax.q[2])/2.0])
+            c = (wmax.center*(wmax.length+1.0) + wmin.center*(wmin.length+1.0))/(wmax.length + wmin.length + 2.0)#np.array([np.max(xs), 0.0, (wmax.p[2]+wmax.q[2])/2.0])
             M = self.scene[p.nids[0][0]].translation.copy() - c 
             [self.scene[oid].adjust.update(T=-M, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p.nids ]
         elif len([p for p in self.PLAN if len(p)>1]) == 2:
@@ -269,15 +269,15 @@ class plan(): #it's a recognize plan
             if (wmin.length > wmax.length) ^ (hint.index(p1.nids[0][1])>hint.index(p2.nids[0][1])): #wmin's area is larger than wmax's 
                 p1,p2 = p2,p1 #then p1 should be at wmax, p2 at wmin 
             # if np.max(xs) > np.max(zs):
-            #     c1,c2 = wmax.center() * 0.4, wmin.center()*0.4 #np.array([np.max(xs)*0.3, 0.0, (wmax.p[2]+wmax.q[2])/2.0]), np.array([np.min(xs)*0.3, 0.0, (wmin.p[2]+wmin.q[2])/2.0])
+            #     c1,c2 = wmax.center * 0.4, wmin.center*0.4 #np.array([np.max(xs)*0.3, 0.0, (wmax.p[2]+wmax.q[2])/2.0]), np.array([np.min(xs)*0.3, 0.0, (wmin.p[2]+wmin.q[2])/2.0])
             # else:
-            #     c1,c2 = wmax.center() * 0.4, wmin.center()*0.4 #np.array([(wmax.p[0]+wmax.q[0])*0.5, 0.0, np.max(zs)*0.3]), np.array([(wmin.p[0]+wmin.q[0])*0.5, 0.0, np.min(zs)*0.3])
-            #print(wmax, wmax.center(), wmax.center()*0.5)
-            #print(wmin, wmin.center(), wmin.center()*0.5)
-            #print(wmax.center() * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)))
-            #print(wmin.center() * ((wmin.length+1.0)/(wmax.length + wmin.length + 2.0)))
+            #     c1,c2 = wmax.center * 0.4, wmin.center*0.4 #np.array([(wmax.p[0]+wmax.q[0])*0.5, 0.0, np.max(zs)*0.3]), np.array([(wmin.p[0]+wmin.q[0])*0.5, 0.0, np.min(zs)*0.3])
+            #print(wmax, wmax.center, wmax.center*0.5)
+            #print(wmin, wmin.center, wmin.center*0.5)
+            #print(wmax.center * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)))
+            #print(wmin.center * ((wmin.length+1.0)/(wmax.length + wmin.length + 2.0)))
             
-            M1,M2 = self.scene[p1.nids[0][0]].translation.copy() - wmax.center() * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)), self.scene[p2.nids[0][0]].translation.copy() - wmin.center()*((wmin.length+1.0)/(wmax.length + wmin.length + 2.0))
+            M1,M2 = self.scene[p1.nids[0][0]].translation.copy() - wmax.center * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)), self.scene[p2.nids[0][0]].translation.copy() - wmin.center*((wmin.length+1.0)/(wmax.length + wmin.length + 2.0))
             
             [self.scene[oid].adjust.update(T=-M1, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p1.nids]
             [self.scene[oid].adjust.update(T=-M2, S=np.array([0,0,0]), R=np.array([0])) for oid,nid in p2.nids]

@@ -4,7 +4,7 @@ class path:
         self.pm = pm
     
     def __str__(self):
-        return " -> ".join([self.pm.nods[i].label.n + " " + str(i) for i in self.path])
+        return " -> ".join([self.pm.nods[i].label.n[:10] + " " + str(i) for i in self.path])
 
     def __len__(self):
         return len(self.path)
@@ -21,8 +21,8 @@ class path:
         return self.path[idx]
     
     @classmethod
-    def subset(cls,p):
-        return cls([i for i in p.path][:-1], p.pm)
+    def subset(cls,p,i=-1):
+        return cls([i for i in p.path][:i], p.pm)
     
     def recognize(self,scene):
         from numpy.linalg import norm
@@ -96,16 +96,99 @@ class path:
             o.nid = -1
         return ret
 
+    def assign(self,scene,j,center,orient,move=True):
+        from ...Basic import obje
+        from ...Semantic import pla
+        from numpy.linalg import norm
+        scene.PLAN.PLAN.append(pla([],[]))
+        N = self.pm.nods[0]
+        for i in self.path:
+            assert i in [ed.endNode.idx for ed in N.edges]
+            M = self.pm.nods[i]
+            K = M.mid
+            b = self.pm[K].bunches[M.idx]
+
+            k = [ o for o in scene.OBJES if o.nid==K ][0] if K > 0 else obje.empty()
+            #j=object_types.index(M.type)
+            m = k+obje.fromFlat(b.exp,n=M.label("ful")) #self.pm.merging[o.class_name()]
+            o = sorted([ o for o in scene.OBJES if o.label == M.label and o.nid==-1 ], key=lambda o: norm(o.size - m.size))[0]
+            o.nid, o.gid = M.idx, j+1
+            o.translation = (m.translation if K > 0 else center) if move else o.translation
+            o.orientation = (m.orientation if K > 0 else orient) if move else o.orientation
+            scene.PLAN.PLAN[j] = pla(scene.PLAN[j].nids + [(o.idx, o.nid)], scene.PLAN[j].fits + [0])
+            N = M
+
 class paths:
+    def __init__(self,*args):
+        self.paths = [path.clone(_) for _ in args]
+    
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, idx):
+        return self.paths[idx]
+
+    def __str__(self):
+        return "paths:\n" + "\n".join([str(p) for p in self.paths])
+
+    def rarg_init(self, scene): #self.rarg_init(res[0][:-1]) return centers, orients
+        import random, numpy as np
+        xs,zs = [w.p[0] for w in scene.WALLS],[w.p[2] for w in scene.WALLS]
+        assert abs(np.max(xs)+np.min(xs))<0.01 and abs(np.max(zs)+np.min(zs))<0.01
+        if len(self) == 1:
+            p = self[0]
+            walls = sorted(scene.WALLS,key=lambda x:(x.p[0]+x.q[0])) if np.max(xs) > np.max(zs) else sorted(scene.WALLS,key=lambda x:(x.p[2]+x.q[2]))
+            wmax,wmin = walls[-1],walls[0]
+            c = (wmax.center*(wmax.length+1.0) + wmin.center*(wmin.length+1.0))/(wmax.length + wmin.length + 2.0)#np.array([np.max(xs), 0.0, (wmax.p[2]+wmax.q[2])/2.0])
+            o = (np.array([.0]) if np.random.rand() > 0.5 else np.array([np.pi])) if np.random.rand() > 0.5 else (np.array([np.pi/2]) if np.random.rand() > 0.5 else np.array([-np.pi/2])) 
+            c = c - (0.3+np.random.rand()*0.7)*np.array([np.sin(o[0]), 0, np.cos(o[0])])
+            c[1] = 0
+            return [c], [o]
+        elif len(self) == 2:
+            p1,p2 = self
+            hint = [2,3,1,4,5] #I'm done with it ok? this hint is only for 'losy', I would never coding like this shit if I don't have to finish papers
+            walls = sorted(scene.WALLS,key=lambda x:(x.p[0]+x.q[0])) if np.max(xs) > np.max(zs) else sorted(scene.WALLS,key=lambda x:(x.p[2]+x.q[2]))
+            wmax,wmin = walls[-1],walls[0]
+            c1,c2 = wmax.center * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)), wmin.center*((wmin.length+1.0)/(wmax.length + wmin.length + 2.0))
+            
+            i12 =-1 if np.max(xs) > np.max(zs) else 2
+            o1 = np.array([np.pi/2])*random.choice([ i12, i12+3 if i12==-1 else i12-1, i12-3 if i12==2 else i12+1 ])
+            i21 = 1 if np.max(xs) > np.max(zs) else 0
+            o2 = np.array([np.pi/2])*random.choice([ i21, i21-1, i21+1 ])
+
+            c1,c2 = c1 - (0.3+np.random.rand()*0.7)*np.array([np.sin(o1[0]), 0, np.cos(o1[0])]),c2 - (0.3+np.random.rand()*0.7)*np.array([np.sin(o2[0]), 0, np.cos(o2[0])])
+            c1[1],c2[1] = 0,0
+            if (wmin.length > wmax.length) ^ (hint.index(p1[0])>hint.index(p2[0])): #wmin's area is larger than wmax's 
+                if np.random.rand() > (((min(wmin.length,wmax.length) / (wmin.length+wmax.length) )/0.5)**3)*0.5:
+                    return [c2,c1], [o2,o1]
+                else:
+                    return [c1,c2], [o1,o2]
+            else:
+                if np.random.rand() > (((min(wmin.length,wmax.length) / (wmin.length+wmax.length) )/0.5)**3)*0.5:
+                    return [c1,c2], [o1,o2]
+                else:
+                    return [c2,c1], [o2,o1]
+
+    def assign(self,scene,centers=None,orients=None):
+        if centers is None or orients is None: centers,orients = self.rarg_init(scene)
+        from ...Semantic import plan
+        scene.PLAN = plan(scene, self.paths[0].pm)
+        for j,r in enumerate(self.paths): r.assign(scene,j,centers.pop(0),orients.pop(0))        
+        for o in scene.OBJES: o.v = (o.nid != -1)
+        scene.PLAN.update_fit()
+
+class pathses:
     def __init__(self,pm,node=None,lst=None):
         import random
         self.paths,self.pm = [],pm
         if node is not None:
             self.recursive_construct(node,path([], pm),pm,lst=lst)
         else:
+            self.segments = [0]
             for nod in pm.nods[0].edges:
                 self.recursive_construct(nod.endNode,path([], pm),pm,lst=lst)
-        #random.shuffle(self.paths)
+                self.segments.append(len(self.paths))
+            self.root_segments = {nod.endNode.label.n:[self.segments[i],self.segments[i+1]] for i,nod in enumerate(pm.nods[0].edges)}
 
     def __str__(self):
         return "paths:\n" + "\n".join([str(p) for p in self.paths])
@@ -126,66 +209,40 @@ class paths:
     def __iter__(self):
         return iter(self.paths)
 
-    def __call__(self):
-        pass
+    def __combine(self, pathA, pathB, scene):
+        from copy import deepcopy
+        res = []
+        pA = path.clone(pathA)
+        while len(pA) > 0:
+            pa = path.clone(pA)
+            C = [o.label("mrg") for o in scene.OBJES]#[self.pm.merging[o.class_name] for o in scene.OBJES]
+            while len(pa) > 0 and self.pm.nods[pa.path[-1]].label.n in C:
+                C.remove(self.pm.nods[pa.path[-1]].label.n)
+                pa = path.subset(pa)
+            if len(pa) == 0:
+                break
+            pA = path.subset(pA)
+        c_a = deepcopy(C)
+        while len(pA) > 0:
+            C_A = deepcopy(c_a)
+            i=0
+            for c in pathB.path:
+                if self.pm.nods[c].label.n in C_A:
+                    C_A.remove(self.pm.nods[c].label.n)
+                    i+=1
+                else:
+                    break
+            if len(C_A) <= self.tolerate[1]:#deepcopy(pA.path),deepcopy(pathB.path[:i])
+                #res.append([deepcopy(pA.path),deepcopy(pathB.path[:i]),deepcopy(C_A)])
+                res.append([paths(pA,path.subset(pathB,i)),deepcopy(C_A)])
+            c_a.append(self.pm.nods[pA.path[-1]].label.n)
+            pA = path.subset(pA)
+        return res
 
-    def recognize(self,scene):
-        solution,solutions = [],[]
-        #cnts = {}
-        for p in self.paths:#[90:91]:
-            #print(self.paths.index(p))
-            #if not p[-1] == 146: continue
-            #print(p)
-            ret = p.recognize(scene)
-            for r in ret:
-                f = False
-                for s in reversed(solution):
-                    if r == s:
-                        f = True
-                        break
-                if not f: solution.append(r)
-        for i,s in enumerate(solution):
-            if s.cover():
-                solutions.append([s])
-                continue
-            for j in range(i+1,len(solution)):
-                if s.cover(solution[j]): solutions.append([s,solution[j]])
-        
-        
-        print(len(solutions))
-        return solutions
 
-    def matching(self,text):
-        #print(text)
-        match,matchs = [],[]
-        #cnts = {}
-        for p in self.paths:#[90:91]:
-            #print(self.paths.index(p))
-            if len(p) <= 3 or not p[-3] == 164: continue
-            #print(p)
-            ret = p.matching(text)
-            for r in ret:
-                # f = False
-                # for s in reversed(match):
-                #     if r == s:
-                #         f = True
-                #         break
-                # if not f:
-                match.append(r)
-        for i,s in enumerate(match):
-            if s.cover():
-                matchs.append([s])
-                continue
-            for j in range(i+1,i+1):#len(match)):#
-                if s.cover(match[j]): matchs.append([s,match[j]])
-        print(len(matchs)) #for m in matchs: print(m[0])
-        return matchs
-
-class pathses:
-    def __init__(self,pm,scene):
-        self.scene, self.pm = scene, pm
+    def search(self,scene): #for rarg - path(s) = [path, path ...]
         self.tolerate = [3,4]
-        A = [o.label("mrg") for o in scene.OBJES if o.label("mrg") in pm.rootNames]#[pm.merging[o.class_name()] for o in scene.OBJES if pm.merging[o.class_name()] in [ed.endNode.type for ed in pm.nods[0].edges]]
+        A = [o.label("mrg") for o in scene.OBJES if o.label("mrg") in self.pm.rootNames]#[pm.merging[o.class_name()] for o in scene.OBJES if pm.merging[o.class_name()] in [ed.endNode.type for ed in pm.nods[0].edges]]
         AA= list(set(A))
         #orphans = []
         if len(AA) > 2: #if there are more than two core semantic labels in the scene
@@ -218,55 +275,17 @@ class pathses:
             raise Exception("No core object in the scene " + str(scene.scene_uid) + " " + str([o.class_name for o in scene.OBJES]))
         #print([self.pm.merging[o.class_name] for o in self.scene.OBJES])
         self.B = [o.label("mrg") for o in scene.OBJES]#[pm.merging[o.class_name] for o in scene.OBJES]
-        #print(self.B)
-        self.pathses = [paths(self.pm, ed.endNode, self.B) for ed in pm.nods[0].edges if ed.endNode.label.n in A]
-        #print(self)
-        
-    def __str__(self):
-        return "\n".join([str(p) for p in self.pathses])
-
-    def combine(self, pathA, pathB, scene):
         from copy import deepcopy
         res = []
-        pA = path.clone(pathA)
-        while len(pA) > 0:
-            pa = path.clone(pA)
-            C = [o.label("mrg") for o in scene.OBJES]#[self.pm.merging[o.class_name] for o in scene.OBJES]
-            while len(pa) > 0 and self.pm.nods[pa.path[-1]].label.n in C:
-                C.remove(self.pm.nods[pa.path[-1]].label.n)
-                pa = path.subset(pa)
-            if len(pa) == 0:
-                break
-            pA = path.subset(pA)
-        c_a = deepcopy(C)
-        while len(pA) > 0:
-            C_A = deepcopy(c_a)
-            i=0
-            for c in pathB.path:
-                if self.pm.nods[c].label.n in C_A:
-                    C_A.remove(self.pm.nods[c].label.n)
-                    i+=1
-                else:
-                    break
-            if len(C_A) <= self.tolerate[1]:
-                res.append([deepcopy(pA.path),deepcopy(pathB.path[:i]),deepcopy(C_A)])
-            c_a.append(self.pm.nods[pA.path[-1]].label.n)
-            pA = path.subset(pA)
-        return res
-
-    def __call__(self):
-        #print(self)
-        from copy import deepcopy
-        res = []
-        for pA in self.pathses[0]:
-            if len(self.pathses)==2:
-                for pB in self.pathses[1]:
-                    a = self.combine(pA,pB,self.scene)
-                    for A in a:
-                        if len(A[0]) > 1 and len(A[1]) > 1:
-                            res.append(A)
+        for pA in self.paths[self.root_segments[AA[0]][0]:self.root_segments[AA[0]][1]]:
+            if len(AA)==2:
+                for pB in self.paths[self.root_segments[AA[1]][0]:self.root_segments[AA[1]][1]]:
+                    m = self.__combine(pA,pB,scene)
+                    for M in m:
+                        if len(M[0][0]) > 1 and len(M[0][1]) > 1:
+                            res.append(M)
             else:
-                C = [o.label("mrg") for o in self.scene.OBJES]#[self.pm.merging[o.class_name()] for o in self.scene.OBJES]
+                C = [o.label("mrg") for o in scene.OBJES]#[self.pm.merging[o.class_name()] for o in self.scene.OBJES]
                 i = 0
                 for c in pA.path:
                     if self.pm.nods[c].label.n in C:
@@ -275,5 +294,156 @@ class pathses:
                     else:
                         break
                 if len(C) <= self.tolerate[0] and i > 1:
-                    res.append([deepcopy(pA.path[:i]),deepcopy(C)])
-        return res
+                    res.append([paths(path.subset(pA,i)),deepcopy(C)])
+                    #res.append([deepcopy(pA.path[:i]),deepcopy(C)])
+        return res        
+
+    def recognize(self,scene): #for copl - sltn(s) = [sltn, sltn ...]
+        from ..Syth import sltns
+        solution,solutions = [],[]
+        #cnts = {}
+        for p in self.paths:#[90:91]:
+            #print(self.paths.index(p))
+            #if not p[-1] == 146: continue
+            #print(p)
+            ret = p.recognize(scene)
+            for r in ret:
+                f = False
+                for s in reversed(solution):
+                    if r == s:
+                        f = True
+                        break
+                if not f: solution.append(r)
+        for i,s in enumerate(solution):
+            if s.cover():
+                solutions.append(sltns(s))
+            else:
+                for j in range(i+1,len(solution)):
+                    if s.cover(solution[j]): solutions.append(sltns(s,solution[j]))
+        
+        print(len(solutions))
+        return solutions
+
+    def matching(self,text): #for textcond - mtch(s) = [mtch, mtch ...]
+        from .Mtch import mtchs
+        match,matchs = [],[]
+        #cnts = {}
+        for p in self.paths:#[90:91]:
+            #print(self.paths.index(p))
+            if len(p) <= 3 or not p[-3] == 164: continue
+            #print(p)
+            ret = p.matching(text)
+            for r in ret:
+                # f = False
+                # for s in reversed(match):
+                #     if r == s:
+                #         f = True
+                #         break
+                # if not f:
+                match.append(r)
+        for i,s in enumerate(match):
+            if s.cover():
+                matchs.append(mtchs(s))
+                continue
+            for j in range(i+1,i+1):#len(match)):#
+                if s.cover(match[j]): matchs.append(mtchs(s,match[j]))
+        print(len(matchs)) #for m in matchs: print(m[0])
+        return matchs
+
+
+# class pathses:
+#     def __init__(self,pm,scene):
+#         self.scene, self.pm = scene, pm
+#         self.tolerate = [3,4]
+#         A = [o.label("mrg") for o in scene.OBJES if o.label("mrg") in pm.rootNames]#[pm.merging[o.class_name()] for o in scene.OBJES if pm.merging[o.class_name()] in [ed.endNode.type for ed in pm.nods[0].edges]]
+#         AA= list(set(A))
+#         #orphans = []
+#         if len(AA) > 2: #if there are more than two core semantic labels in the scene
+#             orphans = A
+#             A = []
+#             for t in ["Dining Table","Coffee Table","King-size Bed","Desk","Dressing Table"]:
+#                 if t in orphans:
+#                     A.append(t)
+#                     #orphans.remove(t)
+#                     if len(A) == 2:
+#                         break
+#         elif len(AA) == 2:
+#             a = A.count(AA[0])
+#             while a > 1:
+#                 #orphans.append(AA[0])
+#                 A.remove(AA[0])
+#                 a -= 1
+#             a = A.count(AA[1])
+#             while a > 1:
+#                 #orphans.append(AA[1])
+#                 A.remove(AA[1])
+#                 a -= 1
+#         elif len(AA) == 1:
+#             a = A.count(AA[0])
+#             while a > 1:
+#                 #orphans.append(AA[0])
+#                 A.remove(AA[0])
+#                 a -= 1
+#         else:
+#             raise Exception("No core object in the scene " + str(scene.scene_uid) + " " + str([o.class_name for o in scene.OBJES]))
+#         #print([self.pm.merging[o.class_name] for o in self.scene.OBJES])
+#         self.B = [o.label("mrg") for o in scene.OBJES]#[pm.merging[o.class_name] for o in scene.OBJES]
+#         #print(self.B)
+#         self.pathses = [paths(self.pm, ed.endNode, self.B) for ed in pm.nods[0].edges if ed.endNode.label.n in A]
+#         #print(self)
+        
+#     def __str__(self):
+#         return "\n".join([str(p) for p in self.pathses])
+
+#     def combine(self, pathA, pathB, scene):
+#         from copy import deepcopy
+#         res = []
+#         pA = path.clone(pathA)
+#         while len(pA) > 0:
+#             pa = path.clone(pA)
+#             C = [o.label("mrg") for o in scene.OBJES]#[self.pm.merging[o.class_name] for o in scene.OBJES]
+#             while len(pa) > 0 and self.pm.nods[pa.path[-1]].label.n in C:
+#                 C.remove(self.pm.nods[pa.path[-1]].label.n)
+#                 pa = path.subset(pa)
+#             if len(pa) == 0:
+#                 break
+#             pA = path.subset(pA)
+#         c_a = deepcopy(C)
+#         while len(pA) > 0:
+#             C_A = deepcopy(c_a)
+#             i=0
+#             for c in pathB.path:
+#                 if self.pm.nods[c].label.n in C_A:
+#                     C_A.remove(self.pm.nods[c].label.n)
+#                     i+=1
+#                 else:
+#                     break
+#             if len(C_A) <= self.tolerate[1]:
+#                 res.append([deepcopy(pA.path),deepcopy(pathB.path[:i]),deepcopy(C_A)])
+#             c_a.append(self.pm.nods[pA.path[-1]].label.n)
+#             pA = path.subset(pA)
+#         return res
+
+#     def __call__(self):
+#         #print(self)
+#         from copy import deepcopy
+#         res = []
+#         for pA in self.pathses[0]:
+#             if len(self.pathses)==2:
+#                 for pB in self.pathses[1]:
+#                     a = self.combine(pA,pB,self.scene)
+#                     for A in a:
+#                         if len(A[0]) > 1 and len(A[1]) > 1:
+#                             res.append(A)
+#             else:
+#                 C = [o.label("mrg") for o in self.scene.OBJES]#[self.pm.merging[o.class_name()] for o in self.scene.OBJES]
+#                 i = 0
+#                 for c in pA.path:
+#                     if self.pm.nods[c].label.n in C:
+#                         C.remove(self.pm.nods[c].label.n)
+#                         i+=1
+#                     else:
+#                         break
+#                 if len(C) <= self.tolerate[0] and i > 1:
+#                     res.append([deepcopy(pA.path[:i]),deepcopy(C)])
+#         return res

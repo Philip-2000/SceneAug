@@ -34,7 +34,37 @@ class mtch():
         if flags_set & flag_set != 0: return False
         return len(set(self.text.flags) - ( flags_set | flag_set )) < 1
 
+    def path(self):
+        from .Path import path
+        return path([r[2] for r in self.records], self.pm)
+
     def utilize(self,scene,center,ori):
+        return self.pm.leaf_scene(self.records[-1][2],scene,center,ori)
         ancs = sorted(self.pm[self.records[-1][2]].ancs)
         for r in self.records: assert r[2] in ancs
         for i in ancs: self.pm.exp_object(i,scene,0.0,center,ori)#return scene
+
+class mtchs():
+    def __init__(self,*args):
+        self.MTCHS = args
+
+    def __iter__(self):
+        return iter(self.MTCHS)
+
+    def __getitem__(self, i):
+        return self.MTCHS[i]
+    
+    def __len__(self):
+        return len(self.MTCHS)
+    
+    def utilize(self,scene,centers,orients):
+        for m in self.MTCHS: m.utilize(scene,centers.pop(0),orients.pop(0))
+
+    def paths(self):
+        from .Path import paths
+        return paths(*[ m.path() for m in self ])
+
+    def assign(self,scene):
+        PS = self.paths()
+        PS.assign(scene)
+

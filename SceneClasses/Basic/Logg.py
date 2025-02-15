@@ -50,7 +50,7 @@ class dllg(logg):
         return cls(walls,int(string[:string.find(' ')]),notOp)
 
     def operate(self):
-        self.Walls.squeezeWall(self.id)
+        self.Walls[self.id].squeeze()#self.Walls.squeezeWall(self.id)
 
     def __str__(self):
         return "%d delete\n"%(self.id)

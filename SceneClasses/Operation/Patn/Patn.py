@@ -299,18 +299,36 @@ class patternManager():
         res_1 = self.random_path([A[1]],max(4,N_min-len(res_0)), N_max-len(res_0))
         return [res_0,res_1]
     
-    def exp_object(self,i,s,d=.0,t=None,ori=None):
+    def exp_object(self,i,s,d=.0,t=None,ori=None,add=True):
         from ...Basic import obje
         if self[i].mid > 0: son = s[s(self[i].mid).idx] + obje.fromFlat(self[self[i].mid].bunches[i].sample(d),n=self[i].label("ful"))
         else:               son = obje.fromFlat(np.concatenate([t, self[0].bunches[i].exp[3:6], ori], axis=0), n=self[i].label("ful"))
         son.nid = i
-        s.addObject(son)
+        if add: s.addObject(son)
+        return son
+
+    def leaf_scene(self,leaf,scene=None,center=[0,0,0],ori=[0]):
+        from ...Basic import scne
+        scene = scne.empty() if scene is None else scene
+        ancs = sorted(self[leaf].ancs)
+        goids = []
+        for i in ancs:
+            self.exp_object(i,scene,0.0,center,ori)#return scene
+            goids.append(scene[-1].idx)
+        from ...Semantic import grup
+        scene.GRUPS.append(grup(goids))
+        return scene
 
     def random_scene(self,N_min=2,N_max=32,A=[-1],centers=[np.array([1.0,.0,.0]),np.array([-1.0,.0,.0])],oris=[np.array([-np.pi/2]),np.array([np.pi/2])],d=.0):
         from ...Basic import scne
+        from ...Semantic import grup
         s, paths = scne.empty(), self.random_paths(N_min=N_min,N_max=N_max,A=A)
         for j, path in enumerate(paths):
-            [ self.exp_object(i,s,d,centers[j],oris[j]) for i in path ]
+            goids = []
+            for i in path:
+                self.exp_object(i,s,d,centers[j],oris[j])
+                goids.append(s[-1].idx)
+            s.GRUPS.append(grup(goids))
         return s
     
     def rel_bunch(self,o,nid,d=.0):
@@ -366,4 +384,5 @@ class patternManager():
     def type_2_nids(self):
         from ...Basic import object_types
         return { t: [n.idx for n in self.nods if n.label.n == self.merging[t]] for t in object_types }
+    
     #endregion: properties-------#

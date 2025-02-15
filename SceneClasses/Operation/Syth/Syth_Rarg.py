@@ -17,6 +17,7 @@ class rarg(syth):
                 self.__clean_find(i.endNode,level)
 
     def rarg_init(self, res): #self.rarg_init(res[0][:-1]) return centers, orients
+        raise Exception("Not used")
         import random, numpy as np
         xs,zs = [w.p[0] for w in self.scene.WALLS],[w.p[2] for w in self.scene.WALLS]
         assert abs(np.max(xs)+np.min(xs))<0.01 and abs(np.max(zs)+np.min(zs))<0.01
@@ -24,7 +25,7 @@ class rarg(syth):
             p = res[0]
             walls = sorted(self.scene.WALLS,key=lambda x:(x.p[0]+x.q[0])) if np.max(xs) > np.max(zs) else sorted(self.scene.WALLS,key=lambda x:(x.p[2]+x.q[2]))
             wmax,wmin = walls[-1],walls[0]
-            c = (wmax.center()*(wmax.length+1.0) + wmin.center()*(wmin.length+1.0))/(wmax.length + wmin.length + 2.0)#np.array([np.max(xs), 0.0, (wmax.p[2]+wmax.q[2])/2.0])
+            c = (wmax.center*(wmax.length+1.0) + wmin.center*(wmin.length+1.0))/(wmax.length + wmin.length + 2.0)#np.array([np.max(xs), 0.0, (wmax.p[2]+wmax.q[2])/2.0])
             o = (np.array([.0]) if np.random.rand() > 0.5 else np.array([np.pi])) if np.random.rand() > 0.5 else (np.array([np.pi/2]) if np.random.rand() > 0.5 else np.array([-np.pi/2])) 
             c = c - (0.3+np.random.rand()*0.7)*np.array([np.sin(o[0]), 0, np.cos(o[0])])
             c[1] = 0
@@ -34,7 +35,7 @@ class rarg(syth):
             hint = [2,3,1,4,5] #I'm done with it ok? this hint is only for 'losy', I would never coding like this shit if I don't have to finish papers
             walls = sorted(self.scene.WALLS,key=lambda x:(x.p[0]+x.q[0])) if np.max(xs) > np.max(zs) else sorted(self.scene.WALLS,key=lambda x:(x.p[2]+x.q[2]))
             wmax,wmin = walls[-1],walls[0]
-            c1,c2 = wmax.center() * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)), wmin.center()*((wmin.length+1.0)/(wmax.length + wmin.length + 2.0))
+            c1,c2 = wmax.center * ((wmax.length+1.0)/(wmax.length + wmin.length + 2.0)), wmin.center*((wmin.length+1.0)/(wmax.length + wmin.length + 2.0))
             
             i12 =-1 if np.max(xs) > np.max(zs) else 2
             o1 = np.array([np.pi/2])*random.choice([ i12, i12+3 if i12==-1 else i12-1, i12-3 if i12==2 else i12+1 ])
@@ -56,50 +57,22 @@ class rarg(syth):
 
     def uncond(self, use=True, move=True, draw=False):
         from ..Patn import pathses
-        res = pathses(self.pm,self.scene)() #print(len(res), sum([len(r[-1]) for r in res])/len(res), len(res[0])-1)
-        from ...Basic import obje,object_types
-        from ...Semantic import plan, pla
-        from numpy.linalg import norm as norm
+        res = pathses(self.pm).search(self.scene) #print(len(res), sum([len(r[-1]) for r in res])/len(res), len(res[0])-1)
+        #from ...Basic import obje,object_types
+        #from ...Semantic import plan, pla
+        #from numpy.linalg import norm as norm
         import random# , numpy as np
         random.shuffle(res)
         res = sorted(res, key=lambda r: len(r[-1]))
-
+        print("res[0]",res[0][0])
         for o in self.scene.OBJES:
             o.nid, o.gid = -1, 0
-        centers, orients = self.rarg_init(res[0][:-1]) #[np.array([.0,.0,.0]), np.array([4,.0,.0]), np.array([-4,.0,.0])], [np.array([0]), np.array([0]), np.array([0])]
+        #centers, orients = self.rarg_init(res[0][0]) #[np.array([.0,.0,.0]), np.array([4,.0,.0]), np.array([-4,.0,.0])], [np.array([0]), np.array([0]), np.array([0])]
 
         if use:
-            self.scene.PLAN = plan(self.scene, self.pm)
-            try:
-                self.scene.PLAN.PLAN = [pla([],[]) for _ in res[0][:-1]]
-            except:
-                print(len(res), len(res[0]), self.scene.fild)
-
-            for j,r in enumerate(res[0][:-1]):
-                N = self.pm.nods[0]
-                for i in r:
-                    assert i in [ed.endNode.idx for ed in N.edges]
-                    M = self.pm.nods[i]
-                    K = M.mid
-                    b = self.pm[K].bunches[M.idx]
-
-                    k = [ o for o in self.scene.OBJES if o.nid==K ][0] if K > 0 else obje.empty()
-                    #j=object_types.index(M.type)
-                    m = k+obje.fromFlat(b.exp,n=M.label("ful")) #self.pm.merging[o.class_name()]
-                    o = sorted([ o for o in self.scene.OBJES if o.label == M.label and o.nid==-1 ], key=lambda o: norm(o.size - m.size))[0]
-                    o.nid, o.gid = M.idx, j+1
-                    o.translation = (m.translation if K > 0 else centers.pop(0)) if move else o.translation
-                    o.orientation = (m.orientation if K > 0 else orients.pop(0)) if move else o.orientation
-                    self.scene.PLAN.PLAN[j] = pla(self.scene.PLAN[j].nids + [(o.idx, o.nid)], self.scene.PLAN[j].fits + [0])
-                    N = M
-            
-            for o in self.scene.OBJES:
-                o.v = (o.nid != -1)
-            
-            self.scene.PLAN.update_fit()
+            res[0][0].assign(self.scene)#,centers,orients)
             if draw: self.scene.draw(suffix="_rarg")
-        return res[0]
-
+        return
 
     def unconds(self,draw = True):
         raise Exception("Not used")
@@ -220,17 +193,18 @@ class rarg(syth):
             self.scene.draw()
         return self.scene
 
-    def textcond(self):
+    def textcond(self,draw = True):
         from ..Patn import paths
         self.paths = paths(self.pm)
-        self.scene.TEXTS.append(self.OBJES)
+        self.scene.TEXTS.append(self.OBJES) #!!!!!!!!!!!
         matchs = self.paths.matching(self.scene.TEXTS)
         cnt = 0
         for match in matchs[:5]:
             from ...Basic import scne
             self.scene = scne.empty(keepEmptyWL=True)
-            for MTCH in match:
-                MTCH.utilize(self.scene,[0,0,0],[1,0,0,0])
+            match.assign(self.scene)
+            # for MTCH in match:
+            #     MTCH.utilize(self.scene,[0,0,0],[1,0,0,0])
             if draw:
                 self.scene.imgDir = "./pattern/syth/"+self.pm.version+"/gnrt_syth/test/"
                 import os

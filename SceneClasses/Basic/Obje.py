@@ -121,8 +121,9 @@ class bx2d(): #put those geometrical stuff into this base class
     def sampls(self, s = np.array([[1,0,0],[1,0,1],[0,0,1],[-1,0,1],[-1,0,0],[-1,0,-1],[0,0,-1],[1,0,-1]]).reshape((-1,1,3))):
         return self.translation+(self.matrix().reshape((1,3,3))*s*self.size.reshape((1,1,3))).sum(axis=-1)
 
-    def samplesBound(self):
-        return [self.sampls().min(axis=0), self.sampls().max(axis=0)]
+    def rect(self):
+        from ..Semantic.Spce import rect
+        return rect(c0=self.sampls(np.array([[1,0,1],[-1,0,1],[-1,0,-1],[1,0,-1]]).reshape((-1,1,3))).min(axis=0), c1=self.sampls(np.array([[1,0,1],[-1,0,1],[-1,0,-1],[1,0,-1]]).reshape((-1,1,3))).max(axis=0))
     #endregion: properties-------#
     
     #region: operations----------#

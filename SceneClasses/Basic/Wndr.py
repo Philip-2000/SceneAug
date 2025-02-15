@@ -33,6 +33,14 @@ class wndr():
         from .Obje import bx2d
         self.block = bx2d(self.center,np.array([self.width/2.0,self.height/2.0,0.03]),np.array([np.math.atan2(self.w.n[0],self.w.n[2])]))
 
+    def re_search(self,wls):
+        center = self.center
+        ws = [w for w in wls if w.on(center,0.01)]
+        assert len(ws)==1
+        self.w = ws[0]
+        self.rate = self.w.rate(center)
+        self.center= np.array([0,center[1],0])+self.rate*self.w.q+(1-self.rate)*self.w.p
+
     @classmethod
     def empty(cls):
         pass
@@ -61,6 +69,9 @@ class wndr():
         return np.array([0,0,0])
     
     def toTensor(self):
+        pass
+
+    def inward(self,wls,l=0.3):
         pass
 
 class widw(wndr):
@@ -144,6 +155,21 @@ class door(wndr):
             n = norm(X0Z)
             #v = ((newSelf + (X0Z if n<0.000001 else X0Z*(max(1-n,0.0)/n))) - newSelf.translation)
             return v*config["rt"] # door field can't have potential
+    
+    def inward(self,wls,l=0.15):
+        self.re_search(wls)
+        wid = self.w.idx
+        c_length = self.w.length * self.rate
+        wls[wid].break_(None,length=c_length+self.width/2.0)#wls.breakWall(wid, length=c_length+self.width/2.0)
+        #print(self.center,"center")
+        wls[wid].break_(None,length=c_length-self.width/2.0)#wls.breakWall(wid, length=c_length-self.width/2.0)
+        #print("b2")
+        r = 0.05
+        wdid = len(wls)-2
+        wls[wdid].mWall(r)
+        max_in = wls.max_in(wdid,l-r)
+        #print("max_in",max_in)
+        wls[wdid].mWall(max_in-1e-4)
         
 class wndrs():
     def __init__(self,wls,cont=None,c_e=0):

@@ -140,7 +140,7 @@ class scne():
         from matplotlib import pyplot as plt
         import os
         plt.figure(figsize=(10, 8))
-        self.SPCES.draw(dr=False)
+        self.SPCES.draw()
 
         if self.grp: self.GRUPS.draw()#[self.GRUPS[i].draw() for i in range(len(self.GRUPS)) if self.grp]
                 

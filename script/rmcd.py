@@ -11,7 +11,9 @@ def parse(): #using pattern to synthesis scene
     parser.add_argument('-i','--id',        default="")#ede1bcab-2298-4756-b03a-690d5cf8dfe5_LivingDiningRoom-199172024
 
     sceneLst = [
-        "5e6f0a50-b34c-45a8-8e31-55c7d9adad2d_MasterBedroom-92088",
+        #"5e6f0a50-b34c-45a8-8e31-55c7d9adad2d_MasterBedroom-92088",
+        #"0c9b5fe7-f049-40c5-b69f-7a25882b63e6_LivingDiningRoom-37928",
+        "0bae68bc-b465-4f11-9d52-ebf5b44b0100_LivingDiningRoom-18864"
         # "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",
         # "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",
         # "0ea43759-83d3-4042-9988-dc86fe75e462_LivingDiningRoom-1933",

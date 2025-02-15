@@ -30,47 +30,36 @@ class gnrt(syth):
                     node.edges[ran].times += 1
                     return node.edges[ran]
 
-    def uncond(self,draw=False,uid=""):
+    def uncond(self,draw=False):
         self.scene = self.pm.random_scene()
-        return self.scene
-        import numpy as np
-        from ..Semantic.Link import objLink
-        from ..Basic.Obje import obje,object_types
-        N = self.pm.nods[0]
-        while len(N.edges)>0:
-            ed = self.__randomchoose(N,"random_confidence_times")
-            if ed :
-                N,m = ed.endNode,ed.startNode
-                while not (N.idx in m.bunches):
-                    m = m.source.startNode
-                r = m.bunches[N.idx].sample()
-                a = [o for o in self.scene.OBJES if o.nid == m.idx] if m.idx > 0 else [obje(np.array([0,0,0]),np.array([1,1,1]),np.array([0]))]
-                o = a[0] + obje.fromFlat(r,j=object_types.index(N.type))
-                self.scene.addObject(o)
-                o.nid = N.idx
-                if m.idx > 0:
-                    self.scene.LINKS.append(objLink(a[0].idx,o.idx,len(self.scene.LINKS),self.scene))
-        if draw:
-            self.scene.draw()
+        if draw: self.scene.draw(),self.scene.save()
         return self.scene
 
     def textcond(self, draw=True):
-        from ..Patn import paths
-        self.paths = paths(self.pm)
+        return self.textconds(draw)
+        from ..Patn import pathses
+        self.paths = pathses(self.pm)
         matchs = self.paths.matching(self.scene.TEXTS)
-        cnt = 0
-        for match in matchs[:5]:
+        match = matchs[0]
+        match.utilize(self.scene,[[-2,0,0],[2,0,0]],[[0],[0]])
+        if draw: self.scene.draw(),self.scene.save()
+        return self.scene
+
+    def textconds(self, draw=True):
+        from ..Patn import pathses
+        self.paths = pathses(self.pm)
+        self.scene.imgDir = "./pattern/syth/"+self.pm.version+"/gnrt_syth/test/"
+        import os
+        os.makedirs(self.scene.imgDir,exist_ok=True)
+        matchs = self.paths.matching(self.scene.TEXTS)
+        for cnt, match in enumerate(matchs[:5]):
             from ...Basic import scne
             self.scene = scne.empty(keepEmptyWL=True)
-            for MTCH in match:
-                MTCH.utilize(self.scene,[0,0,0],[1,0,0,0])
+            self.scene.imgDir = "./pattern/syth/"+self.pm.version+"/gnrt_syth/test/"
+            match.utilize(self.scene,[[-2,0,0],[2,0,0]],[[0],[0]])
             if draw:
-                self.scene.imgDir = "./pattern/syth/"+self.pm.version+"/gnrt_syth/test/"
-                import os
-                os.makedirs(self.scene.imgDir,exist_ok=True)
-                self.scene.scene_uid = str(cnt)
+                self.scene.scene_uid = str(cnt+1)
                 self.scene.draw(),self.scene.save()
-            cnt += 1
         return self.scene
 
     def tempDebugger(self,theScene,cObjectList,o,spc,imgName):
@@ -92,18 +81,13 @@ class gnrt(syth):
         #tmpScene.imgDir="./spce_generate/"
         tmpScene.draw(imageTitle="./spce_generate/"+imgName,d=True,lim=5)
 
-    def roomcond(self):
-        #（1）采样第一条路径
-        #要边采样边检测空间吗？肯定不要，
-        #（2）利用路径检测空间
-        self.scene.SPCES.extractingSpces(1) #陈年老代码，不知道还能跑吗
-        print(self.scene.SPCES[0])
-        print(self.scene.SPCES.WALLS)
-        #（3）逐物体向空间中添加并整体移动
-        #（4）如果所有物体完全放置了就回收空间，形成一个新的walls
-        #（5）如果还有空间，就采样下一条路径，再重复
-        #空间提取与占用
+    def roomcond(self,use=True,draw=True):
+        self.scene.imgDir = "./pattern/syth/"+self.pm.version+"/gnrt/room/"
+        #print(self.scene.imgDir)
+        self.scene.SPCES.drop(self.pm)#,["Coffee Table", "Dining Table"])
+        self.scene.draw()
         return self.scene
+        """
         from ..Basic.Obje import obje, object_types
         if useWalls:
             assert theScene.WALLS is not None
@@ -232,13 +216,14 @@ class gnrt(syth):
     
             return
         return self.scene
+        """
 
     def txrmcond(self):
         #（1）基于语句获得所有的路径
         #（2）利用路径检测空间
         #（3）逐物体向空间中添加并整体移动
         #（4）如果所有物体完全放置了就回收空间，形成一个新的walls
-        #（4.5）如果空间快要不够了，而且我还不是第一条路径，就不放置非关键物体了，
+        #（4.5）如果空间快要不够了，而且我还是第一条路径，就不放置非关键物体了，
         #（5）如果还有空间，就采样下一条路径，再重复
         #空间提取与占用
         return self.scene

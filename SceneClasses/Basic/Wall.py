@@ -5,17 +5,17 @@ class wall():
     def __init__(self, p, q, n, w1, w2, idx, v=True, spaceIn=False, sig=-1, scene=None, array=None):
         #global WALLSTATUS
         if n is not None and v and abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) > 0.01: #assert abs((p[0]-q[0])*n[0]+(p[2]-q[2])*n[2]) < 0.01
-            print("not straight %d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
+            print("not straight %d, id=%d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,idx,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
+            print(array)
         if n is not None and (p[0]-q[0])*n[2]>(p[2]-q[2])*n[0]: #assert (p[0]-q[0])*n[2]<=(p[2]-q[2])*n[0]-
             #print(traceback.format_stack())
-            print("not right-hand %d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
+            print("not right-hand %d, id=%d p:[%.3f,%.3f], q:[%.3f,%.3f], n:[%.3f,%.3f]"%(sig,idx,p[0],p[2],q[0],q[2],n[0],n[2])) #WALLSTATUS = False
             raise NotImplementedError
         self.linkIndex=[]
         self.idx=idx
         self.p=np.copy(p)
         self.q=np.copy(q)
-        self.n=np.copy(n) if n is not None else np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
-        self.length=(((self.p-self.q)**2).sum())**0.5
+        #self.n=np.copy(n) if n is not None else 
         self.w1=w1
         self.w2=w2
         self.v=v
@@ -27,7 +27,7 @@ class wall():
 
         #region: presentation---#
     def __str__(self):
-        return (" " if self.v else "              ")+str(self.w1)+"<-"+str(self.idx)+"->"+str(self.w2)+"\t"+str(self.p)+"\t"+str(self.q)+"\t"+str(self.n)
+        return (" " if self.v else "              ")+str(self.w1)+"<-"+str(self.idx)+"->"+str(self.w2)+"\t[%.3f,%.3f]\t[%.3f,%.3f]\t[%.3f,%.3f]"%(self.p[0],self.p[2],self.q[0],self.q[2],self.n[0],self.n[2])
 
     def fromTensor(self,tensor,fmt):
         pass
@@ -55,6 +55,16 @@ class wall():
     #endregion: in/outputs------#
 
     #region: properties---------#
+    @property
+    def n(self):
+        assert norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))>1e-6
+        return np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
+
+    @property
+    def length(self):
+        return (((self.p-self.q)**2).sum())**0.5
+
+    @property
     def center(self):
         return (self.p+self.q)/2
 
@@ -70,71 +80,117 @@ class wall():
     def on(self,P,eps=EPS):
         return self.over(P) and abs(self.distance(P)[0]) < eps
 
-    def resetN(self):
-        self.n = np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]])/norm(np.array([self.p[2]-self.q[2],0,self.q[0]-self.p[0]]))
-
     def rate(self,p,checkOn=False):
         r = ((p-self.p)@(self.q-self.p)) / ((self.q-self.p)@(self.q-self.p))
         assert (not checkOn) or (abs((p-self.p)@self.n)<EPS and 0<=r and r<=1)
         return r
 
-    def lengthh(self):
-        self.length=(((self.p-self.q)**2).sum())**0.5
     #endregion: properties------#
+
+    #region: relationship-------#
+    def face(self,w):
+        return self.n @ w.n < -1+1e-3
+    
+    def face_in(self,w):
+        if not self.face(w): return False
+        return self.over(w.p) or self.over(w.q) or w.over(self.p) or w.over(self.q)
+    
+    def stick(self,x):
+        wp,wq,xp,xq = np.cross(np.abs(self.n),self.p)[1],np.cross(np.abs(self.n),self.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]
+        return self.v and x.v and abs(self.n@x.n)>0.9 and abs(np.abs(self.n)@self.p-np.abs(x.n)@x.p)<0.01 and min(wp,wq)<max(xp,xq) and min(xp,xq)<max(wp,wq)
+
+    def cross(self,x):
+        wxp,wxq,xwp,xwq,wwp,xxp = self.n@x.p, self.n@x.q, x.n@self.p, x.n@self.q, self.n@self.p, x.n@x.q
+        return self.v and x.v and (min(wxp,wxq)<wwp and wwp<max(wxp,wxq) and min(xwp,xwq)<xxp and xxp<max(xwp,xwq))
+
+    #endregion: relationship----#
 
     #region: operations---------#
 
         #region: movement-------#
     def mWall(self,L): 
-        oldp = np.copy(self.p)
-        self.p += self.n*L
-        oldq = np.copy(self.q)
-        self.q += self.n*L
-        self.array[self.w1].adjustWall(oldp,np.copy(self.p),self.idx)
-        self.array[self.w2].adjustWall(oldq,np.copy(self.q),self.idx)
+        n = np.copy(self.n)
+        #oldp = np.copy(self.p)
+        self.p += n*L
+        self.array[self.w1].q += n*L
+        #oldq = np.copy(self.q)
+        self.q += n*L
+        self.array[self.w2].p += n*L
+        #self.array[self.w1].adjustWall(oldp,np.copy(self.p),self.idx)
+        #self.array[self.w2].adjustWall(oldq,np.copy(self.q),self.idx)
         for i in self.linkIndex:
             self.scne.LINKS[i].adjust(self.n*L)
         
-    def adjustWall(self,oldp,p,hint=-1):
-        oldn = self.n
-        if hint<0:
-            if ((self.p-oldp)**2).sum()<0.001:
-                oldq = self.q
-                self.p=p
-            elif ((self.q-oldp)**2).sum()<0.001:
-                oldq = oldp
-                oldp = self.p
-                self.q=p
-            else:
-                print("adjustWall error")
-                return
-        else:
-            if hint == self.w1:
-                oldq = self.q
-                self.p=p
-            elif hint == self.w2:
-                oldq = oldp
-                oldp = self.p
-                self.q=p
-            else:
-                print("false hint")
-                return
-        if (self.p-self.q)[0]*self.n[2] > (self.p-self.q)[2]*self.n[0]:
-            self.n = -self.n
-        self.lengthh()#=(((self.p-self.q)**2).sum())**0.5
+    # def adjustWall(self,oldp,p,hint=-1):
+    #     raise NotImplementedError
+    #     oldn = self.n
+    #     if hint<0:
+    #         if ((self.p-oldp)**2).sum()<0.001:
+    #             oldq = self.q
+    #             self.p=p
+    #         elif ((self.q-oldp)**2).sum()<0.001:
+    #             oldq = oldp
+    #             oldp = self.p
+    #             self.q=p
+    #         else:
+    #             print("adjustWall error")
+    #             return
+    #     else:
+    #         if hint == self.w1:
+    #             oldq = self.q
+    #             self.p=p
+    #         elif hint == self.w2:
+    #             oldq = oldp
+    #             oldp = self.p
+    #             self.q=p
+    #         else:
+    #             print("false hint")
+    #             return
+    #     if (self.p-self.q)[0]*self.n[2] > (self.p-self.q)[2]*self.n[0]:
+    #         self.n = -self.n
+    #     #elf.lengthh()#=(((self.p-self.q)**2).sum())**0.5
 
-        for i in self.linkIndex:
-            self.scne.LINKS[i].modify(oldp, oldq, oldn)
+    #     for i in self.linkIndex:
+    #         self.scne.LINKS[i].modify(oldp, oldq, oldn)
+        
+    def break_(self,rate,length=None):
+        if rate is None: rate = length / self.length
+    
+        delList = []
+        for l in self.linkIndex:
+            r = self.scne.LINKS[l].rate
+            if r < rate:
+                self.scne.LINKS[l].rate = r / rate
+            else:
+                self.scne.LINKS[l].src = len(self.array)+1
+                self.scne.LINKS[l].rate = (r-rate) / (1-rate)
+                delList.append(l)
+        for l in delList: self.linkIndex.remove(l)
+
+        self.q = np.copy(rate*self.q + (1-rate)*self.p)
+        self.array.insertWall(self.idx)
+        self.array.insertWall(self.idx)
+
+        for l in delList: self.array[len(self.WALLS)-2].linkIndex.append(l)
+
+    def delete(self,delta=EPS):
+        w = self.array[self.w1]
+        assert self.length < delta*2 or abs(abs(w.n@self.n)-1.0)<EPS or abs((w.p-self.q)@self.n)<EPS or abs((w.p-self.q)@w.n)<EPS
+        self.v = False
+        w.q = np.copy(self.q)
+        w.w2 = self.w2
+        self.array[self.w2].w1 = w.idx
+    
+    def squeeze(self):
+        L1 = self.length/2.0 if (self.q-self.p) @ self.array[self.w1].n > 0 else -self.length/2.0
+        L2 = self.length/2.0 if (self.p-self.q) @ self.array[self.w2].n > 0 else -self.length/2.0
+        self.array[self.w1].mWall(L1)
+        self.array[self.w2].mWall(L2)
+        self.array[self.w2].delete() #self.deleteWall(self.WALLS[I].w2,EPS)
+        self.delete() #self.deleteWall(I,EPS)
         #endregion: movement----#
 
         #region: optFields----------#
-    # def modulateField(self,minVec,config): #field, out
-    #     return minVec, (minVec@self.n > 0)
-    #     #return (minVec, True) if (minVec@self.n > 0) else (minVec * np.clip(2.0-norm(minVec),0.0,2.0), False)
-
-    # def fields(self,sp,config): #field, out
-    #     return self.modulateField(-self.minVec(sp.transl),config)
-
     def field(self,sp,config): #w_o, w_i, out
         minVec = -self.minVec(sp.transl)
         try: #for object samples
@@ -155,7 +211,6 @@ class wall():
         #endregion: optFields-------#
 
     #endregion: operations------#
-
 
 def two23(a):
     return np.array([a[0],0,a[1]])
@@ -335,7 +390,56 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         #endregion: presentation-#
     #endregion: in/outputs-------#
 
-    #region: bullshits-----------#
+    #region: properties----------#
+    @property
+    def maxx(self):
+        return max([w.p[0] for w in self.WALLS if w.v])
+    
+    @property
+    def minx(self):
+        return min([w.p[0] for w in self.WALLS if w.v])
+    
+    @property
+    def x(self):
+        return (self.maxx+self.minx)/2.0
+
+    @property
+    def maxz(self):
+        return max([w.p[2] for w in self.WALLS if w.v])
+    
+    @property
+    def minz(self):
+        return min([w.p[2] for w in self.WALLS if w.v])
+
+    @property
+    def z(self):
+        return (self.maxz+self.minz)/2.0
+    
+    @property
+    def lenx(self):
+        return self.maxx-self.minx
+    
+    @property
+    def lenz(self):
+        return self.maxz-self.minz
+    
+    @property
+    def c(self):
+        return np.array([self.minx+self.lenx/2,0,self.minz+self.lenz/2])
+    
+    @property
+    def a(self):
+        return [self.lenx,0.0,self.lenz]
+
+    @property
+    def LH(self):
+        return [max([abs(w.q[0]) for w in self.WALLS if w.v]),max([abs(w.q[2]) for w in self.WALLS if w.v])]
+
+    @property
+    def bbox(self):
+        return np.array([[min([w.p[0] for w in self.WALLS if w.v]),0,min([w.p[2] for w in self.WALLS if w.v])],
+                       [max([w.p[0] for w in self.WALLS if w.v]),3,max([w.p[2] for w in self.WALLS if w.v])]])
+
     def shape(self):
         from shapely.geometry import Polygon
         return Polygon(self.toWallsJson()["roomShape"])
@@ -345,44 +449,38 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
         sha,nor = rsj["roomShape"], rsj["roomNorm"]
         return np.concatenate([np.array(sha), np.array(nor)[:,1:], np.array(nor)[:,:1]],axis=0)
 
-    def processWithWindoor(self):
-        raise NotImplementedError
-        for a in self.windoors:
-            o = self.windoors[a]
-            if o.class_name == "door":
-                a = int(a)
+    def cross(self,other=None):
+        otherWALLS = self.WALLS if other is None else other.WALLS
+        for i in range(len(self.WALLS)):
+            for j in range(i if other is None else len(otherWALLS)):
+                if self.WALLS[i].v and otherWALLS[j].v and self.WALLS[i].cross(otherWALLS[j]):#if self.crossWall(self.WALLS[i], otherWALLS[j]):
+                    return True
+        return False
+    #endregion: properties-------#
 
-                W=self.WALLS[a]
+    #region: operations----------#
+    def inward_door(self):
+        wls = walls([],scne=self.scne,flex=self.flex,drawFolder=self.drawFolder,keepEmptyWL=True)
+        for w in self.WALLS:
+            wls.WALLS.append(wall(w.p,w.q,w.n,w.w1,w.w2,w.idx,scene=self.scne,array=wls))
+            wls.WALLS[-1].v = w.v
+        for d in self.windoors:
+            f = d.inward(wls)
+        return wls
 
-                W.q = o.translation+(o.matrix()*np.array([[ o.size[0]+0.05,0,o.size[2]]])).sum(axis=-1)
-                W.q[1] = 0
-                self.insertWall(a)
-                W.q = o.translation+(o.matrix()*np.array([[ o.size[0]+0.05,0,o.size[2]+0.4]])).sum(axis=-1)
-                W.q[1] = 0
-                self.insertWall(a)
-                W.q = o.translation+(o.matrix()*np.array([[-o.size[0]-0.05,0,o.size[2]+0.4]])).sum(axis=-1)
-                W.q[1] = 0
-                self.insertWall(a)
-                W.q = o.translation+(o.matrix()*np.array([[-o.size[0]-0.05,0,o.size[2]]])).sum(axis=-1)
-                W.q[1] = 0
-                self.insertWall(a)
-            
+    def max_in(self,id,bound=1):
+        for w in self.WALLS:
+            if w.v and w.idx != id and w.face_in(self.WALLS[id]):
+                dis = self.WALLS[id].distance(w.p)[0] #print("dis",dis)
+                if dis > 0 and dis < bound:
+                    bound = dis
+        return bound
 
-
-        # X=self.WALLS[W.w2]
-        # a=W.idx
-        # for i in range(3,-1,-1):
-        #     X.p = Spce.corners[(PID+i)%4]
-        #     a=self.WALLS.insertWall(a)
-
-        pass
-
-    def searchWall(self,p,back=False):
+    def searchWall(self,p,back=False,f=False):
         d,W=1000,None
         for w in self.WALLS:
             if w.v and w.over(p):
-                print(w.idx)
-                print(w.distance(p)[0])
+                if f: print(w.idx,w.distance(p)[0])
                 if abs(w.distance(p)[0])<d:
                     W=w
                     d=abs(w.distance(p)[0])
@@ -394,56 +492,63 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 return self.WALLS[W.w1],d
         return W,d
 
-    def stickWall(self,w,x):
-        wp,wq,xp,xq = np.cross(np.abs(w.n),w.p)[1],np.cross(np.abs(w.n),w.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]
-        return w.v and x.v and abs(w.n@x.n)>0.9 and abs(np.abs(w.n)@w.p-np.abs(x.n)@x.p)<0.01 and min(wp,wq)<max(xp,xq) and min(xp,xq)<max(wp,wq)
+    def insertWall(self,w1=None,w2=None):
+        assert (w1 is not None) or (w2 is not None)
+        if w1 is not None and  w2 is not None:
+            assert len(self.WALLS)>w1 and self.WALLS[w1].v and len(self.WALLS)>w2 and self.WALLS[w2].v and w2 == self.WALLS[w1].w2 and w1 == self.WALLS[w2].w1
+        elif w1 is not None:
+            assert len(self.WALLS)>w1 and self.WALLS[w1].v
+            w2 = self.WALLS[w1].w2
+        elif w2 is not None:
+            assert len(self.WALLS)>w2 and self.WALLS[w2].v
+            w1 = self.WALLS[w2].w1
+        ID = len(self.WALLS)
 
-    def crossWall(self,w,x):
-        wxp,wxq,xwp,xwq,wwp,xxp = w.n@x.p, w.n@x.q, x.n@w.p, x.n@w.q, w.n@w.p, x.n@x.q
-        return w.v and x.v and (min(wxp,wxq)<wwp and wwp<max(wxp,wxq) and min(xwp,xwq)<xxp and xxp<max(xwp,xwq))
+        p=self.WALLS[w1].q
+        self.WALLS[w1].w2 = ID
+        q=self.WALLS[w2].p
+        self.WALLS[w2].w1 = ID
+        n = None#np.cross(self.WALLS[w1].n,np.array([0,1,0])) if (p-q)@(p-q)<0.01 else np.array([p[2]-q[2],0,q[0]-p[0]])/norm(np.array([p[2]-q[2],0,q[0]-p[0]]))
+        self.WALLS.append(wall(p,q,n,w1,w2,ID,scene=self.scne,array=self))
+        return ID
+    #endregion: operations-------#
 
-    def crossCheck(self,other=None):
-        otherWALLS = self.WALLS if other is None else other.WALLS
-        for i in range(len(self.WALLS)):
-            for j in range(i if other is None else len(otherWALLS)):
-                if self.crossWall(self.WALLS[i], otherWALLS[j]):
-                    return True
-        return False
-
+    #region: random-related------#
     def maxHeight(self,x,bd=4.0):
         return min([bd]+[(w.p-x.p)@x.n for w in self.WALLS if (w.v and ((w.p-x.p)@x.n > 0.01))]) #扫描所有墙面，如果两侧小于id的两侧并且方向和它不垂直，那么他到id的垂向上的距离的较小值就作为height。统计这些height中的最小值
 
     def maxDepth(self,x,bd=-4.0):
         return max([bd]+[(w.p-x.p)@x.n for w in self.WALLS if (w.v and ((w.p-x.p)@x.n <-0.01))]) #扫描所有墙面，如果两侧小于id的两侧并且方向和它不垂直，那么他到id的垂向上的距离的较小值就作为height。统计这些height中的最小值
 
-    def breakWall(self,id,rate):
+    # def breakWall(self,id,rate=None,length=None):
+    #     if rate is None: rate = length / self.WALLS[id].length
     
-        delList = []
-        for l in self.WALLS[id].linkIndex:
-            r = self.scne.LINKS[l].rate
-            if r < rate:
-                self.scne.LINKS[l].rate = r / rate
-            else:
-                self.scne.LINKS[l].src = len(self.WALLS)+1
-                self.scne.LINKS[l].rate = (r-rate) / (1-rate)
-                delList.append(l)
-        for l in delList:
-            self.WALLS[id].linkIndex.remove(l)
+    #     delList = []
+    #     for l in self.WALLS[id].linkIndex:
+    #         r = self.scne.LINKS[l].rate
+    #         if r < rate:
+    #             self.scne.LINKS[l].rate = r / rate
+    #         else:
+    #             self.scne.LINKS[l].src = len(self.WALLS)+1
+    #             self.scne.LINKS[l].rate = (r-rate) / (1-rate)
+    #             delList.append(l)
+    #     for l in delList:
+    #         self.WALLS[id].linkIndex.remove(l)
 
-        self.WALLS[id].q = np.copy(rate*self.WALLS[id].q + (1-rate)*self.WALLS[id].p)
-        self.insertWall(id)
-        self.insertWall(id)
+    #     self.WALLS[id].q = np.copy(rate*self.WALLS[id].q + (1-rate)*self.WALLS[id].p)
+    #     self.insertWall(id)
+    #     self.insertWall(id)
 
-        for l in delList:
-            self.WALLS[len(self.WALLS)-1].linkIndex.append(l)
+    #     for l in delList:
+    #         self.WALLS[len(self.WALLS)-1].linkIndex.append(l)
 
-    def squeezeWall(self,I):
-        L1 = self.WALLS[I].length/2.0 if (self.WALLS[I].q-self.WALLS[I].p) @ self.WALLS[self.WALLS[I].w1].n > 0 else -self.WALLS[I].length/2.0
-        L2 = self.WALLS[I].length/2.0 if (self.WALLS[I].p-self.WALLS[I].q) @ self.WALLS[self.WALLS[I].w2].n > 0 else -self.WALLS[I].length/2.0
-        self.WALLS[self.WALLS[I].w1].mWall(L1)
-        self.WALLS[self.WALLS[I].w2].mWall(L2)
-        self.deleteWall(self.WALLS[I].w2,EPS)
-        self.deleteWall(I,EPS)
+    # def squeezeWall(self,I):
+    #     L1 = self.WALLS[I].length/2.0 if (self.WALLS[I].q-self.WALLS[I].p) @ self.WALLS[self.WALLS[I].w1].n > 0 else -self.WALLS[I].length/2.0
+    #     L2 = self.WALLS[I].length/2.0 if (self.WALLS[I].p-self.WALLS[I].q) @ self.WALLS[self.WALLS[I].w2].n > 0 else -self.WALLS[I].length/2.0
+    #     self.WALLS[self.WALLS[I].w1].mWall(L1)
+    #     self.WALLS[self.WALLS[I].w2].mWall(L2)
+    #     self.WALLS[self.WALLS[I].w2].delete() #self.deleteWall(self.WALLS[I].w2,EPS)
+    #     self.WALLS[I].delete() #self.deleteWall(I,EPS)
 
     def squeezeWalls(self):
         from .Logg import dllg
@@ -476,7 +581,7 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
             t = np.random.uniform(lower, upper)
             self.LOGS.append(mvlg(self,wid,t,lower,upper))#{"id":wid,"leng":t,"lower":lower,"upper":upper})
         
-            if self.crossCheck():
+            if self.cross():
                 J = min([w.idx for w in self.WALLS if w.v])#WALLS[0].w2
                 I = self.WALLS[J].w2
                 while I != J:
@@ -493,104 +598,118 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
     def centerize(self):
         xs,zs = [w.p[0] for w in self.WALLS if w.v],[w.p[2] for w in self.WALLS if w.v]
         cen = np.array([(max(xs)+min(xs))/2.0,0.0,(max(zs)+min(zs))/2.0])
-        for w in self.WALLS:
-            w.p -= cen
-            w.q -= cen
+        for w in self.WALLS: w.p,w.q = w.p-cen,w.q-cen
 
-    def insertWall(self,w1=None,w2=None):
-        assert (w1 is not None) or (w2 is not None)
-        if w1 is not None and  w2 is not None:
-            assert len(self.WALLS)>w1 and self.WALLS[w1].v and len(self.WALLS)>w2 and self.WALLS[w2].v and w2 == self.WALLS[w1].w2 and w1 == self.WALLS[w2].w1
-        elif w1 is not None:
-            assert len(self.WALLS)>w1 and self.WALLS[w1].v
-            w2 = self.WALLS[w1].w2
-        elif w2 is not None:
-            assert len(self.WALLS)>w2 and self.WALLS[w2].v
-            w1 = self.WALLS[w2].w1
-        ID = len(self.WALLS)
+    #endregion: random-related---#
 
-        p=self.WALLS[w1].q
-        self.WALLS[w1].w2 = ID
-        q=self.WALLS[w2].p
-        self.WALLS[w2].w1 = ID
-        n = np.cross(self.WALLS[w1].n,np.array([0,1,0])) if (p-q)@(p-q)<0.01 else np.array([p[2]-q[2],0,q[0]-p[0]])/norm(np.array([p[2]-q[2],0,q[0]-p[0]]))
-        self.WALLS.append(wall(p,q,n,w1,w2,ID,scene=self.scne,array=self))
-        return ID
+    #region: trash---------------#
+    # def deleteWall(self,id,delta=EPS):
+    #     w = self.WALLS[self.WALLS[id].w1]
+    #     #assert self.WALLS[id].length < delta*2 
+    #     assert self.WALLS[id].length < delta*2 or abs(abs(w.n@self.WALLS[id].n)-1.0)<EPS or abs((w.p-self.WALLS[id].q)@self.WALLS[id].n)<EPS or abs((w.p-self.WALLS[id].q)@w.n)<EPS
+    #     self.WALLS[id].v = False
+    #     w.q = np.copy(self.WALLS[id].q)
+    #     #w.lengthh()
+    #     #w.resetN()
+    #     w.w2 = self.WALLS[id].w2
+    #     self.WALLS[self.WALLS[id].w2].w1 = w.idx
 
-    def deleteWall(self,id,delta):
-        w = self.WALLS[self.WALLS[id].w1]
-        #assert self.WALLS[id].length < delta*2 
-        assert self.WALLS[id].length < delta*2 or abs(abs(w.n@self.WALLS[id].n)-1.0)<EPS or abs((w.p-self.WALLS[id].q)@self.WALLS[id].n)<EPS or abs((w.p-self.WALLS[id].q)@w.n)<EPS
-        self.WALLS[id].v = False
-        w.q = np.copy(self.WALLS[id].q)
-        w.lengthh()
-        w.resetN()
-        w.w2 = self.WALLS[id].w2
-        self.WALLS[self.WALLS[id].w2].w1 = w.idx
-
-    def minusWall(self,id,delta):
-        if not self.WALLS[id].v:
-            return
-        if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n + 1.)< EPS:
-            I,J = id,self.WALLS[id].w2
-        elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n + 1.)< EPS:
-            I,J = self.WALLS[id].w1,id
-        else:
-            if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n - 1.)< EPS:
-                self.deleteWall(self.WALLS[id].w2,delta)
-            elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n - 1.)< EPS:
-                self.deleteWall(id,delta)
-            return #self.WALLS
+    # def minusWall(self,id,delta):
+    #     if not self.WALLS[id].v:
+    #         return
+    #     if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n + 1.)< EPS:
+    #         I,J = id,self.WALLS[id].w2
+    #     elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n + 1.)< EPS:
+    #         I,J = self.WALLS[id].w1,id
+    #     else:
+    #         if abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w2].n - 1.)< EPS:
+    #             self.deleteWall(self.WALLS[id].w2,delta)
+    #         elif abs(self.WALLS[id].n @ self.WALLS[self.WALLS[id].w1].n - 1.)< EPS:
+    #             self.deleteWall(id,delta)
+    #         return #self.WALLS
     
 
-        if self.WALLS[I].length < self.WALLS[J].length:
-            P,K = self.WALLS[I].p,self.WALLS[I].w1
-        else:
-            P,K = self.WALLS[J].q,self.WALLS[J].w2
-        #print(self)
-        self.WALLS[I].adjustWall(self.WALLS[I].q,P)
-        self.WALLS[J].adjustWall(self.WALLS[J].p,P)
+    #     if self.WALLS[I].length < self.WALLS[J].length:
+    #         P,K = self.WALLS[I].p,self.WALLS[I].w1
+    #     else:
+    #         P,K = self.WALLS[J].q,self.WALLS[J].w2
+    #     #print(self)
+    #     self.WALLS[I].adjustWall(self.WALLS[I].q,P)
+    #     self.WALLS[J].adjustWall(self.WALLS[J].p,P)
 
-        # print("I=%d,J=%d,K=%d"%(I,J,K))
-        # print(self)
+    #     # print("I=%d,J=%d,K=%d"%(I,J,K))
+    #     # print(self)
         
-        if self.WALLS[I].length < delta*2:
-            self.deleteWall(I,delta)
-        if self.WALLS[J].length < delta*2:
-            self.deleteWall(J,delta)
+    #     if self.WALLS[I].length < delta*2:
+    #         self.deleteWall(I,delta)
+    #     if self.WALLS[J].length < delta*2:
+    #         self.deleteWall(J,delta)
         
-        self.minusWall(K,delta)
-        self.regularize(I)
-        self.regularize(J)
-        self.regularize(self.WALLS[I].w1)
-        self.regularize(self.WALLS[J].w2)
+    #     self.minusWall(K,delta)
+    #     self.regularize(I)
+    #     self.regularize(J)
+    #     self.regularize(self.WALLS[I].w1)
+    #     self.regularize(self.WALLS[J].w2)
 
-    def regularize(self,id):
-        w = self.WALLS[id]
-        if not w.v:
-            return
-        oldp,oldq  = np.copy(w.p),np.copy(w.q)
-        if min(abs(w.n[0]),abs(w.n[2]))>=EPS*50:
-            print("warning: %.3f >= %.3f * %.1f, wall should not be regularized"%(min(abs(w.n[0]),abs(w.n[2])),EPS,50))
-            #raise NotImplementedError
+    # def regularize(self,id):
+    #     w = self.WALLS[id]
+    #     if not w.v:
+    #         return
+    #     oldp,oldq  = np.copy(w.p),np.copy(w.q)
+    #     if min(abs(w.n[0]),abs(w.n[2]))>=EPS*50:
+    #         print("warning: %.3f >= %.3f * %.1f, wall should not be regularized"%(min(abs(w.n[0]),abs(w.n[2])),EPS,50))
+    #         #raise NotImplementedError
 
-        if abs(w.n[0])<abs(w.n[2]):
-            b = (w.p[2]+w.q[2])/2.0
-            w.p[2],w.q[2] = b,b
-        else:
-            b = (w.p[0]+w.q[0])/2.0
-            w.p[0],w.q[0] = b,b
-        w.resetN()
-        self.WALLS[w.w2].adjustWall(oldq,w.q,id)
-        self.WALLS[w.w1].adjustWall(oldp,w.p,id)
+    #     if abs(w.n[0])<abs(w.n[2]):
+    #         b = (w.p[2]+w.q[2])/2.0
+    #         w.p[2],w.q[2] = b,b
+    #     else:
+    #         b = (w.p[0]+w.q[0])/2.0
+    #         w.p[0],w.q[0] = b,b
+    #     #w.resetN()
+    #     self.WALLS[w.w2].adjustWall(oldq,w.q,id)
+    #     self.WALLS[w.w1].adjustWall(oldp,w.p,id)
+
+    # def processWithWindoor(self):
+    #     raise NotImplementedError
+    #     for a in self.windoors:
+    #         o = self.windoors[a]
+    #         if o.class_name == "door":
+    #             a = int(a)
+
+    #             W=self.WALLS[a]
+
+    #             W.q = o.translation+(o.matrix()*np.array([[ o.size[0]+0.05,0,o.size[2]]])).sum(axis=-1)
+    #             W.q[1] = 0
+    #             self.insertWall(a)
+    #             W.q = o.translation+(o.matrix()*np.array([[ o.size[0]+0.05,0,o.size[2]+0.4]])).sum(axis=-1)
+    #             W.q[1] = 0
+    #             self.insertWall(a)
+    #             W.q = o.translation+(o.matrix()*np.array([[-o.size[0]-0.05,0,o.size[2]+0.4]])).sum(axis=-1)
+    #             W.q[1] = 0
+    #             self.insertWall(a)
+    #             W.q = o.translation+(o.matrix()*np.array([[-o.size[0]-0.05,0,o.size[2]]])).sum(axis=-1)
+    #             W.q[1] = 0
+    #             self.insertWall(a)
             
-    def LH(self):
-        return [max([abs(w.q[0]) for w in self.WALLS if w.v]),max([abs(w.q[2]) for w in self.WALLS if w.v])]
 
-    def bbox(self):
-        return np.array([[min([w.p[0] for w in self.WALLS if w.v]),0,min([w.p[2] for w in self.WALLS if w.v])],
-                       [max([w.p[0] for w in self.WALLS if w.v]),3,max([w.p[2] for w in self.WALLS if w.v])]])
-    #endregion: bullshits--------#
+
+    #     # X=self.WALLS[W.w2]
+    #     # a=W.idx
+    #     # for i in range(3,-1,-1):
+    #     #     X.p = Spce.corners[(PID+i)%4]
+    #     #     a=self.WALLS.insertWall(a)
+
+    #     pass
+    
+    # def stickWall(self,w,x):
+    #     wp,wq,xp,xq = np.cross(np.abs(w.n),w.p)[1],np.cross(np.abs(w.n),w.q)[1],np.cross(np.abs(x.n),x.p)[1],np.cross(np.abs(x.n),x.q)[1]
+    #     return w.v and x.v and abs(w.n@x.n)>0.9 and abs(np.abs(w.n)@w.p-np.abs(x.n)@x.p)<0.01 and min(wp,wq)<max(xp,xq) and min(xp,xq)<max(wp,wq)
+
+    # def crossWall(self,w,x):
+    #     wxp,wxq,xwp,xwq,wwp,xxp = w.n@x.p, w.n@x.q, x.n@w.p, x.n@w.q, w.n@w.p, x.n@x.q
+    #     return w.v and x.v and (min(wxp,wxq)<wwp and wwp<max(wxp,wxq) and min(xwp,xwq)<xxp and xxp<max(xwp,xwq))
+    #endregion: trash------------#
 
     #region: optFields-----------#
     def optFields(self,sp,o,config):
@@ -616,6 +735,4 @@ class walls(): #Walls[j][2] is z, Walls[j][3] is x
                 return (np.array([.0,.0,.0]),0.0),(wi,(norm(wi)**2)/2.0),dr
             else:#outside
                 return (wo,(norm(wo)**2)/2.0),(np.array([.0,.0,.0]),0.0),dr
-
-
     #endregion: optFields--------#

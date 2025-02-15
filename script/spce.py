@@ -8,7 +8,8 @@ def parse():
 
 if __name__ == "__main__":
     DIR,args = "./newRoom/",parse()
-    from SceneClasses.Semantic.Spce import * #construting spaces
+    from SceneClasses.Semantic import spces #construting spaces
+    from SceneClasses.Basic import walls
     for i in (range(9,args.bound) if int(args.identity) == -1 else range(int(args.identity),int(args.identity)+1)):
         if args.new:
             wls = walls(name="rand"+str(i))#print(wls.LOGS)
